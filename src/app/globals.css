@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #060610;
+  color: #ccc;
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+  height: 100vh;
+}
+
+* { box-sizing: border-box; }
