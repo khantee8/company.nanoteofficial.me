@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createEngine, type IsoEngine } from './engine';
+import { createEngine, lighten, type IsoEngine } from './engine';
 
 describe('IsoEngine', () => {
   let engine: IsoEngine;
@@ -39,5 +39,19 @@ describe('IsoEngine', () => {
     const p = engine.g(0, 0, 0);
     expect(p.x).toBe(engine.OX + 50);
     expect(p.y).toBe(engine.OY + 30);
+  });
+});
+
+describe('lighten', () => {
+  it('brightens a hex color additively per channel', () => {
+    expect(lighten('#000000', 10)).toBe('rgb(10,10,10)');
+  });
+
+  it('clamps each channel at 255', () => {
+    expect(lighten('#ffffff', 100)).toBe('rgb(255,255,255)');
+  });
+
+  it('handles mixed channels', () => {
+    expect(lighten('#102030', 5)).toBe('rgb(21,37,53)');
   });
 });

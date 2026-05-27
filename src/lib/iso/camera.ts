@@ -25,10 +25,10 @@ export function createCamera(engine: IsoEngine): Camera {
       curY += (tgtY - curY) * LERP;
     },
     panTo(g, centerScreenX, centerScreenY) {
-      const rawX = engine.OX + (g.gx - g.gy) * (engine.TW / 2);
-      const rawY = engine.OY + (g.gx + g.gy) * (engine.TH / 2);
-      tgtX = centerScreenX - rawX;
-      tgtY = centerScreenY - rawY;
+      const raw = engine.g(g.gx, g.gy);
+      const cur = engine.getCam();
+      tgtX = centerScreenX - (raw.x - cur.x);
+      tgtY = centerScreenY - (raw.y - cur.y);
     },
     reset() { tgtX = 0; tgtY = 0; },
     getCurrent() { return { x: curX, y: curY }; },
