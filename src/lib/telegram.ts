@@ -29,8 +29,8 @@ export async function sendMessage(text: string, chatId?: string): Promise<void> 
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ chat_id: chat, text, parse_mode: 'Markdown', disable_web_page_preview: true }),
     });
-    if (!res.ok) console.error('telegram sendMessage failed:', res.status, await res.text().catch(() => ''));
-  } catch (err) {
-    console.error('telegram sendMessage error:', err);
+    if (!res.ok) console.error('telegram sendMessage failed:', res.status);
+  } catch {
+    /* best-effort notify */
   }
 }
