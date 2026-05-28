@@ -53,7 +53,7 @@ export function TerminalFeed({ onLog }: Props) {
   return (
     <div style={terminalStyle}>
       <div style={headStyle}>
-        ◈ LIVE PIPELINE FEED <span>{clock}</span>
+        ◈ LIVE PIPELINE FEED <span suppressHydrationWarning>{clock}</span>
       </div>
       <div style={bodyStyle}>
         <div style={linesStyle}>
