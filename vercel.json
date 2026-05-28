@@ -1,0 +1,9 @@
+{
+  "crons": [
+    { "path": "/api/cron/run?dept=fin", "schedule": "0 11 * * *" },
+    { "path": "/api/cron/run?dept=rnd", "schedule": "0 12 * * *" },
+    { "path": "/api/cron/run?dept=mkt", "schedule": "0 13 * * *" },
+    { "path": "/api/cron/run?dept=ops", "schedule": "0 14 * * *" },
+    { "path": "/api/cron/run?dept=ceo", "schedule": "0 15 * * *" }
+  ]
+}
