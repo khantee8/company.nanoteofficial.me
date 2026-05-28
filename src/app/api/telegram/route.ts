@@ -26,7 +26,9 @@ export async function POST(req: NextRequest) {
   const chatId = update?.message?.chat?.id;
   const text = update?.message?.text ?? '';
 
+  console.log('telegram webhook: chatId=%s allowed=%s secret_match=%s', chatId, process.env.TELEGRAM_ALLOWED_CHAT_ID, req.headers.get('x-telegram-bot-api-secret-token') === process.env.TELEGRAM_WEBHOOK_SECRET);
   if (chatId == null || !isAllowedChat(chatId, process.env.TELEGRAM_ALLOWED_CHAT_ID)) {
+    console.log('telegram webhook: chat not allowed, dropping');
     return NextResponse.json({ ok: true });
   }
   const parsed = parseCommand(text);
