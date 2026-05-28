@@ -24,12 +24,13 @@ export async function sendMessage(text: string, chatId?: string): Promise<void> 
   const chat = chatId ?? process.env.TELEGRAM_ALLOWED_CHAT_ID;
   if (!token || !chat) return;
   try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ chat_id: chat, text, parse_mode: 'Markdown', disable_web_page_preview: true }),
     });
-  } catch {
-    /* swallow — best-effort notify */
+    if (!res.ok) console.error('telegram sendMessage failed:', res.status, await res.text().catch(() => ''));
+  } catch (err) {
+    console.error('telegram sendMessage error:', err);
   }
 }
