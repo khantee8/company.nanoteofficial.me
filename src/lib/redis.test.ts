@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { makeRedisRepo } from './redis';
+import { makeRedisRepo, type RedisClientLike } from './redis';
 import type { AgentStatus, AgentOutput, FeedEvent } from './agents/types';
 
 function fakeClient() {
@@ -12,6 +12,14 @@ function fakeClient() {
     lpush: vi.fn(async (k: string, v: unknown) => { const a = list.get(k) ?? []; a.unshift(v); list.set(k, a); return a.length; }),
     ltrim: vi.fn(async (k: string, start: number, stop: number) => { const a = list.get(k) ?? []; list.set(k, a.slice(start, stop + 1)); }),
     lrange: vi.fn(async (k: string, start: number, stop: number) => { const a = list.get(k) ?? []; return a.slice(start, stop === -1 ? undefined : stop + 1); }),
+  } as unknown as RedisClientLike & {
+    store: Map<string, unknown>;
+    list: Map<string, unknown[]>;
+    set: ReturnType<typeof vi.fn>;
+    get: ReturnType<typeof vi.fn>;
+    lpush: ReturnType<typeof vi.fn>;
+    ltrim: ReturnType<typeof vi.fn>;
+    lrange: ReturnType<typeof vi.fn>;
   };
 }
 
