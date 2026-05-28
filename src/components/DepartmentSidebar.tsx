@@ -63,7 +63,6 @@ function DeptItem({ dept, index, active, taskText, onClick }: ItemProps) {
         ...deptStyle,
         ...(active ? activeDeptStyle : {}),
         cursor: 'pointer',
-        border: 'none',
         textAlign: 'left',
         width: '100%',
         background: active ? '#0a1a10' : 'transparent',
@@ -115,10 +114,11 @@ const titleStyle: React.CSSProperties = {
 };
 const deptStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10,
-  padding: '8px 12px', borderLeft: '3px solid transparent',
+  padding: '8px 12px', borderTop: 'none', borderRight: 'none',
+  borderLeft: '3px solid transparent',
   borderBottom: '1px solid #0d0d25', transition: 'all 0.2s',
 };
-const activeDeptStyle: React.CSSProperties = { borderLeftColor: '#00ff88' };
+const activeDeptStyle: React.CSSProperties = { borderLeft: '3px solid #00ff88' };
 const taskPanelStyle: React.CSSProperties = {
   flex: 1, padding: '10px 12px', borderTop: '1px solid #0e0e25',
   overflowY: 'auto', minHeight: 0,

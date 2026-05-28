@@ -31,7 +31,9 @@ export function TerminalFeed({ onLog }: Props) {
   const idxRef = useRef(0);
   const idRef = useRef(0);
   const onLogRef = useRef(onLog);
-  onLogRef.current = onLog;
+  useEffect(() => {
+    onLogRef.current = onLog;
+  }, [onLog]);
 
   useEffect(() => {
     const addLog = () => {

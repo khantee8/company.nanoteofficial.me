@@ -11,3 +11,20 @@ html, body {
 }
 
 * { box-sizing: border-box; }
+
+button { font-family: inherit; }
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes dp {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(0, 255, 136, 0.2); }
+  50% { box-shadow: 0 0 14px rgba(0, 255, 136, 0.6); }
+}

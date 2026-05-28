@@ -21,7 +21,9 @@ interface Props {
 export function OfficeCanvas({ selectedDept, terminalHeight }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const selectedDeptRef = useRef<DeptId | null>(selectedDept);
-  selectedDeptRef.current = selectedDept;
+  useEffect(() => {
+    selectedDeptRef.current = selectedDept;
+  }, [selectedDept]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -62,7 +64,7 @@ export function OfficeCanvas({ selectedDept, terminalHeight }: Props) {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawCeilingLights(engine, ctx);
-      drawFloorAndWalls(engine, ctx);
+      drawFloorAndWalls(engine);
       drawZoneHighlight(engine, ctx, selectedDeptRef.current, agents);
       drawWindows(engine, ctx);
       drawFurniture(engine, ctx);

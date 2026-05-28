@@ -19,7 +19,7 @@ function rug(engine: IsoEngine, gx: number, gy: number, gw: number, gd: number, 
   );
 }
 
-export function drawFloorAndWalls(engine: IsoEngine, ctx: CanvasRenderingContext2D) {
+export function drawFloorAndWalls(engine: IsoEngine) {
   // Floor (back → front for painter's algorithm)
   for (let y = ROOM_D - 1; y >= 0; y--) {
     for (let x = 0; x < ROOM_W; x++) {
