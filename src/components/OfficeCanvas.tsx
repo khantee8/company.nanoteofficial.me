@@ -1,4 +1,3 @@
-// src/components/OfficeCanvas.tsx
 'use client';
 
 import { useEffect, useRef } from 'react';
@@ -9,21 +8,31 @@ import { drawFurniture } from '@/lib/iso/furniture';
 import { drawCeilingLights } from '@/lib/iso/lights';
 import { drawZoneHighlight } from '@/lib/iso/zoneHighlight';
 import { Agent } from '@/lib/agents/Agent';
-import { startBehaviourLoop } from '@/lib/agents/behaviours';
+import { startBehaviourLoop, type BehaviourController } from '@/lib/agents/behaviours';
 import { loadSprites, type SpriteMap } from '@/lib/agents/sprites';
 import { DEPARTMENTS, DEPT_ZONE_BOUNDS, type DeptId } from '@/lib/data/departments';
+import type { AgentState } from '@/lib/agents/types';
 
 interface Props {
   selectedDept: DeptId | null;
   terminalHeight: number;
+  agentStates?: Partial<Record<DeptId, AgentState>>;
 }
 
-export function OfficeCanvas({ selectedDept, terminalHeight }: Props) {
+export function OfficeCanvas({ selectedDept, terminalHeight, agentStates }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const selectedDeptRef = useRef<DeptId | null>(selectedDept);
+  const behaviourRef = useRef<BehaviourController | null>(null);
+
   useEffect(() => {
     selectedDeptRef.current = selectedDept;
   }, [selectedDept]);
+
+  useEffect(() => {
+    if (behaviourRef.current && agentStates) {
+      behaviourRef.current.updateServerStates(agentStates);
+    }
+  }, [agentStates]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -35,7 +44,6 @@ export function OfficeCanvas({ selectedDept, terminalHeight }: Props) {
     const camera = createCamera(engine);
     engine.attachContext(ctx);
 
-    // Create agents
     const agentList = DEPARTMENTS.map(d => new Agent(d.id, d.shortName, d.color, d.homeX, d.homeY));
     const agents = Object.fromEntries(agentList.map(a => [a.id, a])) as Record<DeptId, Agent>;
 
@@ -50,7 +58,6 @@ export function OfficeCanvas({ selectedDept, terminalHeight }: Props) {
     resize();
     window.addEventListener('resize', resize);
 
-    let stopBehaviour: (() => void) | null = null;
     let raf: number;
     let last = performance.now();
     let sprites: SpriteMap = {};
@@ -70,7 +77,6 @@ export function OfficeCanvas({ selectedDept, terminalHeight }: Props) {
       drawFurniture(engine, ctx);
       drawZoneLabels(engine, ctx);
 
-      // Depth-sort agents (gx+gy)
       [...agentList].sort((a, b) => (a.gx + a.gy) - (b.gx + b.gy)).forEach(a => a.draw(ctx, engine, sprites));
 
       raf = requestAnimationFrame(render);
@@ -78,11 +84,11 @@ export function OfficeCanvas({ selectedDept, terminalHeight }: Props) {
 
     loadSprites().then(loaded => {
       sprites = loaded;
-      stopBehaviour = startBehaviourLoop(agents);
+      const controller = startBehaviourLoop(agents);
+      behaviourRef.current = controller;
       raf = requestAnimationFrame(render);
     });
 
-    // Pan on selectedDept change
     const handlePan = () => {
       const dept = selectedDeptRef.current;
       if (!dept) {
@@ -92,12 +98,13 @@ export function OfficeCanvas({ selectedDept, terminalHeight }: Props) {
       const z = DEPT_ZONE_BOUNDS[dept];
       camera.panTo({ gx: z.gx, gy: z.gy }, canvas.width / 2, (canvas.height - terminalHeight) / 2);
     };
-    const panInterval = setInterval(handlePan, 200); // re-evaluate target periodically; cheap
+    const panInterval = setInterval(handlePan, 200);
 
     return () => {
       window.removeEventListener('resize', resize);
       if (raf) cancelAnimationFrame(raf);
-      if (stopBehaviour) stopBehaviour();
+      if (behaviourRef.current) behaviourRef.current.stop();
+      behaviourRef.current = null;
       clearInterval(panInterval);
     };
   }, [terminalHeight]);

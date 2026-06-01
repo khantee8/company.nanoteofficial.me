@@ -28,5 +28,28 @@ export interface AgentRunResult {
   markdown: string;
   summary: string;
   feedMsg: string;
+  flags?: string[];
   meta?: Record<string, unknown>;
+}
+
+export interface HistoryEntry {
+  dept: DeptId;
+  date: string;
+  summary: string;
+  highlight: string;
+  markdown: string;
+}
+
+export interface DigestEntry {
+  dept: DeptId;
+  date: string;
+  summary: string;
+  highlight: string;
+  flags: string[];
+}
+
+export interface AgentContext {
+  ownHistory: HistoryEntry[];
+  companyDigest: DigestEntry[];
+  todayPeers: Array<{ dept: DeptId; summary: string; highlight: string; flags: string[] }>;
 }

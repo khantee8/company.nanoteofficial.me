@@ -7,7 +7,7 @@ import { OfficeCanvas } from './OfficeCanvas';
 import { TerminalFeed } from './TerminalFeed';
 import { ArtifactPanel } from './ArtifactPanel';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
-import type { AgentStatus, AgentOutput } from '@/lib/agents/types';
+import type { AgentStatus, AgentOutput, AgentState } from '@/lib/agents/types';
 
 const TERMINAL_HEIGHT = 106;
 const POLL_MS = 8000;
@@ -20,6 +20,7 @@ export function OfficeApp() {
     Object.fromEntries(DEPARTMENTS.map((d) => [d.id, d.task])) as Record<DeptId, string>,
   );
   const [agents, setAgents] = useState<Record<DeptId, AgentRow>>({} as Record<DeptId, AgentRow>);
+  const [agentStates, setAgentStates] = useState<Partial<Record<DeptId, AgentState>>>({});
 
   useEffect(() => {
     let alive = true;
@@ -30,6 +31,7 @@ export function OfficeApp() {
         if (!alive || !rows?.length) return;
         const map = Object.fromEntries(rows.map((r) => [r.dept, r])) as Record<DeptId, AgentRow>;
         setAgents(map);
+        setAgentStates(Object.fromEntries(rows.map((r) => [r.dept, r.status?.state ?? 'idle'])) as Partial<Record<DeptId, AgentState>>);
         setTaskTexts((prev) => {
           const next = { ...prev };
           for (const r of rows) if (r.status?.summary) next[r.dept] = '● ' + r.status.summary;
@@ -56,7 +58,7 @@ export function OfficeApp() {
         <DepartmentSidebar selectedDept={selectedDept} onSelect={setSelectedDept} taskTexts={taskTexts} />
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, position: 'relative' }}>
           <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-            <OfficeCanvas selectedDept={selectedDept} terminalHeight={TERMINAL_HEIGHT} />
+            <OfficeCanvas selectedDept={selectedDept} terminalHeight={TERMINAL_HEIGHT} agentStates={agentStates} />
             {selectedDept && (
               <ArtifactPanel
                 dept={selectedDept}

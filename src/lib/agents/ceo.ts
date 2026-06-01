@@ -1,20 +1,14 @@
 import { complete } from '@/lib/claude';
 import { PERSONAS } from './personas';
-import { getRepo } from '@/lib/redis';
-import type { AgentRunResult } from './types';
-import type { DeptId } from '@/lib/data/departments';
+import { formatContext } from './runner';
+import type { AgentRunResult, AgentContext } from './types';
 
-const TEAM: DeptId[] = ['mkt', 'rnd', 'ops', 'fin'];
-
-export async function run(): Promise<AgentRunResult> {
-  const repo = getRepo();
-  const outputs = await Promise.all(TEAM.map((d) => repo.getOutput(d)));
-  const digest = TEAM.map((d, i) => `### ${d.toUpperCase()}\n${outputs[i]?.summary ?? 'no output today'}`).join('\n\n');
-
+export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+  const context = formatContext(ctx);
   const markdown = await complete({
     system: PERSONAS.ceo,
-    prompt: `Your team's outputs today:\n\n${digest}\n\nWrite a short standup: "## Summary" (3-4 sentences) and "## Decisions" (2-3 bullets, concrete and actionable for tomorrow).`,
-    maxTokens: 700,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}Write a short standup: "## Summary" (3-4 sentences synthesizing today's company activity and how it connects to recent days) and "## Decisions" (2-3 bullets, concrete and actionable for tomorrow, referencing specific department outputs).`,
+    maxTokens: 900,
   });
   return { markdown, summary: 'company standup + decisions', feedMsg: 'standup complete 📋' };
 }
