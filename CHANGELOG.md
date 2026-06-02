@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] — 2026-06-02
+
+### Fixed
+- Agents with prescriptive role formats (notably CyberX, and the CEO's Flags)
+  were ending on their own format and skipping the `## Highlight` / `## Flags`
+  footer the runner parses. Reworded the footer in `personas.ts` as a hard,
+  format-overriding **output contract** so every agent reliably emits both
+  sections (English headers, Thai body). Added `personas.test.ts` to lock it in.
+  Takes effect on each agent's next run.
+
 ## [1.2.0] — 2026-06-02
 
 Split the public showcase from the private operations console, and stood up the
@@ -114,6 +124,7 @@ deploy alerts.
   rendering (floor, walls, windows, furniture, lighting), five-department
   sidebar, scrolling terminal feed, branded favicon, and SEO metadata.
 
+[1.2.1]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.2.1
 [1.2.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.2.0
 [1.1.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.1.0
 [1.0.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.0.0

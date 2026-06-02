@@ -24,7 +24,7 @@ export function NavBar({ rightSlot }: Props) {
   return (
     <header className="nav">
       <Link href="/" className="nav-brand" onClick={() => setOpen(false)}>
-        ◈ <em>NANO</em>TE CORP<span className="nav-version">v1.2</span>
+        ◈ <em>NANO</em>TE CORP<span className="nav-version">v1.2.1</span>
       </Link>
 
       <nav className="nav-links">
