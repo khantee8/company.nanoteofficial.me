@@ -97,3 +97,24 @@ describe('buildContext', () => {
     expect(ctx.companyDigest[0].dept).toBe('rnd');
   });
 });
+
+describe('buildContext run order', () => {
+  it('exposes cyb as an earlier-run peer to later departments', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const repo = {
+      getHistory: vi.fn(async () => []),
+      getDigest: vi.fn(async () => []),
+      getStatus: vi.fn(async (d: string) => ({
+        dept: d, state: 'done', lastRun: d === 'cyb' ? `${today}T10:00:00Z` : null,
+      })),
+      getOutput: vi.fn(async (d: string) =>
+        d === 'cyb'
+          ? { dept: 'cyb', markdown: '## Highlight\nThreat up.\n\n## Flags\n- Patch Foo', summary: 'cyb sum', ts: today }
+          : null,
+      ),
+    } as unknown as RedisRepo;
+
+    const ctx = await buildContext('ops', repo);
+    expect(ctx.todayPeers.some((p) => p.dept === 'cyb')).toBe(true);
+  });
+});

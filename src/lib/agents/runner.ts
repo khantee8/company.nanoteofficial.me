@@ -12,7 +12,7 @@ export interface RunnerDeps {
   notify: (text: string) => Promise<void>;
 }
 
-const DEPT_ORDER: DeptId[] = ['fin', 'rnd', 'mkt', 'ops', 'ceo'];
+const DEPT_ORDER: DeptId[] = ['cyb', 'fin', 'rnd', 'mkt', 'ops', 'ceo'];
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
