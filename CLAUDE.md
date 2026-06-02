@@ -10,8 +10,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev        # dev server — http://localhost:3000
 npm run build      # production build
 npm run lint       # ESLint
-npm test           # vitest unit tests
+npm test           # vitest unit tests (single run)
+npm run test:watch # vitest watch mode
 npx tsc --noEmit   # type-check only
+
+# single test
+npx vitest run src/lib/kb.test.ts      # one file
+npx vitest run -t "archives entries"   # tests matching a name
 ```
 
 ## Architecture
@@ -26,13 +31,34 @@ Vanilla HTML5 Canvas isometric renderer — no game library. `camera.ts` handles
 
 - `Agent.ts` — base agent class with state machine (idle → working → done)
 - `types.ts` — shared types for agent state, tasks, artifacts
-- `roles.ts` — canonical Thai role specs per department (distilled from `.agents/*.md`)
-- `personas.ts` — system prompts sourced from `roles.ts` + the English `## Highlight` / `## Flags` output footer the runner parses
+- `roles.ts` — **loads** each department's role spec verbatim from `.agents/*.md` at runtime (`readFileSync` at cold start, keyed by `DeptId` via `BRIEF_FILES`). The brief file IS the spec — no hand-copied duplicate to drift.
+- `personas.ts` — system prompt = autonomous-operation preamble (adapts interactive briefs to unattended cron runs) + the `roles.ts` brief + the English `## Highlight` / `## Flags` output footer the runner parses
 - `runner.ts` — orchestrates agent execution (calls Claude API, stores results)
 - `ceo.ts`, `marketing.ts`, `rnd.ts`, `operations.ts`, `finance.ts` — department-specific agent modules
 - `behaviours.ts` — sprite animation state mappings
 - `sprites.ts` — SVG sprite definitions
 - `index.ts` — agent registry
+
+### Agent run lifecycle (the core cross-file flow)
+
+A "run" is one department executing once — triggered by Vercel cron,
+`POST /api/admin/run`, or Telegram, all routing into `runner.ts` `runAgent()`:
+
+1. **`buildContext()`** reads the dept's own history + the company digest, **plus
+   the same-day outputs of departments earlier in `DEPT_ORDER`** (defined in
+   `runner.ts` — deliberately distinct from the display order in
+   `DEPARTMENTS`). This is how agents "collaborate": e.g. Marketing, which runs
+   later, sees CyberX's CVEs from earlier the same day and builds on them.
+2. The dept module (`finance.ts`, `cyberx.ts`, …) fetches live data
+   (`src/lib/sources/`), then calls `complete()` (`claude.ts`) with its
+   `PERSONAS[dept]` system prompt.
+3. `parseHighlight()` / `parseFlags()` extract the `## Highlight` / `## Flags`
+   sections; results then fan out in one `Promise.all` to Redis (status, output,
+   history, digest, **kb**) and a Telegram notify.
+
+Agent reports are authored in **Thai** (the role specs), but the two footer
+headers stay English so the parser and dashboards work regardless of body
+language.
 
 ### External Integrations
 
@@ -72,6 +98,9 @@ Vanilla HTML5 Canvas isometric renderer — no game library. `camera.ts` handles
 ## Key Constraints
 
 - No `dangerouslySetInnerHTML` — use the `Markdown` component for rendered content; the dashboard PDF export builds its print document with `textContent` only.
+- Every agent report MUST end with `## Highlight` then `## Flags` (English headers, Thai body). `personas.ts` `OUTPUT_FOOTER` enforces this as a hard, format-overriding contract because the detailed role formats otherwise tempt the model to skip them; `personas.test.ts` guards it, and `runner.ts` parses them.
+- Role specs ARE the `.agents/*.md` briefs — `roles.ts` reads them at runtime, so **edit the `.md` brief** to change an agent (then redeploy). The briefs ship to the serverless bundle via `outputFileTracingIncludes` in `next.config.ts`; without that include they won't exist at runtime and `roles.ts` throws. `roles.test.ts` asserts each `ROLES[dept]` equals its `.md` file verbatim.
+- `/admin` auth is a stateless HMAC-signed session cookie (`auth.ts`, secret = `ADMIN_PASSWORD` → falls back to `DASHBOARD_PASSCODE`). There is **no middleware**: the page gates server-side via `cookies()`, and `/api/admin/run` re-checks the cookie.
 - Cron jobs are defined in `vercel.json`, not in code — 6 staggered daily runs.
 - Telegram webhook requires `TELEGRAM_WEBHOOK_SECRET` for request validation.
-- Agent runner depends on Redis for state — local dev without Upstash credentials will fail on agent execution.
+- Agent runner + dashboard data depend on Redis — local dev without Upstash credentials returns empty dashboards and fails on agent execution (the office canvas still renders). Tests stub Redis with an in-memory client (see `dashboard.test.ts` / `kb.test.ts`); iso/canvas changes have no visual unit tests — verify with the dev server + screenshots.

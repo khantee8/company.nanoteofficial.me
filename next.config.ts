@@ -21,6 +21,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The agent personas read `.agents/*.md` at runtime (see src/lib/agents/roles.ts).
+  // Next's tracer can't follow the dynamic readFileSync path, so include the
+  // briefs explicitly in every API function bundle that may run an agent.
+  outputFileTracingIncludes: {
+    "/api/**": ["./.agents/**/*"],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
