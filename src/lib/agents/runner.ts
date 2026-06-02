@@ -118,6 +118,8 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
       repo.setStatus({ dept, state: 'done', lastRun: ts, summary: result.summary }),
       repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown: result.markdown }),
       repo.pushDigest({ dept, date, summary: result.summary, highlight, flags }),
+      // Archive into the knowledge base (future kb.nanoteofficial.me)
+      repo.pushKb({ dept, date, ts, summary: result.summary, highlight, flags, markdown: result.markdown }),
     ]);
 
     await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}\n\n${result.markdown.slice(0, 800)}`);

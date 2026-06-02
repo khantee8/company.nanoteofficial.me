@@ -15,6 +15,8 @@ function fakeRepo() {
     getHistory: vi.fn(async () => []),
     pushDigest: vi.fn(async () => {}),
     getDigest: vi.fn(async () => []),
+    pushKb: vi.fn(async () => {}),
+    getKb: vi.fn(async () => []),
   } as unknown as RedisRepo;
 }
 
@@ -35,6 +37,7 @@ describe('runAgent', () => {
     expect(repo.pushEvent).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', msg: 'did x' }));
     expect(repo.pushHistory).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', highlight: 'Key takeaway here.' }));
     expect(repo.pushDigest).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', flags: ['Check deploy'] }));
+    expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', highlight: 'Key takeaway here.', flags: ['Check deploy'] }));
     expect(notify).toHaveBeenCalledOnce();
     expect(repo.setStatus).toHaveBeenLastCalledWith(expect.objectContaining({ state: 'done', summary: 's' }));
   });

@@ -16,7 +16,7 @@ npx tsc --noEmit   # type-check only
 
 ## Architecture
 
-**AI Company Simulator** — pixel-art isometric office with 6 AI department agents (CEO, Finance, CyberX, Marketing & Social Media, AI R&D, Operations). v1.1 (current) = real Claude agents running from detailed role specs, a two-floor office, and a public `/dashboard`. CEO + Finance work on a raised executive **mezzanine (2nd floor)**; the other four on the **ground floor** with coffee bar, snack station, break room and meeting area.
+**AI Company Simulator** — pixel-art isometric office with 6 AI department agents (CEO, Finance, CyberX, Marketing & Social Media, AI R&D, Operations). v1.2 (current) = real Claude agents running from detailed role specs, a two-floor office, a public **executive `/dashboard`** (glassmorphism), a private **`/admin`** console (username+password login), and a **knowledge-base store** (`kb:` + `/api/kb`). CEO + Finance work on a raised executive **mezzanine (2nd floor)**; the other four on the **ground floor** with coffee bar, snack station, break room and meeting area.
 
 ### Isometric Engine (`src/lib/iso/`)
 
@@ -44,8 +44,10 @@ Vanilla HTML5 Canvas isometric renderer — no game library. `camera.ts` handles
 ### API Routes (`src/app/api/`)
 
 - `/api/cron/run` — CRON_SECRET-protected, triggers agent runs (6 daily jobs staggered UTC 10–15 in `vercel.json`)
-- `/api/dashboard` — read-only dashboard payload (per-dept status/output/history + digest), via `getDashboardData()` in `src/lib/dashboard.ts`
-- `/api/dashboard/run` — POST, `DASHBOARD_PASSCODE`-gated (constant-time compare, fails closed), triggers a single agent run
+- `/api/dashboard` — read-only payload (per-dept status/output/history + digest), via `getDashboardData()` in `src/lib/dashboard.ts`; feeds both `/dashboard` (public exec) and `/admin`
+- `/api/admin/login` · `/api/admin/logout` — username+password session (signed cookie via `src/lib/auth.ts`, fails closed)
+- `/api/admin/run` — POST, **session-cookie**-gated, triggers a single agent run (replaces the old `/api/dashboard/run`)
+- `/api/kb` — public knowledge-base export (`?dept=`, `?limit=`), via `getKnowledge()` in `src/lib/kb.ts`; each run archives a `KbEntry` to the `kb:` Redis namespace
 - `/api/agents` — returns current agent states
 - `/api/feed` — returns terminal feed entries
 - `/api/telegram` — Telegram webhook endpoint
@@ -58,13 +60,14 @@ Vanilla HTML5 Canvas isometric renderer — no game library. `camera.ts` handles
 - `DepartmentSidebar.tsx` — department info panel
 - `TerminalFeed.tsx` — real-time log display
 - `NavBar.tsx` — shared responsive top nav (Office/Dashboard, mobile hamburger); `TopBar.tsx` wraps it for the office page
-- `DashboardClient.tsx` — `/dashboard` UI: per-agent cards, history, export (MD/PDF/CSV), passcode-gated run
+- `ExecDashboard.tsx` — public `/dashboard`: executive glassmorphism UI (KPI strip, glass cards, Company Pulse, PDF export)
+- `AdminClient.tsx` + `AdminLogin.tsx` — private `/admin`: login form + operational console (run via `/api/admin/run`, MD/PDF/CSV export, sign out)
 - `ArtifactPanel.tsx` — displays agent-generated artifacts
 - `Markdown.tsx` — safe markdown renderer (no `dangerouslySetInnerHTML`)
 
 ## Env Vars (Vercel)
 
-`ANTHROPIC_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ALLOWED_CHAT_ID`, `VERCEL_TOKEN`, `GITHUB_TOKEN`, `CRON_SECRET`, `DASHBOARD_PASSCODE` (gates `/dashboard` run actions), `VERCEL_WEBHOOK_SECRET` (optional).
+`ANTHROPIC_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ALLOWED_CHAT_ID`, `VERCEL_TOKEN`, `GITHUB_TOKEN`, `CRON_SECRET`, `ADMIN_USER` + `ADMIN_PASSWORD` (gate `/admin`; password falls back to legacy `DASHBOARD_PASSCODE`), `VERCEL_WEBHOOK_SECRET` (optional).
 
 ## Key Constraints
 

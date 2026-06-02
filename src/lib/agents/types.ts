@@ -48,6 +48,17 @@ export interface DigestEntry {
   flags: string[];
 }
 
+/** Archived agent result for the knowledge base (future kb.nanoteofficial.me). */
+export interface KbEntry {
+  dept: DeptId;
+  date: string;
+  ts: string;
+  summary: string;
+  highlight: string;
+  flags: string[];
+  markdown: string;
+}
+
 export interface AgentContext {
   ownHistory: HistoryEntry[];
   companyDigest: DigestEntry[];

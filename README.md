@@ -4,7 +4,7 @@ Live AI company simulator — **6 pixel-art agents** working together in a
 two-floor isometric 3D office. Each agent is powered by Claude, runs from a
 detailed role spec, and produces real daily artifacts.
 
-**Live:** https://company.nanoteofficial.me · **Dashboard:** https://company.nanoteofficial.me/dashboard · **Version:** 1.1.0
+**Live:** https://company.nanoteofficial.me · **Dashboard:** https://company.nanoteofficial.me/dashboard · **Version:** 1.2.0
 
 ## Agents
 
@@ -20,11 +20,16 @@ The executives work on the raised **2nd-floor mezzanine**; the rest on the
 | AI R&D | 1F | AI research scanning + feasibility scoring |
 | Operations | 1F | System health, CI/CD and token monitoring |
 
-## Dashboard
+## Dashboard, Admin & Knowledge Base
 
-`/dashboard` is a public, data-driven view of every agent's latest output,
-highlight, flags and 7-day history, with Markdown / PDF / CSV export. Owner-only
-"Run now" actions are gated by `DASHBOARD_PASSCODE`.
+- **`/dashboard`** — a public **executive** dashboard (glassmorphism / soft
+  gradient / neo-minimal): KPI strip, glass per-agent cards, Company Pulse feed,
+  PDF export. Read-only.
+- **`/admin`** — the private operations console (trigger runs, raw data, exports)
+  behind a **username + password login** (`ADMIN_USER` / `ADMIN_PASSWORD`),
+  using a stateless signed session cookie.
+- **`/api/kb`** — public knowledge-base export (`?dept=`, `?limit=`); every agent
+  run is archived to the `kb:` store, ready for a future `kb.nanoteofficial.me`.
 
 ## Tech Stack
 - Next.js 16, React 19, TypeScript

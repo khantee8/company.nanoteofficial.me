@@ -3,6 +3,35 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-06-02
+
+Split the public showcase from the private operations console, and stood up the
+knowledge-base store.
+
+### Added
+- **Public executive dashboard** at `/dashboard` — a redesigned, read-only,
+  data-driven view (Modern SaaS + soft gradient + **glassmorphism** + neo-minimal)
+  with a KPI strip, glass per-agent cards (status, highlight, flags, latest
+  artifact via the safe `Markdown` renderer, history sparkline), a Company Pulse
+  feed, and per-agent PDF export.
+- **Admin console** at `/admin` — the operational view (trigger runs, inspect
+  raw data, exports) now behind a **username + password login** with a
+  stateless, signed session cookie (`src/lib/auth.ts`, httpOnly/Secure/SameSite,
+  12h). Server-side gated; `POST /api/admin/{login,logout,run}`.
+- **Knowledge base store** — every agent run is archived to Redis (`kb:` namespace),
+  exposed via **`GET /api/kb`** (`?dept=`, `?limit=`) as the stable seam for a
+  future `kb.nanoteofficial.me`.
+
+### Changed
+- The old public `/dashboard` (which mixed public view + owner run controls)
+  became the private `/admin`; `/api/dashboard/run` → `/api/admin/run` (now
+  cookie-authed instead of a Bearer passcode). `GET /api/dashboard` (read) stays.
+
+### Env
+- New `ADMIN_USER` + `ADMIN_PASSWORD` (the password **falls back to the existing
+  `DASHBOARD_PASSCODE`**, so only `ADMIN_USER` is strictly new). Login fails
+  closed when unset.
+
 ## [1.1.0] — 2026-06-02
 
 Role-driven company with an owner control surface.
@@ -85,6 +114,7 @@ deploy alerts.
   rendering (floor, walls, windows, furniture, lighting), five-department
   sidebar, scrolling terminal feed, branded favicon, and SEO metadata.
 
+[1.2.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.2.0
 [1.1.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.1.0
 [1.0.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.0.0
 [0.2.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v0.2.0

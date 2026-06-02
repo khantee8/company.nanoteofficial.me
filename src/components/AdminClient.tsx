@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Markdown } from './Markdown';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import { parseHighlight, parseFlags } from '@/lib/agents/runner';
@@ -45,8 +46,6 @@ function exportPdf(title: string, markdown: string) {
   const w = window.open('', '_blank');
   if (!w) return;
   const d = w.document;
-  // Build the print document with textContent only (no innerHTML) so
-  // LLM-generated markdown can never inject markup.
   const style = d.createElement('style');
   style.textContent =
     `body{font-family:Georgia,'Times New Roman',serif;max-width:720px;margin:36px auto;padding:0 24px;line-height:1.6;color:#111}` +
@@ -55,23 +54,19 @@ function exportPdf(title: string, markdown: string) {
     `footer{margin-top:24px;color:#888;font-size:11px}`;
   d.head.appendChild(style);
   d.title = `${title} — NaNote Corp`;
-
   const h1 = d.createElement('h1'); h1.textContent = title;
   const pre = d.createElement('pre'); pre.textContent = markdown;
   const footer = d.createElement('footer');
   footer.textContent = `NaNote Corp · company.nanoteofficial.me · exported ${new Date().toLocaleString()}`;
   d.body.append(h1, pre, footer);
-
   setTimeout(() => w.print(), 300);
 }
 
 // ── component ─────────────────────────────────────────────────────────
-export function DashboardClient() {
+export function AdminClient() {
+  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [passcode, setPasscode] = useState<string>(() =>
-    typeof window === 'undefined' ? '' : sessionStorage.getItem('dash_passcode') ?? '',
-  );
   const [running, setRunning] = useState<DeptId | null>(null);
   const [runMsg, setRunMsg] = useState<string>('');
 
@@ -102,20 +97,16 @@ export function DashboardClient() {
     return () => { alive = false; };
   }, []);
 
-  const onPasscode = (v: string) => {
-    setPasscode(v);
-    sessionStorage.setItem('dash_passcode', v);
+  const logout = async () => {
+    try { await fetch('/api/admin/logout', { method: 'POST' }); } catch { /* ignore */ }
+    router.refresh();
   };
 
   const runDept = async (dept: DeptId) => {
-    if (!passcode) { setRunMsg('⚠ Enter the owner passcode to run agents.'); return; }
     setRunning(dept); setRunMsg(`Running ${dept.toUpperCase()}…`);
     try {
-      const res = await fetch(`/api/dashboard/run?dept=${dept}`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${passcode}` },
-      });
-      if (res.status === 401) { setRunMsg('✕ Wrong passcode.'); return; }
+      const res = await fetch(`/api/admin/run?dept=${dept}`, { method: 'POST' });
+      if (res.status === 401) { setRunMsg('✕ Session expired — sign in again.'); router.refresh(); return; }
       const j = await res.json().catch(() => ({}));
       if (j.ok) { setRunMsg(`✓ ${dept.toUpperCase()} — ${j.summary ?? 'done'}`); await fetchData(); }
       else setRunMsg(`✕ ${dept.toUpperCase()} failed: ${j.error ?? res.status}`);
@@ -137,27 +128,18 @@ export function DashboardClient() {
     <div className="dash">
       <header style={topStyle}>
         <div>
-          <h1 style={titleStyle}>Company Dashboard</h1>
+          <h1 style={titleStyle}>Admin Console</h1>
           <p style={subtitleStyle}>
-            Live, data-driven output from every NaNote Corp agent.{' '}
+            Operational view — trigger runs and inspect raw agent data.{' '}
             {data && <span style={{ color: '#444' }}>updated {new Date(data.generatedAt).toLocaleString()}</span>}
           </p>
         </div>
         <div style={controlsStyle}>
-          <input
-            type="password"
-            value={passcode}
-            onChange={(e) => onPasscode(e.target.value)}
-            placeholder="owner passcode"
-            aria-label="Owner passcode"
-            suppressHydrationWarning
-            style={inputStyle}
-          />
           <button onClick={fetchData} style={btnStyle}>↻ Refresh</button>
+          <button onClick={logout} style={logoutStyle}>Sign out</button>
         </div>
       </header>
 
-      {/* status overview */}
       <div style={overviewStyle}>
         {(['done', 'running', 'idle', 'error'] as AgentState[]).map((s) => (
           <div key={s} style={statChipStyle}>
@@ -172,18 +154,11 @@ export function DashboardClient() {
       {loading && agents.length === 0 ? (
         <div style={{ color: '#555', fontSize: 12, padding: 24 }}>Loading agent data…</div>
       ) : agents.length === 0 ? (
-        <div style={{ color: '#555', fontSize: 12, padding: 24 }}>
-          No agent data yet. Agents run on a daily schedule, or trigger one with the owner passcode.
-        </div>
+        <div style={{ color: '#555', fontSize: 12, padding: 24 }}>No agent data yet.</div>
       ) : (
         <div className="dash-grid">
           {agents.map((a) => (
-            <AgentCard
-              key={a.dept}
-              agent={a}
-              running={running === a.dept}
-              onRun={() => runDept(a.dept)}
-            />
+            <AgentCard key={a.dept} agent={a} running={running === a.dept} onRun={() => runDept(a.dept)} />
           ))}
         </div>
       )}
@@ -262,8 +237,8 @@ const topStyle: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 
 const titleStyle: React.CSSProperties = { color: '#fff', fontSize: 18, margin: 0, letterSpacing: 1 };
 const subtitleStyle: React.CSSProperties = { color: '#777', fontSize: 11, margin: '4px 0 0' };
 const controlsStyle: React.CSSProperties = { display: 'flex', gap: 8, alignItems: 'center' };
-const inputStyle: React.CSSProperties = { background: '#0c0c22', border: '1px solid #2a2a4a', borderRadius: 8, color: '#ddd', fontSize: 11, padding: '6px 10px', fontFamily: 'inherit', width: 150 };
 const btnStyle: React.CSSProperties = { background: '#14142e', border: '1px solid #3a3a6a', color: '#cfcfe6', borderRadius: 8, fontSize: 11, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit' };
+const logoutStyle: React.CSSProperties = { background: '#2a1018', border: '1px solid #6a2a3a', color: '#ff8aa0', borderRadius: 8, fontSize: 11, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit' };
 const overviewStyle: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 };
 const statChipStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, background: '#0c0c20', border: '1px solid #1a1a3a', borderRadius: 8, padding: '6px 12px', fontSize: 11 };
 const cardStyle: React.CSSProperties = { background: '#0b0b1e', border: '1px solid #1a1a3a', borderTop: '3px solid #7f8cff', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column' };
@@ -274,7 +249,7 @@ const highlightStyle: React.CSSProperties = { fontSize: 11, lineHeight: 1.5, col
 const flagChipStyle: React.CSSProperties = { fontSize: 9, color: '#ffb45a', background: '#2a1e08', border: '1px solid #4a3410', borderRadius: 6, padding: '2px 7px' };
 const artifactStyle: React.CSSProperties = { maxHeight: 240, overflowY: 'auto', background: '#08081a', border: '1px solid #14142a', borderRadius: 8, padding: '8px 10px' };
 const historyToggleStyle: React.CSSProperties = { background: 'transparent', border: 'none', color: '#7f8cff', fontSize: 10, cursor: 'pointer', padding: 0, fontFamily: 'inherit' };
-const historyRowStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: '74px 1fr', gap: 8, fontSize: 9, padding: '3px 0', borderBottom: '1px solid #11112400' };
+const historyRowStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: '74px 1fr', gap: 8, fontSize: 9, padding: '3px 0' };
 const actionsStyle: React.CSSProperties = { display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' };
 const miniBtn: React.CSSProperties = { background: '#12122a', border: '1px solid #2a2a4a', color: '#9a9ac0', borderRadius: 6, fontSize: 10, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' };
 const runBtn: React.CSSProperties = { marginLeft: 'auto', background: '#0a2a1c', border: '1px solid #1f8f5b', color: '#39ff9d', borderRadius: 6, fontSize: 10, padding: '4px 12px', cursor: 'pointer', fontFamily: 'inherit' };
