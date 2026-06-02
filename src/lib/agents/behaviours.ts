@@ -5,10 +5,10 @@ import { createAmbientController } from './ambient';
 import { createStateOverlay } from './stateOverlay';
 
 export interface AgentMap {
-  ceo: Agent; mkt: Agent; rnd: Agent; ops: Agent; fin: Agent;
+  ceo: Agent; cyb: Agent; mkt: Agent; rnd: Agent; ops: Agent; fin: Agent;
 }
 
-export const AGENT_IDS: readonly DeptId[] = ['ceo', 'mkt', 'rnd', 'ops', 'fin'] as const;
+export const AGENT_IDS: readonly DeptId[] = ['ceo', 'cyb', 'mkt', 'rnd', 'ops', 'fin'] as const;
 
 export interface BehaviourController {
   stop: () => void;

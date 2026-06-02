@@ -5,14 +5,16 @@ import * as marketing from './marketing';
 import * as rnd from './rnd';
 import * as operations from './operations';
 import * as ceo from './ceo';
+import * as cyberx from './cyberx';
 
 export const AGENTS: Record<DeptId, (ctx: AgentContext) => Promise<AgentRunResult>> = {
+  ceo: ceo.run,
+  cyb: cyberx.run,
   fin: finance.run,
   mkt: marketing.run,
   rnd: rnd.run,
   ops: operations.run,
-  ceo: ceo.run,
 };
 
 export const isDeptId = (s: string): s is DeptId =>
-  s === 'ceo' || s === 'mkt' || s === 'rnd' || s === 'ops' || s === 'fin';
+  s === 'ceo' || s === 'cyb' || s === 'mkt' || s === 'rnd' || s === 'ops' || s === 'fin';

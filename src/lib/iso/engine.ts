@@ -1,5 +1,5 @@
 // src/lib/iso/engine.ts
-export const ROOM_W = 20;
+export const ROOM_W = 24;
 export const ROOM_D = 14;
 export const WALL_H = 68;
 

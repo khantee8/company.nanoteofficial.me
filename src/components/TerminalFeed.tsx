@@ -19,7 +19,7 @@ function nowTime(): string {
   return [n.getHours(), n.getMinutes(), n.getSeconds()].map((v) => String(v).padStart(2, '0')).join(':');
 }
 function deptColor(d: DeptId): string {
-  return { ceo: '#ffdd57', mkt: '#ff6b9d', rnd: '#00cfff', ops: '#ff9a3c', fin: '#7f8cff' }[d];
+  return ({ ceo: '#ffdd57', cyb: '#39ff9d', mkt: '#ff6b9d', rnd: '#00cfff', ops: '#ff9a3c', fin: '#7f8cff' } as Record<DeptId, string>)[d];
 }
 
 export function TerminalFeed({ onLog }: Props) {

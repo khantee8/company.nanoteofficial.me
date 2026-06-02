@@ -17,7 +17,8 @@ const ok  = (value: string): LogToken => ({ type: 'ok',   value });
 const wn  = (value: string): LogToken => ({ type: 'warn', value });
 
 export const LOG_MESSAGES: LogMessage[] = [
-  { dept: 'ceo', tokens: [t('Session started — '),                         ok('5 agents online ✓')] },
+  { dept: 'ceo', tokens: [t('Session started — '),                         ok('6 agents online ✓')] },
+  { dept: 'cyb', tokens: [t('Threat feed sync — '),                        ok('CISA KEV ✓')] },
   { dept: 'ceo', tokens: [t('Dispatching weekly brief → '),                ok('all departments')] },
   { dept: 'mkt', tokens: [t('generate_content.py '),                       ok('started')] },
   { dept: 'fin', tokens: [t('Market pull — '),                             wn('BTCUSDT +3.2% ▲')] },

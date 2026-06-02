@@ -18,6 +18,19 @@ const SPRITE_DATA: Record<DeptId, PixelRect[]> = {
     { x: 2, y: 9, w: 2, h: 2, fill: '#0d0d2e' }, { x: 5, y: 9, w: 2, h: 2, fill: '#0d0d2e' },
     { x: 1, y: 10, w: 3, h: 1, fill: '#111' }, { x: 5, y: 10, w: 3, h: 1, fill: '#111' },
   ],
+  cyb: [
+    { x: 1, y: 0, w: 7, h: 2, fill: '#0c2a1e' },
+    { x: 0, y: 1, w: 1, h: 4, fill: '#0c2a1e' }, { x: 8, y: 1, w: 1, h: 4, fill: '#0c2a1e' },
+    { x: 1, y: 2, w: 7, h: 3, fill: '#f5c5a3' },
+    { x: 1, y: 3, w: 7, h: 1, fill: '#39ff9d' },
+    { x: 2, y: 3, w: 1, h: 1, fill: '#063b26' }, { x: 6, y: 3, w: 1, h: 1, fill: '#063b26' },
+    { x: 3, y: 4, w: 3, h: 1, fill: '#c0785a' },
+    { x: 1, y: 5, w: 7, h: 4, fill: '#0c2a1e' }, { x: 0, y: 5, w: 1, h: 3, fill: '#0c2a1e' }, { x: 8, y: 5, w: 1, h: 3, fill: '#0c2a1e' },
+    { x: 4, y: 5, w: 1, h: 4, fill: '#39ff9d' }, { x: 3, y: 6, w: 3, h: 1, fill: '#1f8f5b' },
+    { x: 0, y: 8, w: 1, h: 1, fill: '#f5c5a3' }, { x: 8, y: 8, w: 1, h: 1, fill: '#f5c5a3' },
+    { x: 2, y: 9, w: 2, h: 2, fill: '#06140e' }, { x: 5, y: 9, w: 2, h: 2, fill: '#06140e' },
+    { x: 1, y: 10, w: 3, h: 1, fill: '#020806' }, { x: 5, y: 10, w: 3, h: 1, fill: '#020806' },
+  ],
   mkt: [
     { x: 1, y: 0, w: 7, h: 2, fill: '#ff6b9d' },
     { x: 0, y: 2, w: 1, h: 3, fill: '#555' }, { x: 8, y: 2, w: 1, h: 3, fill: '#555' }, { x: 0, y: 3, w: 1, h: 1, fill: '#ff6b9d' },
@@ -80,7 +93,7 @@ function rectsToSvgString(rects: PixelRect[]): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SPRITE_WIDTH}" height="${SPRITE_HEIGHT}" viewBox="0 0 ${SPRITE_VIEWBOX_W} ${SPRITE_VIEWBOX_H}">${inner}</svg>`;
 }
 
-/** Loads all 5 sprites as HTMLImageElement (for canvas drawImage). */
+/** Loads all 6 sprites as HTMLImageElement (for canvas drawImage). */
 export function loadSprites(): Promise<SpriteMap> {
   const ids = Object.keys(SPRITE_DATA) as DeptId[];
   return Promise.all(
