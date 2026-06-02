@@ -13,6 +13,7 @@ export function TopBar({ focusedDept, onResetView }: Props) {
     <header style={barStyle}>
       <div style={logoStyle}>
         ◈ <em style={{ color: '#7f8cff', fontStyle: 'normal' }}>NANO</em>TE CORP
+        <span style={versionStyle}>v1.0</span>
         <small style={smallStyle}>company.nanoteofficial.me</small>
       </div>
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -22,7 +23,7 @@ export function TopBar({ focusedDept, onResetView }: Props) {
             <button onClick={onResetView} style={resetBtnStyle}>⟲ Full View</button>
           </>
         )}
-        <div style={liveBadgeStyle}>● 5 AGENTS LIVE</div>
+        <div style={liveBadgeStyle}>● 6 AGENTS LIVE</div>
       </div>
     </header>
   );
@@ -36,6 +37,11 @@ const barStyle: React.CSSProperties = {
 };
 const logoStyle: React.CSSProperties = {
   fontSize: 13, fontWeight: 'bold', color: '#fff', letterSpacing: 3,
+};
+const versionStyle: React.CSSProperties = {
+  color: '#7f8cff', fontSize: 8, marginLeft: 8, letterSpacing: 1,
+  border: '1px solid #3a3a6a', borderRadius: 8, padding: '1px 6px',
+  verticalAlign: 'middle', fontWeight: 'normal',
 };
 const smallStyle: React.CSSProperties = { color: '#333', fontSize: 9, marginLeft: 10 };
 const hintStyle: React.CSSProperties = { fontSize: 8, color: '#333' };
