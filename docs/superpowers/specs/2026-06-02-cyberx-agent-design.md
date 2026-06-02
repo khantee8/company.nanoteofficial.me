@@ -13,6 +13,12 @@ findings and flags seed the rest of the company via the v0.3 cross-department
 memory. Visually it gets its own office zone inserted **directly to the right of
 the CEO**, widening the office floor from 5 zones to 6.
 
+**Cost:** every data source is free (public KEV JSON, public RSS, Hobby cron,
+free-tier Redis). The only paid piece is the LLM call that writes the prose, so
+CyberX is run on the cheapest model — **Claude Haiku** with a tight token cap —
+keeping it a real Claude agent (consistent with the other five) at roughly a
+fraction of a cent per day.
+
 This follows the established v0.2/v0.3 agent pattern: the agent logic is a
 well-trodden path (department module + persona + source adapter + `Record<DeptId>`
 registry entries). The bulk of the effort is the **canvas relayout** to open a
@@ -24,6 +30,8 @@ sixth zone.
 - Seamless integration into the v0.3 collaboration model (memory, digest, flags).
 - Faithful placement: CyberX sits immediately to the CEO's right.
 - No new external credentials; both data sources are public.
+- Minimal cost: free data sources; the LLM call uses Claude Haiku with a tight
+  token cap (~a fraction of a cent/day). Reuses the existing `ANTHROPIC_API_KEY`.
 
 ## Non-Goals (out of scope)
 
@@ -117,7 +125,8 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
             `Write a brief (120-180 word) threat-intelligence note: what's newly exploited, ` +
             `relevance to a small web/cloud company, and a one-line risk posture. ` +
             `Include a Sources list.`,
-    maxTokens: 900,
+    model: 'claude-haiku-4-5-20251001',   // cheapest model — cost-minimized
+    maxTokens: 600,                        // tight cap for a short brief
   });
   return {
     markdown,
@@ -129,6 +138,29 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
 ```
 
 ---
+
+### 3a. Model override — `src/lib/claude.ts` (modified)
+
+`complete()` currently hardcodes `MODEL = 'claude-sonnet-4-6'`. Add an optional
+`model?: string` field to `CompleteOpts`, defaulting to the existing `MODEL`:
+
+```ts
+export interface CompleteOpts {
+  system: string;
+  prompt: string;
+  model?: string;        // NEW — defaults to MODEL (sonnet)
+  maxTokens?: number;
+  webSearch?: boolean;
+  maxSearches?: number;
+}
+// inside complete():
+const { system, prompt, model = MODEL, maxTokens = 1500, ... } = opts;
+// ...messages.create({ model, ... })
+```
+
+The other five agents pass no `model` and are unchanged. Only CyberX opts into
+`'claude-haiku-4-5-20251001'`. This is the sole edit needed to support the
+cost-minimized model.
 
 ## 4. Persona — `PERSONAS.cyb`
 
@@ -204,7 +236,8 @@ generically via `isDeptId` and `DEPARTMENTS` — no per-route changes needed.
 - `src/lib/sources/threatintel.test.ts` — mock `fetch` for KEV JSON + RSS XML;
   assert parsing, sorting/slicing, and empty-on-failure behavior.
 - CyberX run test (new `cyberx.test.ts` or extend `runner.test.ts`) — persona
-  wired, `run()` returns the expected `AgentRunResult` shape (mock `complete`).
+  wired, `run()` returns the expected `AgentRunResult` shape (mock `complete`),
+  and asserts it requests the Haiku model with the capped `maxTokens`.
 - Zone-bounds sanity test — 6 zones, no overlapping x-ranges, all within `ROOM_W`.
 - Update any existing test that asserts a 5-agent / 5-department count to 6.
 
@@ -243,6 +276,7 @@ Visual (concurrent):
 - `src/lib/agents/cyberx.ts`
 
 **Modified:**
+- `src/lib/claude.ts` (add `model?` override to `CompleteOpts`)
 - `src/lib/agents/index.ts`
 - `src/lib/agents/personas.ts`
 - `src/lib/agents/sprites.ts`
