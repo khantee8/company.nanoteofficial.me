@@ -19,13 +19,14 @@ function textOf(msg: Anthropic.Messages.Message): string {
 export interface CompleteOpts {
   system: string;
   prompt: string;
+  model?: string;
   maxTokens?: number;
   webSearch?: boolean;
   maxSearches?: number;
 }
 
 export async function complete(opts: CompleteOpts): Promise<string> {
-  const { system, prompt, maxTokens = 1500, webSearch = false, maxSearches = 5 } = opts;
+  const { system, prompt, model = MODEL, maxTokens = 1500, webSearch = false, maxSearches = 5 } = opts;
   const tools: Anthropic.Messages.Tool[] | undefined = webSearch
     ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches } as unknown as Anthropic.Messages.Tool]
     : undefined;
@@ -34,7 +35,7 @@ export async function complete(opts: CompleteOpts): Promise<string> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const msg = await client().messages.create({
-        model: MODEL,
+        model,
         max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: prompt }],
