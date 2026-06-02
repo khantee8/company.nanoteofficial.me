@@ -29,6 +29,8 @@ export class Agent {
     public readonly color: string,
     homeX: number,
     homeY: number,
+    /** Vertical pixel offset — non-zero for 2nd-floor (mezzanine) agents. */
+    public readonly elevation: number = 0,
   ) {
     this.gx = homeX; this.gy = homeY;
     this.homeX = homeX; this.homeY = homeY;
@@ -74,7 +76,7 @@ export class Agent {
   }
 
   draw(ctx: CanvasRenderingContext2D, engine: IsoEngine, sprites: SpriteMap) {
-    const fp = engine.g(this.gx, this.gy, 0);
+    const fp = engine.g(this.gx, this.gy, this.elevation);
     const bob = this.state === 'walking'
       ? Math.abs(Math.sin(this.walkPhase)) * 5
       : Math.sin(this.t * 1.5) * 2;

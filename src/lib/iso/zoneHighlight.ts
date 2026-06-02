@@ -1,7 +1,7 @@
 // src/lib/iso/zoneHighlight.ts
 import type { IsoEngine } from './engine';
 import type { Agent } from '../agents/Agent';
-import { DEPT_ZONE_BOUNDS, type DeptId } from '../data/departments';
+import { DEPT_ZONE_BOUNDS, isRaised, MEZZANINE_ELEVATION, type DeptId } from '../data/departments';
 
 export function drawZoneHighlight(
   engine: IsoEngine,
@@ -16,11 +16,12 @@ export function drawZoneHighlight(
   const now = Date.now();
   const pulse = 0.45 + Math.sin(now * 0.004) * 0.35;
   const color = agents[selectedDept].color;
+  const pz = isRaised(selectedDept) ? MEZZANINE_ELEVATION : 0;
 
-  const tl = engine.g(z.x0, z.y0, 0);
-  const tr = engine.g(z.x1, z.y0, 0);
-  const br = engine.g(z.x1, z.y1, 0);
-  const bl = engine.g(z.x0, z.y1, 0);
+  const tl = engine.g(z.x0, z.y0, pz);
+  const tr = engine.g(z.x1, z.y0, pz);
+  const br = engine.g(z.x1, z.y1, pz);
+  const bl = engine.g(z.x0, z.y1, pz);
 
   // Glow fill
   ctx.beginPath();
@@ -51,7 +52,7 @@ export function drawZoneHighlight(
   // Agent spotlight ring
   const agent = agents[selectedDept];
   if (agent) {
-    const ap = engine.g(agent.gx, agent.gy, 0);
+    const ap = engine.g(agent.gx, agent.gy, agent.elevation);
     const ringR = 20 + Math.sin(now * 0.006) * 4;
     ctx.beginPath();
     ctx.ellipse(ap.x, ap.y, ringR, ringR / 2, 0, 0, Math.PI * 2);

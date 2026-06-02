@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { createEngine, WALL_H } from '@/lib/iso/engine';
 import { createCamera } from '@/lib/iso/camera';
-import { drawFloorAndWalls, drawWindows, drawZoneLabels } from '@/lib/iso/room';
+import { drawFloorAndWalls, drawMezzanine, drawWindows, drawZoneLabels } from '@/lib/iso/room';
 import { drawFurniture } from '@/lib/iso/furniture';
 import { drawCeilingLights } from '@/lib/iso/lights';
 import { drawZoneHighlight } from '@/lib/iso/zoneHighlight';
@@ -44,7 +44,7 @@ export function OfficeCanvas({ selectedDept, terminalHeight, agentStates }: Prop
     const camera = createCamera(engine);
     engine.attachContext(ctx);
 
-    const agentList = DEPARTMENTS.map(d => new Agent(d.id, d.shortName, d.color, d.homeX, d.homeY));
+    const agentList = DEPARTMENTS.map(d => new Agent(d.id, d.shortName, d.color, d.homeX, d.homeY, d.elevation));
     const agents = Object.fromEntries(agentList.map(a => [a.id, a])) as Record<DeptId, Agent>;
 
     const resize = () => {
@@ -72,6 +72,7 @@ export function OfficeCanvas({ selectedDept, terminalHeight, agentStates }: Prop
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawCeilingLights(engine, ctx);
       drawFloorAndWalls(engine);
+      drawMezzanine(engine, ctx);
       drawZoneHighlight(engine, ctx, selectedDeptRef.current, agents);
       drawWindows(engine, ctx);
       drawFurniture(engine, ctx);

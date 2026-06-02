@@ -1,21 +1,30 @@
 # company.nanoteofficial.me
 
-Live AI company simulator — **6 pixel-art agents** working together in an
-isometric 3D office. Each agent is powered by Claude and produces real daily
-artifacts.
+Live AI company simulator — **6 pixel-art agents** working together in a
+two-floor isometric 3D office. Each agent is powered by Claude, runs from a
+detailed role spec, and produces real daily artifacts.
 
-**Live:** https://company.nanoteofficial.me · **Version:** 1.0.0
+**Live:** https://company.nanoteofficial.me · **Dashboard:** https://company.nanoteofficial.me/dashboard · **Version:** 1.1.0
 
 ## Agents
 
-| Agent | Role |
-| --- | --- |
-| NaNote CEO | Directs the team, sets daily priorities |
-| CyberX | Security & threat intel (CISA KEV + security news) |
-| Marketing | Content and posts |
-| R&D Lab | Research and experiments |
-| Operations | Deploys and infra |
-| Finance | ROI and market analysis |
+The executives work on the raised **2nd-floor mezzanine**; the rest on the
+**ground floor** with coffee bar, snack station, break room and meeting area.
+
+| Agent | Floor | Role |
+| --- | --- | --- |
+| NaNote CEO | 2F | Chief of Staff — OKR/KPI tracking, daily standup, decisions |
+| Finance | 2F | Fund & market analysis (data-driven, not advice) |
+| CyberX | 1F | Cyber threat intel (CISA KEV + security news) |
+| Marketing & Social Media | 1F | Content strategy across FB / Medium / TikTok |
+| AI R&D | 1F | AI research scanning + feasibility scoring |
+| Operations | 1F | System health, CI/CD and token monitoring |
+
+## Dashboard
+
+`/dashboard` is a public, data-driven view of every agent's latest output,
+highlight, flags and 7-day history, with Markdown / PDF / CSV export. Owner-only
+"Run now" actions are gated by `DASHBOARD_PASSCODE`.
 
 ## Tech Stack
 - Next.js 16, React 19, TypeScript
@@ -28,7 +37,7 @@ artifacts.
 - `npm run dev` — http://localhost:3000
 - `npm run build`
 - `npm run lint`
-- `npm test` — Vitest (52 tests)
+- `npm test` — Vitest (57 tests)
 - `npx tsc --noEmit` — type-check
 
 ## How it works

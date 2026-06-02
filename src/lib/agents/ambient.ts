@@ -1,5 +1,5 @@
 import type { Agent } from './Agent';
-import type { DeptId } from '../data/departments';
+import { RAISED_DEPTS, type DeptId } from '../data/departments';
 import { WAYPOINTS } from '../data/waypoints';
 
 export interface AmbientRoutine {
@@ -7,10 +7,11 @@ export interface AmbientRoutine {
   steps: Array<(a: Record<DeptId, Agent>) => void>;
 }
 
-const { MEETING, COFFEE, WHITEBOARD, SERVER_RACK } = WAYPOINTS;
+const { MEETING, COFFEE, SNACK, WHITEBOARD, SERVER_RACK } = WAYPOINTS;
 
 const BUBBLES = {
   coffee: ['Coffee time ☕', 'Need caffeine...', 'Quick break ☕', 'Refueling ☕'],
+  snack: ['Snack run 🍫', 'Hungry...', 'Grabbing a bite 🍪', 'Treat time 🍩'],
   thinking: ['Hmm... 🤔', 'Interesting...', 'Let me think...', 'What if... 💡'],
   chat: ['Hey!', 'Quick question', 'What do you think?', 'Got a sec?'],
   reply: ['Good point!', 'Makes sense ✓', 'Let me check', 'On it!'],
@@ -27,6 +28,17 @@ function coffeeBreak(dept: DeptId): AmbientRoutine {
     steps: [
       (a) => { a[dept].moveTo(COFFEE.x, COFFEE.y, 'idle'); },
       (a) => { a[dept].say(pick(BUBBLES.coffee)); },
+      (a) => { a[dept].goHome(); },
+    ],
+  };
+}
+
+function snackBreak(dept: DeptId): AmbientRoutine {
+  return {
+    agents: [dept],
+    steps: [
+      (a) => { a[dept].moveTo(SNACK.x, SNACK.y, 'idle'); },
+      (a) => { a[dept].say(pick(BUBBLES.snack)); },
       (a) => { a[dept].goHome(); },
     ],
   };
@@ -55,6 +67,19 @@ function peerChat(d1: DeptId, d2: DeptId): AmbientRoutine {
   };
 }
 
+// Executives chat on the mezzanine (stay raised — never walk to the ground floor).
+function execChat(): AmbientRoutine {
+  return {
+    agents: ['ceo', 'fin'],
+    steps: [
+      (a) => { a.ceo.moveTo(10.5, 2.4); a.fin.moveTo(13.3, 2.4); },
+      (a) => { a.ceo.say(pick(BUBBLES.chat)); },
+      (a) => { a.fin.say(pick(BUBBLES.reply)); },
+      (a) => { a.ceo.goHome(); a.fin.goHome(); },
+    ],
+  };
+}
+
 function deskFidget(dept: DeptId): AmbientRoutine {
   return {
     agents: [dept],
@@ -75,23 +100,30 @@ function serverCheck(): AmbientRoutine {
   };
 }
 
-const DEPT_LIST: DeptId[] = ['ceo', 'mkt', 'rnd', 'ops', 'fin'];
+// Ground-floor agents roam to the common areas; raised execs (RAISED_DEPTS from
+// departments.ts) stay upstairs.
+const GROUND_DEPTS: DeptId[] = ['cyb', 'mkt', 'rnd', 'ops'];
 
 const CHAT_PAIRS: [DeptId, DeptId][] = [
-  ['ceo', 'fin'], ['ceo', 'rnd'], ['mkt', 'rnd'],
-  ['mkt', 'ops'], ['ops', 'fin'], ['ceo', 'mkt'],
+  ['cyb', 'rnd'], ['mkt', 'rnd'], ['mkt', 'ops'],
+  ['cyb', 'ops'], ['rnd', 'ops'], ['cyb', 'mkt'],
 ];
 
 function buildRoutinePool(): (() => AmbientRoutine)[] {
   const pool: (() => AmbientRoutine)[] = [];
-  for (const d of DEPT_LIST) {
+  for (const d of GROUND_DEPTS) {
     pool.push(() => coffeeBreak(d));
+    pool.push(() => snackBreak(d));
     pool.push(() => whiteboardVisit(d));
+    pool.push(() => deskFidget(d));
+  }
+  for (const d of RAISED_DEPTS) {
     pool.push(() => deskFidget(d));
   }
   for (const [a, b] of CHAT_PAIRS) {
     pool.push(() => peerChat(a, b));
   }
+  pool.push(() => execChat());
   pool.push(() => serverCheck());
   return pool;
 }

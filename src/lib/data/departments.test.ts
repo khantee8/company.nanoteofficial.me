@@ -1,23 +1,49 @@
 import { describe, it, expect } from 'vitest';
-import { DEPARTMENTS, DEPT_ZONE_BOUNDS, type DeptId } from './departments';
+import {
+  DEPARTMENTS,
+  DEPT_ZONE_BOUNDS,
+  MEZZANINE_ELEVATION,
+  RAISED_DEPTS,
+  isRaised,
+  type DeptId,
+} from './departments';
 import { ROOM_W } from '@/lib/iso/engine';
 
 describe('department layout', () => {
-  it('has six departments with cyb second (right of CEO)', () => {
+  it('has six departments led by the executives (CEO, Finance)', () => {
     expect(DEPARTMENTS).toHaveLength(6);
     expect(DEPARTMENTS[0].id).toBe('ceo');
-    expect(DEPARTMENTS[1].id).toBe('cyb');
+    expect(DEPARTMENTS[1].id).toBe('fin');
   });
 
-  it('zone bounds do not overlap and fit within ROOM_W', () => {
-    const order: DeptId[] = ['ceo', 'cyb', 'mkt', 'rnd', 'ops', 'fin'];
-    for (let i = 0; i < order.length; i++) {
-      const z = DEPT_ZONE_BOUNDS[order[i]];
+  it('renames marketing and R&D to their real roles', () => {
+    const byId = Object.fromEntries(DEPARTMENTS.map((d) => [d.id, d]));
+    expect(byId.mkt.name).toBe('Marketing & Social Media');
+    expect(byId.rnd.name).toBe('AI R&D');
+  });
+
+  it('raises only the CEO and Finance onto the 2nd-floor mezzanine', () => {
+    for (const d of DEPARTMENTS) {
+      const raised = RAISED_DEPTS.includes(d.id);
+      expect(isRaised(d.id)).toBe(raised);
+      expect(d.elevation).toBe(raised ? MEZZANINE_ELEVATION : 0);
+    }
+    expect(MEZZANINE_ELEVATION).toBeGreaterThan(0);
+  });
+
+  it('keeps zones within ROOM_W and non-overlapping per floor', () => {
+    for (const id of Object.keys(DEPT_ZONE_BOUNDS) as DeptId[]) {
+      const z = DEPT_ZONE_BOUNDS[id];
+      expect(z.x0).toBeGreaterThanOrEqual(0);
       expect(z.x1).toBeLessThanOrEqual(ROOM_W);
-      if (i > 0) {
-        const prev = DEPT_ZONE_BOUNDS[order[i - 1]];
-        expect(z.x0).toBeGreaterThan(prev.x1);
-      }
+      expect(z.x1).toBeGreaterThan(z.x0);
+    }
+    // 2nd floor: CEO left of Finance
+    expect(DEPT_ZONE_BOUNDS.ceo.x1).toBeLessThan(DEPT_ZONE_BOUNDS.fin.x0);
+    // Ground floor: cyb → mkt → rnd → ops, left to right, no overlap
+    const ground: DeptId[] = ['cyb', 'mkt', 'rnd', 'ops'];
+    for (let i = 1; i < ground.length; i++) {
+      expect(DEPT_ZONE_BOUNDS[ground[i]].x0).toBeGreaterThan(DEPT_ZONE_BOUNDS[ground[i - 1]].x1);
     }
   });
 });

@@ -3,6 +3,36 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-06-02
+
+Role-driven company with an owner control surface.
+
+### Added
+- **Company Dashboard** at `/dashboard` — a public, data-driven view of every
+  agent's latest artifact, highlight, flags, status and 7-day history, with
+  per-agent **export** (Markdown / print-to-PDF / history CSV). Owner-only
+  "Run now / regenerate" actions are gated by a `DASHBOARD_PASSCODE` and call
+  the agent runner directly (`POST /api/dashboard/run`); `GET /api/dashboard`
+  serves the read-only payload.
+- **Canonical agent roles** — each agent now runs from the detailed role specs
+  in `.agents/*.md` (Thai), producing structured daily reports per its defined
+  workflow, rubric and hand-offs (`src/lib/agents/roles.ts`). The English
+  `## Highlight` / `## Flags` section headers are preserved for parsing.
+- **Two-floor office** — CEO and Finance work on a raised executive **mezzanine
+  (2nd floor)** with railing and a connecting stair; CyberX, Marketing & Social
+  Media, AI R&D and Operations work on the **ground floor**, alongside new
+  facilities: a coffee bar, snack station, expanded break room and meeting area.
+- **Responsive navbar** — shared `NavBar` with Office/Dashboard links, a `v1.1`
+  badge and live status; collapses to a hamburger menu on mobile (≤640px).
+
+### Changed
+- Renamed departments: **Marketing → Marketing & Social Media**, **R&D → AI R&D**.
+- Sidebar groups the executives (CEO, Finance) first.
+
+### Env
+- New `DASHBOARD_PASSCODE` — required to enable dashboard "Run now" actions
+  (the gate fails closed when unset).
+
 ## [1.0.0] — 2026-06-02
 
 First stable release. The AI company simulator is feature-complete: six
@@ -55,6 +85,7 @@ deploy alerts.
   rendering (floor, walls, windows, furniture, lighting), five-department
   sidebar, scrolling terminal feed, branded favicon, and SEO metadata.
 
+[1.1.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.1.0
 [1.0.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.0.0
 [0.2.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v0.2.0
 [0.1.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v0.1.0
