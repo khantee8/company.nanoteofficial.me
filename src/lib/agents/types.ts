@@ -1,4 +1,7 @@
 import type { DeptId } from '@/lib/data/departments';
+import type { Artifact, KbCategory } from './artifacts';
+
+export type { Artifact, KbCategory };
 
 export type AgentState = 'idle' | 'running' | 'done' | 'error';
 
@@ -15,6 +18,9 @@ export interface AgentOutput {
   markdown: string;
   summary: string;
   ts: string;
+  category: KbCategory;
+  tags: string[];
+  artifacts: Artifact[];
   meta?: Record<string, unknown>;
 }
 
@@ -29,6 +35,10 @@ export interface AgentRunResult {
   summary: string;
   feedMsg: string;
   flags?: string[];
+  /** Structured, chartable data built deterministically from source data. */
+  artifacts?: Artifact[];
+  /** Deterministic entity tags for the knowledge base. */
+  tags?: string[];
   meta?: Record<string, unknown>;
 }
 
@@ -50,12 +60,18 @@ export interface DigestEntry {
 
 /** Archived agent result for the knowledge base (future kb.nanoteofficial.me). */
 export interface KbEntry {
+  id: string;
   dept: DeptId;
   date: string;
   ts: string;
+  category: KbCategory;
+  tags: string[];
+  status: 'draft' | 'published' | 'archived';
+  pinned?: boolean;
   summary: string;
   highlight: string;
   flags: string[];
+  artifacts: Artifact[];
   markdown: string;
 }
 

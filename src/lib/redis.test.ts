@@ -40,7 +40,7 @@ describe('redis repo', () => {
   });
 
   it('stores and reads an output', async () => {
-    const o: AgentOutput = { dept: 'mkt', markdown: '# hi', summary: 's', ts: '2026-05-28T13:00:00Z' };
+    const o: AgentOutput = { dept: 'mkt', markdown: '# hi', summary: 's', ts: '2026-05-28T13:00:00Z', category: 'content-plan', tags: [], artifacts: [] };
     await repo.setOutput(o);
     expect(await repo.getOutput('mkt')).toEqual(o);
   });

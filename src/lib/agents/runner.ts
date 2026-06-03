@@ -1,5 +1,6 @@
 import type { DeptId } from '@/lib/data/departments';
 import type { AgentRunResult, AgentContext } from './types';
+import { CATEGORY_BY_DEPT } from './artifacts';
 import type { RedisRepo } from '@/lib/redis';
 
 export interface Agent {
@@ -111,15 +112,19 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
     const highlight = parseHighlight(result.markdown);
     const flags = parseFlags(result.markdown);
     const date = todayDate();
+    const category = CATEGORY_BY_DEPT[dept];
+    const artifacts = result.artifacts ?? [];
+    const tags = result.tags ?? [];
+    const id = `${dept}:${ts}`;
 
     await Promise.all([
-      repo.setOutput({ dept, markdown: result.markdown, summary: result.summary, ts, meta: result.meta }),
+      repo.setOutput({ dept, markdown: result.markdown, summary: result.summary, ts, category, tags, artifacts, meta: result.meta }),
       repo.pushEvent({ dept, msg: result.feedMsg, ts }),
       repo.setStatus({ dept, state: 'done', lastRun: ts, summary: result.summary }),
       repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown: result.markdown }),
       repo.pushDigest({ dept, date, summary: result.summary, highlight, flags }),
       // Archive into the knowledge base (future kb.nanoteofficial.me)
-      repo.pushKb({ dept, date, ts, summary: result.summary, highlight, flags, markdown: result.markdown }),
+      repo.pushKb({ id, dept, date, ts, category, tags, status: 'published', summary: result.summary, highlight, flags, artifacts, markdown: result.markdown }),
     ]);
 
     await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}\n\n${result.markdown.slice(0, 800)}`);

@@ -19,7 +19,9 @@ function memoryClient(): RedisClientLike {
 }
 
 const entry = (dept: KbEntry['dept'], date: string): KbEntry => ({
-  dept, date, ts: `${date}T00:00:00Z`, summary: `${dept} ${date}`, highlight: `${dept} hi`, flags: [], markdown: `# ${dept}`,
+  id: `${dept}:${date}`, dept, date, ts: `${date}T00:00:00Z`,
+  category: 'exec-brief', tags: [], status: 'published', artifacts: [],
+  summary: `${dept} ${date}`, highlight: `${dept} hi`, flags: [], markdown: `# ${dept}`,
 });
 
 describe('knowledge base', () => {

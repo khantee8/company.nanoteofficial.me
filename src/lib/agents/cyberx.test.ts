@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { completeMock } = vi.hoisted(() => ({ completeMock: vi.fn(async () => '# Brief\n\n## Highlight\nx\n\n## Flags\nNone') }));
+const { completeMock } = vi.hoisted(() => ({ completeMock: vi.fn(async (_opts: unknown) => '# Brief\n\n## Highlight\nx\n\n## Flags\nNone') }));
 
 vi.mock('@/lib/claude', () => ({ complete: completeMock }));
 vi.mock('@/lib/sources/threatintel', () => ({

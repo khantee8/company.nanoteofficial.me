@@ -37,7 +37,7 @@ describe('getDashboardData', () => {
     const repo = makeRedisRepo(memoryClient());
     const ts = new Date().toISOString();
     await repo.setStatus({ dept: 'ceo', state: 'done', lastRun: ts, summary: 'standup ready' });
-    await repo.setOutput({ dept: 'ceo', markdown: '# Standup\n## Highlight\nShipped v1.1', summary: 'standup ready', ts });
+    await repo.setOutput({ dept: 'ceo', markdown: '# Standup\n## Highlight\nShipped v1.1', summary: 'standup ready', ts, category: 'exec-brief', tags: [], artifacts: [] });
     await repo.pushHistory({ dept: 'ceo', date: '2026-06-02', summary: 'standup ready', highlight: 'Shipped v1.1', markdown: '...' });
 
     const data = await getDashboardData(repo);

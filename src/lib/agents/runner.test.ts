@@ -24,20 +24,27 @@ describe('runAgent', () => {
   it('runs, stores output, pushes feed, notifies, sets done', async () => {
     const repo = fakeRepo();
     const notify = vi.fn(async () => {});
+    const artifacts = [{ kind: 'tags' as const, title: 't', tags: ['btc'] }];
     const run = vi.fn(async (): Promise<AgentRunResult> => ({
       markdown: '# x\n\n## Highlight\nKey takeaway here.\n\n## Flags\n- Check deploy',
       summary: 's',
       feedMsg: 'did x',
+      artifacts,
+      tags: ['btc'],
     }));
 
     await runAgent({ dept: 'fin', run }, { repo, notify });
 
     expect(repo.setStatus).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', state: 'running' }));
-    expect(repo.setOutput).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin' }));
+    expect(repo.setOutput).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', category: 'market-brief', tags: ['btc'], artifacts }));
     expect(repo.pushEvent).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', msg: 'did x' }));
     expect(repo.pushHistory).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', highlight: 'Key takeaway here.' }));
     expect(repo.pushDigest).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', flags: ['Check deploy'] }));
-    expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', highlight: 'Key takeaway here.', flags: ['Check deploy'] }));
+    expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({
+      dept: 'fin', category: 'market-brief', status: 'published', tags: ['btc'], artifacts,
+      highlight: 'Key takeaway here.', flags: ['Check deploy'],
+    }));
+    expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ id: expect.stringMatching(/^fin:/) }));
     expect(notify).toHaveBeenCalledOnce();
     expect(repo.setStatus).toHaveBeenLastCalledWith(expect.objectContaining({ state: 'done', summary: 's' }));
   });
