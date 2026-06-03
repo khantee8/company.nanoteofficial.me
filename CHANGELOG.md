@@ -3,6 +3,53 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — 2026-06-03
+
+**Smart Agents & Optimal Dashboard (core).** Agents now emit structured research
+data rendered as charts/tables/infographics, reachable through a per-agent
+navigation and a refreshed executive overview; the knowledge base gains
+categories, tags, status and artifacts on addressable storage.
+
+### Added
+- **Structured artifacts** — a typed `Artifact` model (`src/lib/agents/artifacts.ts`):
+  diverging/standard bars, donut, line/sparkline, table, scorecard, heatmap,
+  tag cloud, checklist. Built **deterministically from each agent's source data**
+  (the LLM writes only the narrative), persisted to `AgentOutput` and the
+  knowledge base by the runner.
+- **Hand-rolled SVG chart primitives** (`src/components/charts/`) behind an
+  `ArtifactRenderer` — zero dependencies, SSR-safe, no `dangerouslySetInnerHTML`.
+- **Per-agent data representation**:
+  - **Finance** — 24h diverging bars, market-breadth donut, price table (CoinGecko).
+  - **CyberX** — coarse-severity donut (keyword heuristic, no fabricated CVSS),
+    new-CVE-per-day trend, KEV table (CISA KEV).
+  - **Marketing** — topic-momentum bars (demand) from **Hacker News + Dev.to**,
+    site-reach line from **Vercel Web Analytics** (graceful when unavailable),
+    content-plan table.
+  - **CEO Executive Cockpit** — department health scorecard, open-flags-by-dept
+    bars, 7-day activity heatmap, decisions checklist — aggregated from the
+    company's own state (`companySnapshot`, no new source).
+- **Agent sub-nav + per-agent detail pages** at `/dashboard/[dept]` — public,
+  read-only deep-dives (hero, KPIs, charts, analysis, history, MD/PDF/JSON/CSV
+  export). Invalid departments 404.
+- **Executive overview refresh** — CEO cockpit hero band; agent cards now carry a
+  compact chart and link into the detail pages.
+- New free source adapters: `sources/hackernews.ts`, `sources/devto.ts`,
+  `sources/analytics.ts` (no new required secrets).
+
+### Changed
+- **Knowledge base storage** moved from a single flat `kb:entries` list to
+  individually addressable entries (`kb:entry:<id>` + a `kb:index`), so single
+  entries can be published/archived/pinned/edited/deleted (the v1.3.1 Admin KB
+  Manager builds on this). Entries gain `id`, `category`, `tags`, `status`,
+  `artifacts`. Pre-v1.3 entries are normalized on read.
+- `/api/kb` is now **published-only** and supports `?dept=&category=&q=&from=&to=&limit=`,
+  returning artifacts for the future `kb.nanoteofficial.me`.
+- CyberX now runs on the default **Sonnet 4.6** (dropped the Haiku override).
+
+### Deferred to v1.3.1
+- R&D Research Radar (+ GitHub trending) and Operations charts.
+- Admin **KB Manager** UI + `/api/admin/kb` mutations + the draft→publish gate.
+
 ## [1.2.1] — 2026-06-02
 
 ### Fixed
