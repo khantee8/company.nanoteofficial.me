@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { completeMock } = vi.hoisted(() => ({ completeMock: vi.fn(async (_opts: unknown) => '# Brief\n\n## Highlight\nx\n\n## Flags\nNone') }));
+const { completeMock } = vi.hoisted(() => ({ completeMock: vi.fn(async () => '# Brief\n\n## Highlight\nx\n\n## Flags\nNone') }));
 
 vi.mock('@/lib/claude', () => ({ complete: completeMock }));
 vi.mock('@/lib/sources/threatintel', () => ({
@@ -25,7 +25,8 @@ describe('cyberx.run', () => {
     expect(completeMock).toHaveBeenCalledWith(
       expect.objectContaining({ maxTokens: 600 }),
     );
-    expect(completeMock.mock.calls[0][0]).not.toHaveProperty('model');
+    const firstCallArgs = completeMock.mock.calls[0] as unknown[];
+    expect(firstCallArgs[0]).not.toHaveProperty('model');
   });
 
   it('returns a populated AgentRunResult', async () => {
