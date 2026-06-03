@@ -1,5 +1,5 @@
 const IDS = ['bitcoin', 'ethereum', 'solana'] as const;
-const SYMBOL: Record<string, string> = { bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL' };
+export const SYMBOL: Record<string, string> = { bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL' };
 
 export type CoinGeckoResponse = Record<string, { usd: number; usd_24h_change: number }>;
 
