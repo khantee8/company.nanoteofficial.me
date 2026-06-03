@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export function AdminLogin() {
   const router = useRouter();
@@ -62,7 +63,7 @@ export function AdminLogin() {
         <button type="submit" disabled={busy || !user || !password} style={btnStyle}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
-        <a href="/dashboard" style={backStyle}>← Back to public dashboard</a>
+        <Link href="/dashboard" style={backStyle}>← Back to public dashboard</Link>
       </form>
     </div>
   );
