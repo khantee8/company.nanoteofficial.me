@@ -10,7 +10,10 @@ function memoryClient(): RedisClientLike {
   return {
     async set(key, value) { store.set(key, value); return 'OK'; },
     async get<T>(key: string) { return (store.get(key) as T) ?? null; },
+    async del(...keys: string[]) { keys.forEach((k) => store.delete(k)); return keys.length; },
+    async mget<T>(keys: string[]) { return keys.map((k) => (store.get(k) as T) ?? null); },
     async lpush(key, value) { const l = lists.get(key) ?? []; l.unshift(value); lists.set(key, l); return l.length; },
+    async lrem(key, _count, value) { const l = lists.get(key) ?? []; lists.set(key, l.filter((v) => v !== value)); return 0; },
     async ltrim() { return 'OK'; },
     async lrange<T>(key: string, start: number, stop: number) {
       const l = (lists.get(key) ?? []) as T[];

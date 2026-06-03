@@ -1,19 +1,76 @@
 import { Redis } from '@upstash/redis';
 import type { DeptId } from '@/lib/data/departments';
 import type { AgentStatus, AgentOutput, FeedEvent, HistoryEntry, DigestEntry, KbEntry } from './agents/types';
+import { CATEGORY_BY_DEPT } from './agents/artifacts';
 
 const FEED_KEY = 'feed:events';
 const FEED_CAP = 50;
 const HISTORY_CAP = 7;
 const DIGEST_KEY = 'company:digest';
 const DIGEST_CAP = 25;
-const KB_KEY = 'kb:entries';
-const KB_CAP = 200;
+// Knowledge base: entries are individually addressable (`kb:entry:<id>`) with a
+// newest-first id index (`kb:index`) so a single entry can be published /
+// archived / pinned / deleted. `kb:entries` is the pre-v1.3 flat list, read as a
+// fallback and normalized on the fly until it ages out.
+const KB_INDEX = 'kb:index';
+const KB_LEGACY = 'kb:entries';
+const KB_CAP = 300;
+const kbKey = (id: string) => `kb:entry:${id}`;
+
+export interface KbQuery {
+  status?: KbEntry['status'];
+  dept?: DeptId;
+  category?: KbEntry['category'];
+  pinned?: boolean;
+  q?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}
+
+export type KbPatch = Partial<Pick<KbEntry, 'status' | 'tags' | 'pinned' | 'category'>>;
+
+/** Fill any fields missing on a pre-v1.3 (or partial) KB record. */
+export function normalizeKbEntry(raw: Partial<KbEntry> & { dept: DeptId; ts: string }): KbEntry {
+  return {
+    id: raw.id ?? `${raw.dept}:${raw.ts}`,
+    dept: raw.dept,
+    date: raw.date ?? raw.ts.slice(0, 10),
+    ts: raw.ts,
+    category: raw.category ?? CATEGORY_BY_DEPT[raw.dept],
+    tags: raw.tags ?? [],
+    status: raw.status ?? 'published',
+    pinned: raw.pinned,
+    summary: raw.summary ?? '',
+    highlight: raw.highlight ?? '',
+    flags: raw.flags ?? [],
+    artifacts: raw.artifacts ?? [],
+    markdown: raw.markdown ?? '',
+  };
+}
+
+function matchesKbQuery(e: KbEntry, q: KbQuery): boolean {
+  if (q.status && e.status !== q.status) return false;
+  if (q.dept && e.dept !== q.dept) return false;
+  if (q.category && e.category !== q.category) return false;
+  if (typeof q.pinned === 'boolean' && Boolean(e.pinned) !== q.pinned) return false;
+  if (q.from && e.date < q.from) return false;
+  if (q.to && e.date > q.to) return false;
+  if (q.q) {
+    const needle = q.q.toLowerCase();
+    const hay = `${e.summary} ${e.highlight} ${e.markdown} ${e.tags.join(' ')}`.toLowerCase();
+    if (!hay.includes(needle)) return false;
+  }
+  return true;
+}
 
 export interface RedisClientLike {
   set(key: string, value: unknown): Promise<unknown>;
   get<T = unknown>(key: string): Promise<T | null>;
+  del(...keys: string[]): Promise<unknown>;
+  mget<T = unknown>(keys: string[]): Promise<(T | null)[]>;
   lpush(key: string, value: unknown): Promise<number>;
+  lrem(key: string, count: number, value: unknown): Promise<unknown>;
   ltrim(key: string, start: number, stop: number): Promise<unknown>;
   lrange<T = unknown>(key: string, start: number, stop: number): Promise<T[]>;
 }
@@ -52,11 +109,38 @@ export function makeRedisRepo(client: RedisClientLike) {
       return await client.lrange<DigestEntry>(DIGEST_KEY, 0, DIGEST_CAP - 1);
     },
     async pushKb(entry: KbEntry) {
-      await client.lpush(KB_KEY, entry);
-      await client.ltrim(KB_KEY, 0, KB_CAP - 1);
+      await client.set(kbKey(entry.id), entry);
+      await client.lpush(KB_INDEX, entry.id);
+      await client.ltrim(KB_INDEX, 0, KB_CAP - 1);
     },
-    async getKb(limit = KB_CAP): Promise<KbEntry[]> {
-      return await client.lrange<KbEntry>(KB_KEY, 0, limit - 1);
+    async getKbEntry(id: string): Promise<KbEntry | null> {
+      const v = await client.get<KbEntry>(kbKey(id));
+      return v ? normalizeKbEntry(v) : null;
+    },
+    async updateKbEntry(id: string, patch: KbPatch): Promise<KbEntry | null> {
+      const cur = await client.get<KbEntry>(kbKey(id));
+      if (!cur) return null;
+      const next = normalizeKbEntry({ ...cur, ...patch });
+      await client.set(kbKey(id), next);
+      return next;
+    },
+    async deleteKbEntry(id: string) {
+      await client.del(kbKey(id));
+      await client.lrem(KB_INDEX, 0, id);
+    },
+    async listKb(opts: KbQuery = {}): Promise<KbEntry[]> {
+      const ids = await client.lrange<string>(KB_INDEX, 0, KB_CAP - 1);
+      let entries: KbEntry[];
+      if (ids.length > 0) {
+        const raw = await client.mget<KbEntry>(ids.map(kbKey));
+        entries = raw.filter((e): e is KbEntry => e != null).map(normalizeKbEntry);
+      } else {
+        // Pre-v1.3 fallback: the flat list, normalized on read.
+        const legacy = await client.lrange<KbEntry>(KB_LEGACY, 0, KB_CAP - 1);
+        entries = legacy.map(normalizeKbEntry);
+      }
+      const filtered = entries.filter((e) => matchesKbQuery(e, opts));
+      return typeof opts.limit === 'number' ? filtered.slice(0, opts.limit) : filtered;
     },
   };
 }
