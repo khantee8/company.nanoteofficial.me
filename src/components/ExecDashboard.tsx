@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Markdown } from './Markdown';
+import Link from 'next/link';
+import { ArtifactRenderer } from './charts/ArtifactRenderer';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import { parseHighlight, parseFlags } from '@/lib/agents/runner';
 import type { DashboardData, DashboardAgent } from '@/lib/dashboard';
@@ -12,26 +13,6 @@ const STATE_COLOR: Record<AgentState, string> = {
 };
 const deptMeta = (id: DeptId) => DEPARTMENTS.find((d) => d.id === id);
 const today = () => new Date().toISOString().slice(0, 10);
-
-function exportPdf(title: string, markdown: string) {
-  const w = window.open('', '_blank');
-  if (!w) return;
-  const d = w.document;
-  const style = d.createElement('style');
-  style.textContent =
-    `body{font-family:Georgia,'Times New Roman',serif;max-width:720px;margin:36px auto;padding:0 24px;line-height:1.6;color:#111}` +
-    `h1{font-size:20px;border-bottom:2px solid #333;padding-bottom:8px}` +
-    `pre{white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:13px;margin:0}` +
-    `footer{margin-top:24px;color:#888;font-size:11px}`;
-  d.head.appendChild(style);
-  d.title = `${title} — NaNote Corp`;
-  const h1 = d.createElement('h1'); h1.textContent = title;
-  const pre = d.createElement('pre'); pre.textContent = markdown;
-  const footer = d.createElement('footer');
-  footer.textContent = `NaNote Corp · company.nanoteofficial.me · ${new Date().toLocaleString()}`;
-  d.body.append(h1, pre, footer);
-  setTimeout(() => w.print(), 300);
-}
 
 export function ExecDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -54,6 +35,7 @@ export function ExecDashboard() {
   }, []);
 
   const agents = data?.agents ?? [];
+  const ceoArts = agents.find((a) => a.dept === 'ceo')?.output?.artifacts ?? [];
   const td = today();
   const reportsToday = agents.filter((a) => a.status?.lastRun?.startsWith(td)).length;
   const activeAgents = agents.filter((a) => a.output).length;
@@ -80,6 +62,18 @@ export function ExecDashboard() {
         <Kpi value={String(totalFlags)} label="Open flags" />
         <Kpi value={lastActivity} label="Last activity" small />
       </div>
+
+      {ceoArts.length > 0 && (
+        <section className="glass exec-cockpit">
+          <div className="exec-cockpit-title">CEO · Executive Cockpit</div>
+          <div className="exec-cockpit-grid">
+            {ceoArts.map((a, i) => (
+              <div key={i} className="exec-cockpit-cell"><ArtifactRenderer artifact={a} compact /></div>
+            ))}
+          </div>
+          <Link href="/dashboard/ceo" className="exec-cockpit-link">Open CEO detail →</Link>
+        </section>
+      )}
 
       {loading && agents.length === 0 ? (
         <div style={{ color: '#9a9bc4', fontSize: 13, padding: 24 }}>Loading agent intelligence…</div>
@@ -132,12 +126,13 @@ function ExecCard({ agent }: { agent: DashboardAgent }) {
   const md = agent.output?.markdown ?? '';
   const highlight = md ? parseHighlight(md) : agent.status?.summary ?? '';
   const flags = md ? parseFlags(md) : [];
+  const artifact = agent.output?.artifacts?.[0];
   const when = agent.output?.ts
     ? new Date(agent.output.ts).toLocaleDateString()
     : agent.status?.lastRun ? new Date(agent.status.lastRun).toLocaleDateString() : '—';
 
   return (
-    <section className="glass exec-card">
+    <Link href={`/dashboard/${agent.dept}`} className="glass exec-card">
       <div className="accent" style={{ background: `linear-gradient(90deg, ${color}, ${color}33)` }} />
       <div className="body">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
@@ -160,7 +155,7 @@ function ExecCard({ agent }: { agent: DashboardAgent }) {
         )}
 
         <div className="exec-artifact">
-          {md ? <Markdown text={md} /> : <div style={{ color: '#6a6c93', fontSize: 12 }}>Awaiting next scheduled run.</div>}
+          {artifact ? <ArtifactRenderer artifact={artifact} compact /> : <div style={{ color: '#6a6c93', fontSize: 12 }}>Awaiting next scheduled run.</div>}
         </div>
 
         {agent.history.length > 0 && (
@@ -173,16 +168,8 @@ function ExecCard({ agent }: { agent: DashboardAgent }) {
           </div>
         )}
 
-        <div style={{ marginTop: 2 }}>
-          <button onClick={() => exportPdf(name, md)} disabled={!md} style={pdfBtn}>Export PDF</button>
-        </div>
+        <div className="exec-card-cta">View detail →</div>
       </div>
-    </section>
+    </Link>
   );
 }
-
-const pdfBtn: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
-  color: '#cfd0ee', borderRadius: 8, fontSize: 11, padding: '5px 12px', cursor: 'pointer',
-  fontFamily: 'inherit',
-};

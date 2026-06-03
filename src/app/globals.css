@@ -220,7 +220,15 @@ button { font-family: inherit; }
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 18px;
 }
-.exec-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.exec-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; text-decoration: none; transition: transform 0.15s, border-color 0.15s; }
+.exec-card:hover { transform: translateY(-2px); border-color: rgba(127, 140, 255, 0.45); }
+.exec-card-cta { font-size: 11px; color: #7f8cff; margin-top: 2px; }
+.exec-cockpit { margin-bottom: 22px; padding: 16px 18px; }
+.exec-cockpit-title { font-size: 12px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+.exec-cockpit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; align-items: start; }
+.exec-cockpit-cell { background: rgba(8, 8, 22, 0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 10px 12px; }
+.exec-cockpit-link { display: inline-block; margin-top: 12px; font-size: 11px; color: #7f8cff; text-decoration: none; }
+.exec-cockpit-link:hover { text-decoration: underline; }
 .exec-card .accent { height: 4px; width: 100%; }
 .exec-card .body { padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 10px; }
 .exec-artifact {
