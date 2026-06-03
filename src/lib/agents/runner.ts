@@ -1,4 +1,4 @@
-import type { DeptId } from '@/lib/data/departments';
+import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import type { AgentRunResult, AgentContext } from './types';
 import { CATEGORY_BY_DEPT } from './artifacts';
 import type { RedisRepo } from '@/lib/redis';
@@ -62,10 +62,17 @@ export async function buildContext(dept: DeptId, repo: RedisRepo): Promise<Agent
     }),
   );
 
+  // The CEO's Executive Cockpit aggregates whole-company state; only it pays the
+  // extra status reads.
+  const companySnapshot = dept === 'ceo'
+    ? { statuses: await Promise.all(DEPARTMENTS.map((d) => repo.getStatus(d.id))), digest }
+    : undefined;
+
   return {
     ownHistory,
     companyDigest,
     todayPeers: todayPeers.filter((p): p is NonNullable<typeof p> => p !== null),
+    companySnapshot,
   };
 }
 

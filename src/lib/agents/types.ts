@@ -79,4 +79,6 @@ export interface AgentContext {
   ownHistory: HistoryEntry[];
   companyDigest: DigestEntry[];
   todayPeers: Array<{ dept: DeptId; summary: string; highlight: string; flags: string[] }>;
+  /** Whole-company state — populated only for the CEO (Executive Cockpit). */
+  companySnapshot?: { statuses: AgentStatus[]; digest: DigestEntry[] };
 }
