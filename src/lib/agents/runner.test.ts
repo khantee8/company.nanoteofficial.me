@@ -41,7 +41,7 @@ describe('runAgent', () => {
     expect(repo.pushHistory).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', highlight: 'Key takeaway here.' }));
     expect(repo.pushDigest).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', flags: ['Check deploy'] }));
     expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({
-      dept: 'fin', category: 'market-brief', status: 'published', tags: ['btc'], artifacts,
+      dept: 'fin', category: 'market-brief', status: 'draft', tags: ['btc'], artifacts,
       highlight: 'Key takeaway here.', flags: ['Check deploy'],
     }));
     expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ id: expect.stringMatching(/^fin:/) }));

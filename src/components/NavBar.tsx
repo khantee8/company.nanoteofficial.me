@@ -29,7 +29,7 @@ export function NavBar({ rightSlot }: Props) {
     <>
       <header className="nav">
         <Link href="/" className="nav-brand" onClick={() => setOpen(false)}>
-          ◈ <em>NANO</em>TE CORP<span className="nav-version">v1.3.0</span>
+          ◈ <em>NANO</em>TE CORP<span className="nav-version">v1.3.1</span>
         </Link>
 
         <nav className="nav-links">

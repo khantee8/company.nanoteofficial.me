@@ -130,8 +130,9 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
       repo.setStatus({ dept, state: 'done', lastRun: ts, summary: result.summary }),
       repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown: result.markdown }),
       repo.pushDigest({ dept, date, summary: result.summary, highlight, flags }),
-      // Archive into the knowledge base (future kb.nanoteofficial.me)
-      repo.pushKb({ id, dept, date, ts, category, tags, status: 'published', summary: result.summary, highlight, flags, artifacts, markdown: result.markdown }),
+      // Archive into the knowledge base as a DRAFT — the Admin KB Manager
+      // reviews and publishes before it surfaces on the public /api/kb feed.
+      repo.pushKb({ id, dept, date, ts, category, tags, status: 'draft', summary: result.summary, highlight, flags, artifacts, markdown: result.markdown }),
     ]);
 
     await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}\n\n${result.markdown.slice(0, 800)}`);

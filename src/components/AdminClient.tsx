@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Markdown } from './Markdown';
+import { KbManager } from './KbManager';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import { parseHighlight, parseFlags } from '@/lib/agents/runner';
 import type { DashboardData, DashboardAgent } from '@/lib/dashboard';
@@ -162,6 +163,8 @@ export function AdminClient() {
           ))}
         </div>
       )}
+
+      <KbManager />
     </div>
   );
 }

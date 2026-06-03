@@ -1,9 +1,44 @@
 import { complete } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
-import { fetchDeployments, formatDeployments } from '@/lib/sources/vercelApi';
-import { fetchActivity, formatActivity } from '@/lib/sources/githubApi';
+import { fetchDeployments, formatDeployments, type DeployState } from '@/lib/sources/vercelApi';
+import { fetchActivity, formatActivity, type RepoActivity } from '@/lib/sources/githubApi';
+import { normalizeTags, type Artifact } from './artifacts';
 import type { AgentRunResult, AgentContext } from './types';
+
+const shortProject = (p: string) => p.replace('.nanoteofficial.me', '').replace('nanoteofficial.me', 'portfolio');
+
+/** Ops charts built deterministically from CI/CD state — no LLM involvement. */
+export function opsArtifacts(deploys: DeployState[], activity: RepoActivity[]): Artifact[] {
+  const arts: Artifact[] = [];
+
+  if (deploys.length > 0) {
+    arts.push({
+      kind: 'scorecard',
+      title: 'deployment health',
+      tiles: deploys.map((d) => ({
+        label: shortProject(d.project),
+        state: d.ok ? 'ok' : /build|queue|init/i.test(d.state) ? 'warn' : 'down',
+      })),
+    });
+  }
+
+  if (activity.length > 0) {
+    arts.push({
+      kind: 'table',
+      title: 'repo activity',
+      columns: ['repo', 'last commit', 'ci'],
+      rows: activity.map((a) => [a.repo.split('/')[1] ?? a.repo, a.lastCommit ?? '—', a.lastCi ?? 'n/a']),
+    });
+  }
+
+  return arts;
+}
+
+export function opsTags(deploys: DeployState[], activity: RepoActivity[]): string[] {
+  const ci = activity.map((a) => a.lastCi).filter((c): c is string => !!c);
+  return normalizeTags(['ci-cd', 'vercel', 'deploy', ...ci]);
+}
 
 export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const [deploys, activity] = await Promise.all([
@@ -24,6 +59,8 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     markdown,
     summary: allOk ? 'all deployments healthy' : 'deploy attention needed',
     feedMsg: allOk ? 'all systems green 🚀' : 'deploy issue flagged ⚠',
+    artifacts: opsArtifacts(deploys, activity),
+    tags: opsTags(deploys, activity),
     meta: { deploys, activity },
   };
 }

@@ -3,6 +3,31 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] — 2026-06-03
+
+**Smart Agents & Optimal Dashboard (the rest).** Completes v1.3: the last two
+agents gain charts, and the knowledge base becomes a curated, admin-managed
+store with a real draft→publish gate.
+
+### Added
+- **R&D Research Radar** — trending-repo bars (stars/14d), language-mix donut and
+  a research-radar table, built deterministically from a new free
+  `sources/githubTrending.ts` (GitHub Search API, keyless; uses `GITHUB_TOKEN`
+  when present). The brief now anchors itself in the day's trending repos.
+- **Operations charts** — a deployment-health scorecard (ok/warn/down per project)
+  and a repo-activity table, from the existing Vercel + GitHub CI/CD sources.
+- **Admin KB Manager** (`/admin`) — a Knowledge Base panel to curate agent
+  output: filter by status (draft/published/archived), **publish**, archive,
+  restore, pin/unpin and delete entries. Backed by a new cookie-gated
+  `/api/admin/kb` (`GET` all statuses, `PATCH` status/pinned/tags/category,
+  `DELETE`).
+
+### Changed
+- **Draft→publish gate is now on.** Agent runs archive to the knowledge base as
+  **`draft`** instead of auto-publishing; entries surface on the public
+  `/api/kb` only after an admin publishes them. Pre-v1.3.1 entries keep their
+  stored status (already-published ones stay visible).
+
 ## [1.3.0] — 2026-06-03
 
 **Smart Agents & Optimal Dashboard (core).** Agents now emit structured research
@@ -171,6 +196,8 @@ deploy alerts.
   rendering (floor, walls, windows, furniture, lighting), five-department
   sidebar, scrolling terminal feed, branded favicon, and SEO metadata.
 
+[1.3.1]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.3.1
+[1.3.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.3.0
 [1.2.1]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.2.1
 [1.2.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.2.0
 [1.1.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.1.0
