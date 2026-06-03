@@ -19,11 +19,13 @@ const emptyCtx: AgentContext = { ownHistory: [], companyDigest: [], todayPeers: 
 describe('cyberx.run', () => {
   beforeEach(() => completeMock.mockClear());
 
-  it('calls Claude Haiku with a capped token budget', async () => {
+  it('calls Claude with a capped token budget on the shared default model', async () => {
     await run(emptyCtx);
+    // No model override — CyberX now tracks the company default (Sonnet 4.6) like the other agents.
     expect(completeMock).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'claude-haiku-4-5-20251001', maxTokens: 600 }),
+      expect.objectContaining({ maxTokens: 600 }),
     );
+    expect(completeMock.mock.calls[0][0]).not.toHaveProperty('model');
   });
 
   it('returns a populated AgentRunResult', async () => {

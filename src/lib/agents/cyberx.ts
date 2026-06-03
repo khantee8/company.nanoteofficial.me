@@ -16,7 +16,6 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const markdown = await complete({
     system: PERSONAS.cyb,
     prompt: `${context ? context + '\n\n---\n\n' : ''}Today's threat feed:\n${lines.join('\n')}\n\nWrite a brief (120-180 word) threat-intelligence note: what's newly exploited, relevance to a small web/cloud company, and a one-line risk posture. Include a Sources list.`,
-    model: 'claude-haiku-4-5-20251001',
     maxTokens: 600,
   });
   return {
