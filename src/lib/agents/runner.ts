@@ -124,6 +124,11 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
     const artifacts = result.artifacts ?? [];
     const tags = result.tags ?? [];
     const id = `${dept}:${ts}`;
+    const theme = result.theme;
+    const provenance = result.provenance ?? 'api';
+    const sources = result.sources ?? [];
+    const related = result.related ?? [];
+    const slug = deriveSlug({ dept, date, theme, category });
 
     await Promise.all([
       repo.setOutput({ dept, markdown: result.markdown, summary: result.summary, ts, category, tags, artifacts, meta: result.meta }),
@@ -133,9 +138,9 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
       repo.pushDigest({ dept, date, summary: result.summary, highlight, flags }),
       // Archive into the knowledge base as a DRAFT — the Admin KB Manager
       // reviews and publishes before it surfaces on the public /api/kb feed.
-      repo.pushKb({ id, slug: deriveSlug({ dept, date, category }), dept, date, ts, category,
+      repo.pushKb({ id, slug, dept, date, ts, category, theme,
         tags, status: 'draft', summary: result.summary, highlight, flags, artifacts,
-        sources: [], provenance: 'api', related: [], markdown: result.markdown }),
+        sources, provenance, related, markdown: result.markdown }),
     ]);
 
     await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}\n\n${result.markdown.slice(0, 800)}`);

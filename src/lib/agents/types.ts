@@ -40,6 +40,14 @@ export interface AgentRunResult {
   /** Deterministic entity tags for the knowledge base. */
   tags?: string[];
   meta?: Record<string, unknown>;
+  /** Series key for KB graph (e.g. "us-index-sp500"). */
+  theme?: string;
+  /** Citations behind the report's web-sourced figures. */
+  sources?: Citation[];
+  /** Dominant data source for this run. */
+  provenance?: 'api' | 'web';
+  /** Explicit cross-links (CEO synthesis → source entry ids). */
+  related?: string[];
 }
 
 export interface HistoryEntry {
