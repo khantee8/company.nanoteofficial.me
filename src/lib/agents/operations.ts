@@ -3,10 +3,37 @@ import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { fetchDeployments, formatDeployments, type DeployState } from '@/lib/sources/vercelApi';
 import { fetchActivity, formatActivity, type RepoActivity } from '@/lib/sources/githubApi';
-import { normalizeTags, type Artifact } from './artifacts';
+import { normalizeTags, withProvenance, type Artifact, type Citation } from './artifacts';
+import { extractFindingsBlock, hasCitation } from './findings';
 import type { AgentRunResult, AgentContext } from './types';
 
 const shortProject = (p: string) => p.replace('.nanoteofficial.me', '').replace('nanoteofficial.me', 'portfolio');
+
+// ─── Findings types + parser ──────────────────────────────────────────────────
+
+export interface OpsNote { text: string; citation: Citation }
+export interface OperationsFindings { fixToday: string; notes: OpsNote[] }
+
+export function parseOperationsFindings(markdown: string): OperationsFindings | null {
+  const raw = extractFindingsBlock<Partial<OperationsFindings>>(markdown);
+  if (!raw) return null;
+  const notes = Array.isArray(raw.notes) ? raw.notes.filter(
+    (n): n is OpsNote => !!n && typeof n.text === 'string' && hasCitation(n as { citation?: Partial<Citation> }),
+  ) : [];
+  return { fixToday: typeof raw.fixToday === 'string' ? raw.fixToday : '', notes };
+}
+
+/** Web·cited ops notes table (only when external refs were used). */
+export function opsNoteArtifacts(f: OperationsFindings): Artifact[] {
+  if (f.notes.length === 0) return [];
+  const sources = f.notes.map((n) => n.citation);
+  return [
+    withProvenance({
+      kind: 'table', title: 'ops notes (researched)', columns: ['note'],
+      rows: f.notes.map((n) => [n.text]),
+    }, 'web', sources),
+  ];
+}
 
 /** Ops charts built deterministically from CI/CD state — no LLM involvement. */
 export function opsArtifacts(deploys: DeployState[], activity: RepoActivity[]): Artifact[] {
@@ -32,7 +59,7 @@ export function opsArtifacts(deploys: DeployState[], activity: RepoActivity[]): 
     });
   }
 
-  return arts;
+  return arts.map((a) => withProvenance(a, 'api'));
 }
 
 export function opsTags(deploys: DeployState[], activity: RepoActivity[]): string[] {
@@ -49,18 +76,25 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const activityLines = formatActivity(activity);
   const allOk = deploys.length > 0 && deploys.every((d) => d.ok);
   const context = formatContext(ctx);
-
   const markdown = await complete({
     system: PERSONAS.ops,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}CI/CD snapshot.\n\nDeployments:\n${deployLines.join('\n') || 'none'}\n\nRepo activity:\n${activityLines.join('\n') || 'none'}\n\nWrite a terse ops status (80-140 words): overall health, anything failing or stale, and the single most useful next action. Use a status emoji header.`,
-    maxTokens: 800,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}CI/CD snapshot.\n\nDeployments:\n${deployLines.join('\n') || 'none'}\n\nRepo activity:\n${activityLines.join('\n') || 'none'}\n\nสรุปสุขภาพ deploy/CI แล้วชี้ "สิ่งเดียวที่ควรแก้วันนี้" ถ้าต้องอ้างอิงภายนอก (status page/changelog) ให้ค้นเว็บและแนบแหล่ง แล้วแนบบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
+    webSearch: true,
+    maxSearches: 3,
+    maxTokens: 1200,
   });
+  const findings = parseOperationsFindings(markdown) ?? { fixToday: '', notes: [] };
+  const artifacts = [...opsArtifacts(deploys, activity), ...opsNoteArtifacts(findings)];
+  const sources = findings.notes.map((n) => n.citation);
+  const baseSummary = allOk ? 'all deployments healthy' : 'deploy attention needed';
   return {
     markdown,
-    summary: allOk ? 'all deployments healthy' : 'deploy attention needed',
+    summary: findings.fixToday ? `${baseSummary} · fix: ${findings.fixToday}` : baseSummary,
     feedMsg: allOk ? 'all systems green 🚀' : 'deploy issue flagged ⚠',
-    artifacts: opsArtifacts(deploys, activity),
+    artifacts,
     tags: opsTags(deploys, activity),
-    meta: { deploys, activity },
+    provenance: findings.notes.length > 0 ? 'web' : 'api',
+    sources,
+    meta: { deploys, activity, fixToday: findings.fixToday, notes: findings.notes.length },
   };
 }

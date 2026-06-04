@@ -44,6 +44,11 @@ describe('opsArtifacts', () => {
   it('survives empty inputs', () => {
     expect(opsArtifacts([], [])).toEqual([]);
   });
+
+  it('tags ops charts as api provenance', () => {
+    const a = opsArtifacts(deploys, activity);
+    expect(a.every((x) => x.provenance === 'api')).toBe(true);
+  });
 });
 
 describe('opsTags', () => {
