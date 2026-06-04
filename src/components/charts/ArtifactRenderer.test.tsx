@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ArtifactRenderer } from './ArtifactRenderer';
-import type { Artifact } from '@/lib/agents/artifacts';
+import { withProvenance, type Artifact } from '@/lib/agents/artifacts';
 
 const samples: Artifact[] = [
   { kind: 'divergingBars', title: 'moves', series: [{ label: 'BTC', value: 2.1 }, { label: 'ETH', value: -1.3 }], unit: '%' },
@@ -47,5 +47,17 @@ describe('ArtifactRenderer', () => {
     for (const a of samples) {
       expect(() => renderToStaticMarkup(<ArtifactRenderer artifact={a} compact />)).not.toThrow();
     }
+  });
+
+  it('renders an api provenance badge', () => {
+    const a = withProvenance({ kind: 'bars', title: 't', series: [{ label: 'x', value: 1 }] }, 'api');
+    const html = renderToStaticMarkup(<ArtifactRenderer artifact={a} />);
+    expect(html).toContain('api');
+  });
+
+  it('renders a web · cited badge', () => {
+    const a = withProvenance({ kind: 'table', title: 't', columns: ['a'], rows: [['x']] }, 'web', [{ url: 'https://e.com', title: 'S', date: '2026-06-01' }]);
+    const html = renderToStaticMarkup(<ArtifactRenderer artifact={a} />);
+    expect(html).toContain('web · cited');
   });
 });

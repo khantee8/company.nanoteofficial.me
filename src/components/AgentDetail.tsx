@@ -5,7 +5,16 @@ import { ArtifactRenderer } from './charts/ArtifactRenderer';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import { parseHighlight, parseFlags } from '@/lib/agents/runner';
 import type { DashboardAgent } from '@/lib/dashboard';
-import type { AgentState } from '@/lib/agents/types';
+import type { AgentState, Citation } from '@/lib/agents/types';
+
+function dedupeSources(lists: Citation[][]): Citation[] {
+  const seen = new Set<string>();
+  const out: Citation[] = [];
+  for (const list of lists) for (const c of list) {
+    if (c?.url && !seen.has(c.url)) { seen.add(c.url); out.push(c); }
+  }
+  return out;
+}
 
 const STATE_COLOR: Record<AgentState, string> = {
   done: '#3ddc97', running: '#ffc04d', error: '#ff6b86', idle: '#8b8db5',
@@ -51,7 +60,15 @@ function exportPdf(title: string, markdown: string) {
   setTimeout(() => w.print(), 300);
 }
 
-export function AgentDetail({ dept, agent }: { dept: DeptId; agent: DashboardAgent | null }) {
+export function AgentDetail({
+  dept,
+  agent,
+  related = [],
+}: {
+  dept: DeptId;
+  agent: DashboardAgent | null;
+  related?: { slug: string; title: string; dept: string }[];
+}) {
   const meta = DEPARTMENTS.find((d) => d.id === dept);
   const name = meta?.name ?? dept;
   const color = meta?.color ?? '#7f8cff';
@@ -66,6 +83,7 @@ export function AgentDetail({ dept, agent }: { dept: DeptId; agent: DashboardAge
   const when = output?.ts
     ? new Date(output.ts).toLocaleString()
     : agent?.status?.lastRun ? new Date(agent.status.lastRun).toLocaleString() : '—';
+  const sources = dedupeSources(artifacts.map((a) => a.sources ?? []));
 
   return (
     <div className="agent-detail">
@@ -113,6 +131,47 @@ export function AgentDetail({ dept, agent }: { dept: DeptId; agent: DashboardAge
         <div className="agent-tags">
           {tags.map((t, i) => <span key={i} className="agent-tag">{t}</span>)}
         </div>
+      )}
+
+      {sources.length > 0 && (
+        <section className="glass agent-sources">
+          <div className="agent-section-title">แหล่งอ้างอิง / Sources</div>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {sources.map((c, i) => (
+              <li key={i} style={{ fontSize: 12, lineHeight: 1.5, color: '#c5c6e2' }}>
+                <a
+                  href={c.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: '#7f8cff', textDecoration: 'underline', wordBreak: 'break-all' }}
+                >
+                  {c.title || c.url}
+                </a>
+                {c.date && (
+                  <span style={{ opacity: 0.6, marginLeft: 6 }}>— {c.date}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {related.length > 0 && (
+        <section className="glass agent-related">
+          <div className="agent-section-title">Related</div>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {related.map((r, i) => (
+              <li key={i} style={{ fontSize: 12, color: '#c5c6e2' }}>
+                <a
+                  href={`/dashboard/${r.dept}`}
+                  style={{ color: '#7f8cff', textDecoration: 'underline' }}
+                >
+                  {r.title || r.slug}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <div className="agent-exports">

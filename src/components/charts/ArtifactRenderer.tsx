@@ -8,8 +8,7 @@ import { Heatmap } from './Heatmap';
 import { TagCloud } from './TagCloud';
 import { Checklist } from './Checklist';
 
-/** Routes an Artifact to its SVG/HTML primitive. Pure, dependency-free. */
-export function ArtifactRenderer({ artifact, compact }: { artifact: Artifact; compact?: boolean }) {
+function renderChart(artifact: Artifact, compact?: boolean) {
   switch (artifact.kind) {
     case 'bars':
     case 'divergingBars': return <Bars a={artifact} compact={compact} />;
@@ -22,4 +21,36 @@ export function ArtifactRenderer({ artifact, compact }: { artifact: Artifact; co
     case 'tags':          return <TagCloud a={artifact} compact={compact} />;
     case 'checklist':     return <Checklist a={artifact} compact={compact} />;
   }
+}
+
+/** Routes an Artifact to its SVG/HTML primitive. Pure, dependency-free. */
+export function ArtifactRenderer({ artifact, compact }: { artifact: Artifact; compact?: boolean }) {
+  const badge = artifact.provenance ? (
+    <span
+      className={
+        'text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ' +
+        (artifact.provenance === 'api'
+          ? 'bg-white/10 text-white/60'
+          : 'bg-emerald-400/15 text-emerald-300')
+      }
+      title={
+        artifact.provenance === 'api'
+          ? 'Built from a real API (deterministic)'
+          : 'Researched on the web, with citations'
+      }
+    >
+      {artifact.provenance === 'api' ? 'api' : 'web · cited'}
+    </span>
+  ) : null;
+
+  if (!badge) return renderChart(artifact, compact);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 4 }}>
+        {badge}
+      </div>
+      {renderChart(artifact, compact)}
+    </div>
+  );
 }
