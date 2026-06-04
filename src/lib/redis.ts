@@ -93,7 +93,7 @@ export interface RedisClientLike {
 }
 
 export function makeRedisRepo(client: RedisClientLike) {
-  return {
+  const repo = {
     async setStatus(s: AgentStatus) { await client.set(`agent:${s.dept}:status`, s); },
     async getStatus(dept: DeptId): Promise<AgentStatus> {
       const v = await client.get<AgentStatus>(`agent:${dept}:status`);
@@ -159,7 +159,24 @@ export function makeRedisRepo(client: RedisClientLike) {
       const filtered = entries.filter((e) => matchesKbQuery(e, opts));
       return typeof opts.limit === 'number' ? filtered.slice(0, opts.limit) : filtered;
     },
+    /** Find a PUBLISHED entry by slug, with its graph neighbours resolved.
+     *  Related = same dept+theme (series) ∪ shared-tag ∪ explicit entry.related. */
+    async getKbBySlug(slug: string): Promise<{ entry: KbEntry; related: KbEntry[] } | null> {
+      const all = await repo.listKb({ status: 'published' });
+      const entry = all.find((e) => e.slug === slug);
+      if (!entry) return null;
+      const relatedIds = new Set(entry.related);
+      const related = all.filter((e) => {
+        if (e.id === entry.id) return false;
+        if (relatedIds.has(e.id)) return true;
+        if (entry.theme && e.dept === entry.dept && e.theme === entry.theme) return true; // series
+        if (e.tags.some((t) => entry.tags.includes(t))) return true;                       // tag graph
+        return false;
+      }).slice(0, 12);
+      return { entry, related };
+    },
   };
+  return repo;
 }
 
 export type RedisRepo = ReturnType<typeof makeRedisRepo>;
