@@ -1,7 +1,7 @@
-export type TgCommand = 'status' | 'run' | 'ask' | 'help';
+export type TgCommand = 'status' | 'run' | 'ask' | 'agents' | 'report' | 'help';
 export interface ParsedCommand { cmd: TgCommand; args: string[]; }
 
-const KNOWN: TgCommand[] = ['status', 'run', 'ask', 'help'];
+const KNOWN: TgCommand[] = ['status', 'run', 'ask', 'agents', 'report', 'help'];
 
 export function parseCommand(text: string): ParsedCommand | null {
   if (!text.startsWith('/')) return null;
@@ -33,4 +33,15 @@ export async function sendMessage(text: string, chatId?: string): Promise<void> 
   } catch {
     /* best-effort notify */
   }
+}
+
+export interface FocusSession {
+  dept: string;
+  turns: { role: 'user' | 'assistant'; text: string }[];
+  until: number;
+}
+export const FOCUS_TTL_MS = 15 * 60 * 1000;
+export const focusKey = (chatId: string | number) => `tg:focus:${chatId}`;
+export function isFocusLive(s: FocusSession | null, now = Date.now()): boolean {
+  return !!s && s.until > now;
 }
