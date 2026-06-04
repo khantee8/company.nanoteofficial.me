@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeRedisRepo, type RedisClientLike } from './redis';
-import { getKnowledge } from './kb';
+import { getKnowledge, getKnowledgeEntry } from './kb';
 import type { KbEntry } from './agents/types';
 
 /** In-memory Redis with the key/list/hash ops the KB storage uses. */
@@ -100,5 +100,40 @@ describe('getKnowledge (public)', () => {
     expect(all).toHaveLength(1);
     expect(all[0].dept).toBe('fin');
     expect(await getKnowledge(repo, { dept: 'ceo' })).toHaveLength(0); // its only entry is a draft
+  });
+});
+
+describe('getKnowledgeEntry', () => {
+  it('getKnowledgeEntry returns entry + related for a slug', async () => {
+    const stub = { getKbBySlug: async (slug: string) =>
+      slug === 's1' ? { entry: { id: 'fin:1', slug: 's1' }, related: [{ id: 'fin:0' }] } : null } as never;
+    const res = await getKnowledgeEntry(stub, { slug: 's1' });
+    expect(res?.entry.id).toBe('fin:1');
+    expect(res?.related[0].id).toBe('fin:0');
+    expect(await getKnowledgeEntry(stub, { slug: 'missing' })).toBeNull();
+  });
+});
+
+const byId = (over: Partial<KbEntry> & { id: string; slug: string; dept: KbEntry['dept']; ts: string }): KbEntry => ({
+  date: over.ts.slice(0, 10), category: 'market-brief', tags: [], status: 'published',
+  summary: '', highlight: '', flags: [], artifacts: [], sources: [], provenance: 'api', related: [], markdown: '',
+  ...over,
+});
+
+describe('getKnowledgeEntry by id (published-only)', () => {
+  it('returns a published entry by id', async () => {
+    const repo = makeRedisRepo(memoryClient());
+    await repo.pushKb(byId({ id: 'fin:1', slug: 'fin-a-2026-06-04', dept: 'fin', ts: '2026-06-04T10:00:00Z' }));
+    const res = await getKnowledgeEntry(repo, { id: 'fin:1' });
+    expect(res?.entry.id).toBe('fin:1');
+  });
+  it('returns null for a draft id (no draft leak)', async () => {
+    const repo = makeRedisRepo(memoryClient());
+    await repo.pushKb(byId({ id: 'fin:2', slug: 'fin-b-2026-06-04', dept: 'fin', ts: '2026-06-04T11:00:00Z', status: 'draft' }));
+    expect(await getKnowledgeEntry(repo, { id: 'fin:2' })).toBeNull();
+  });
+  it('returns null for a nonexistent id', async () => {
+    const repo = makeRedisRepo(memoryClient());
+    expect(await getKnowledgeEntry(repo, { id: 'nope:0' })).toBeNull();
   });
 });

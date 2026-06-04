@@ -24,3 +24,18 @@ export interface KnowledgeQuery {
 export async function getKnowledge(repo: RedisRepo, opts: KnowledgeQuery = {}): Promise<KbEntry[]> {
   return repo.listKb({ ...opts, status: 'published' });
 }
+
+/** Single published entry by slug (or id), with graph neighbours resolved.
+ *  Powers /api/kb?slug=… for kb.nanoteofficial.me. */
+export async function getKnowledgeEntry(
+  repo: RedisRepo,
+  q: { slug?: string; id?: string },
+): Promise<{ entry: KbEntry; related: KbEntry[] } | null> {
+  if (q.slug) return repo.getKbBySlug(q.slug);
+  if (q.id) {
+    const e = await repo.getKbEntry(q.id);
+    if (!e || e.status !== 'published') return null;
+    return repo.getKbBySlug(e.slug);
+  }
+  return null;
+}
