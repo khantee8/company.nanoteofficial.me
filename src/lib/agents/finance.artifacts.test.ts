@@ -1,51 +1,28 @@
 import { describe, it, expect } from 'vitest';
-import { financeArtifacts, financeTags } from './finance';
-import type { CoinGeckoResponse } from '@/lib/sources/coingecko';
+import { financeArtifacts, type FinanceFindings } from './finance';
 
-const raw: CoinGeckoResponse = {
-  bitcoin: { usd: 71240, usd_24h_change: 2.1 },
-  ethereum: { usd: 3820, usd_24h_change: -1.3 },
-  solana: { usd: 182, usd_24h_change: 4.5 },
-};
+const f: FinanceFindings = { theme: 'us-index-sp500', funds: [
+  { name: 'A', amc: 'X', ter: 0.3, aum: 1000, masterFund: 'iShares', return1y: 18.2, hedged: false, taxType: 'none', citation: { url: 'https://e.com', title: 't', date: '2026-06-01' } },
+  { name: 'B', amc: 'Y', ter: 0.6, aum: 500, masterFund: 'Vanguard', return1y: 15.1, hedged: true, taxType: 'ssf', citation: { url: 'https://e2.com', title: 't2', date: '2026-06-02' } },
+]};
 
 describe('financeArtifacts', () => {
-  it('builds diverging 24h bars with values = % change', () => {
-    const bars = financeArtifacts(raw).find((a) => a.kind === 'divergingBars');
-    expect(bars).toBeTruthy();
-    if (bars && bars.kind === 'divergingBars') {
-      expect(bars.series.map((s) => s.label)).toEqual(['BTC', 'ETH', 'SOL']);
-      expect(bars.series.map((s) => s.value)).toEqual([2.1, -1.3, 4.5]);
-      expect(bars.unit).toBe('%');
-    }
+  it('builds web·cited charts from findings', () => {
+    const a = financeArtifacts(f);
+    expect(a).toHaveLength(3);
+    expect(a.every((x) => x.provenance === 'web')).toBe(true);
+    expect(a[0].sources?.[0].url).toBe('https://e.com');
   });
-
-  it('builds a breadth donut with up/down counts', () => {
-    const donut = financeArtifacts(raw).find((a) => a.kind === 'donut');
-    if (donut && donut.kind === 'donut') {
-      expect(donut.series.map((s) => [s.label, s.value])).toEqual([['up', 2], ['down', 1]]);
-    } else {
-      throw new Error('no donut');
-    }
+  it('maps every fund into the chart series and table rows', () => {
+    const a = financeArtifacts(f);
+    const bars = a[0];
+    if (bars.kind !== 'bars') throw new Error('expected TER bars first');
+    expect(bars.series).toHaveLength(2);
+    const table = a.find((x) => x.kind === 'table');
+    if (!table || table.kind !== 'table') throw new Error('no table');
+    expect(table.rows).toHaveLength(2);
   });
-
-  it('builds a price table keyed by symbol', () => {
-    const table = financeArtifacts(raw).find((a) => a.kind === 'table');
-    if (table && table.kind === 'table') {
-      expect(table.columns).toEqual(['asset', 'price', '24h %']);
-      expect(table.rows[0][0]).toBe('BTC');
-      expect(table.rows).toHaveLength(3);
-    } else {
-      throw new Error('no table');
-    }
-  });
-
-  it('survives an empty response', () => {
-    expect(() => financeArtifacts({})).not.toThrow();
-  });
-});
-
-describe('financeTags', () => {
-  it('returns lowercased tickers', () => {
-    expect(financeTags(raw)).toEqual(['btc', 'eth', 'sol']);
+  it('returns no artifacts when no funds (graceful empty)', () => {
+    expect(financeArtifacts({ theme: 't', funds: [] })).toEqual([]);
   });
 });

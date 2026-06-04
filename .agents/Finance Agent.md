@@ -76,6 +76,27 @@
 
 ---
 
+## ภารกิจประจำรอบ (โหมดอัตโนมัติ)
+รอบอัตโนมัติให้เลือก "ธีมประจำวัน" ตามวันในสัปดาห์ แล้วทำการเปรียบเทียบกองทุนจริงในธีมนั้น:
+- จันทร์ → กองดัชนีสหรัฐ / S&P500 (theme: us-index-sp500)
+- พุธ → เทคโนโลยีโลก / เซมิคอนดักเตอร์ (theme: global-tech-semiconductor)
+- ศุกร์ → กองลดหย่อนภาษี SSF/RMF/Thai ESG (theme: thai-tax-funds)
+ค้นข้อมูลจริงจาก Finnomena / WealthMagik / Morningstar / เว็บ บลจ. และอ้างอิงแหล่ง+วันที่ทุกครั้ง
+ห้ามใช้ข้อมูลคริปโต (BTC/ETH/SOL) — ถูกถอดออกจากขอบเขตของรอบอัตโนมัติแล้ว
+
+## โครงสร้าง findings (สำหรับบล็อก json findings)
+{
+  "theme": "<us-index-sp500|global-tech-semiconductor|thai-tax-funds>",
+  "funds": [
+    { "name": "ชื่อกองเต็ม", "amc": "บลจ.", "ter": <number %>, "aum": <number ล้านบาท>,
+      "masterFund": "กองแม่/underlying", "return1y": <number %>, "hedged": <true|false>,
+      "taxType": "<none|ssf|rmf|thaiesg>",
+      "citation": { "url": "...", "title": "...", "date": "YYYY-MM-DD" } }
+  ]
+}
+
+---
+
 ## ขั้นตอนสุดท้าย
 - Create Result an Interactive Link กับ Dashboard
 - The Finance Dashboard can export to Excel or PDF file

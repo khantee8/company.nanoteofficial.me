@@ -1,58 +1,87 @@
 import { complete } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
-import { fetchPrices, formatPrices, SYMBOL, type CoinGeckoResponse } from '@/lib/sources/coingecko';
-import { normalizeTags, type Artifact } from './artifacts';
+import { extractFindingsBlock, hasCitation } from './findings';
+import { normalizeTags, withProvenance, type Artifact, type Citation } from './artifacts';
 import type { AgentRunResult, AgentContext } from './types';
 
-export function briefSummary(lines: string[]): string {
-  const up = lines.filter((l) => l.includes('▲')).length;
-  const down = lines.filter((l) => l.includes('▼')).length;
-  return `${lines.length} assets tracked · net ${up} up / ${down} down`;
+export interface FundFinding {
+  name: string; amc: string; ter: number; aum: number; masterFund: string;
+  return1y: number; hedged: boolean; taxType: 'none' | 'ssf' | 'rmf' | 'thaiesg';
+  citation: Citation;
+}
+export interface FinanceFindings { theme: string; funds: FundFinding[] }
+
+const THEME_BY_DOW: Record<number, { theme: string; label: string }> = {
+  1: { theme: 'us-index-sp500', label: 'กองดัชนีสหรัฐ / S&P500' },
+  3: { theme: 'global-tech-semiconductor', label: 'เทคโนโลยีโลก / เซมิคอนดักเตอร์' },
+  5: { theme: 'thai-tax-funds', label: 'กองลดหย่อนภาษี SSF/RMF/Thai ESG' },
+};
+export function themeForToday(d = new Date()): { theme: string; label: string } {
+  return THEME_BY_DOW[d.getUTCDay()] ?? THEME_BY_DOW[1];
 }
 
-const sym = (id: string) => SYMBOL[id] ?? id.toUpperCase();
+/** Validate the model's findings block; drop any fund without a real citation. */
+export function parseFinanceFindings(markdown: string): FinanceFindings | null {
+  const raw = extractFindingsBlock<Partial<FinanceFindings>>(markdown);
+  if (!raw) return null;
+  if (!Array.isArray(raw.funds)) return { theme: String(raw.theme ?? ''), funds: [] };
+  const funds = raw.funds.filter(
+    (f): f is FundFinding =>
+      !!f &&
+      typeof f.name === 'string' &&
+      [f.ter, f.aum, f.return1y].every((n) => typeof n === 'number' && Number.isFinite(n)) &&
+      hasCitation(f as { citation?: Partial<Citation> }),
+  );
+  return { theme: String(raw.theme ?? ''), funds };
+}
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Charts built deterministically from the CoinGecko snapshot. */
-export function financeArtifacts(raw: CoinGeckoResponse): Artifact[] {
-  const entries = Object.entries(raw);
-  const up = entries.filter(([, v]) => v.usd_24h_change > 0).length;
-  const down = entries.filter(([, v]) => v.usd_24h_change < 0).length;
+/** Charts built from validated findings, tagged web·cited. */
+export function financeArtifacts(f: FinanceFindings): Artifact[] {
+  if (f.funds.length === 0) return [];
+  const sources = f.funds.map((x) => x.citation);
   return [
-    {
-      kind: 'divergingBars', title: '24h moves', unit: '%',
-      series: entries.map(([id, v]) => ({ label: sym(id), value: round2(v.usd_24h_change) })),
-    },
-    {
-      kind: 'donut', title: 'market breadth',
-      series: [
-        { label: 'up', value: up, color: '#3ddc97' },
-        { label: 'down', value: down, color: '#ff6b86' },
-      ],
-    },
-    {
-      kind: 'table', title: 'prices', columns: ['asset', 'price', '24h %'],
-      rows: entries.map(([id, v]) => [sym(id), `$${v.usd.toLocaleString('en-US')}`, round2(v.usd_24h_change)]),
-    },
+    withProvenance({
+      kind: 'bars', title: 'ค่าธรรมเนียมรวม (TER %)', unit: '%',
+      series: f.funds.map((x) => ({ label: x.name, value: round2(x.ter) })),
+    }, 'web', sources),
+    withProvenance({
+      kind: 'divergingBars', title: 'ผลตอบแทนย้อนหลัง 1 ปี (%)', unit: '%',
+      series: f.funds.map((x) => ({ label: x.name, value: round2(x.return1y) })),
+    }, 'web', sources),
+    withProvenance({
+      kind: 'table', title: 'เปรียบเทียบกองทุน',
+      columns: ['กอง', 'บลจ.', 'TER%', 'AUM(ลบ.)', 'กองแม่', 'ป้องกันค่าเงิน', '1Y%'],
+      rows: f.funds.map((x) => [x.name, x.amc, round2(x.ter), round2(x.aum), x.masterFund, x.hedged ? 'hedged' : 'unhedged', round2(x.return1y)]),
+    }, 'web', sources),
   ];
 }
 
-export function financeTags(raw: CoinGeckoResponse): string[] {
-  return normalizeTags(Object.keys(raw).map(sym));
+export function financeTags(f: FinanceFindings): string[] {
+  return normalizeTags([f.theme, ...f.funds.map((x) => x.amc)]);
 }
 
 export async function run(ctx: AgentContext): Promise<AgentRunResult> {
-  const prices = await fetchPrices();
-  const lines = formatPrices(prices);
+  const { theme, label } = themeForToday();
   const context = formatContext(ctx);
   const markdown = await complete({
     system: PERSONAS.fin,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}Today's market snapshot:\n${lines.join('\n')}\n\nWrite a brief (120-180 words) informational finance note: what moved, any notable divergence, and a one-line outlook. End with a disclaimer that this is not financial advice.`,
-    maxTokens: 900,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nค้นหาและเปรียบเทียบกองทุนรวมไทยจริง 3-5 กองในธีมนี้ พร้อมค่าธรรมเนียม กองแม่ AUM และผลตอบแทน อ้างอิงแหล่ง+วันที่ทุกตัวเลข แล้วแนบบล็อก \`\`\`json findings ตามสคีมา`,
+    webSearch: true,
+    maxSearches: 6,
+    maxTokens: 2200,
   });
+  const findings = parseFinanceFindings(markdown) ?? { theme, funds: [] };
+  const artifacts = financeArtifacts(findings);
+  const sources = findings.funds.map((x) => x.citation);
   return {
-    markdown, summary: briefSummary(lines), feedMsg: `market: ${lines[0] ?? 'n/a'}`,
-    artifacts: financeArtifacts(prices), tags: financeTags(prices), meta: { lines },
+    markdown,
+    summary: `${findings.funds.length} กองในธีม ${label}`,
+    feedMsg: `finance: ${label} — ${findings.funds.length} funds`,
+    artifacts, tags: financeTags(findings),
+    theme, provenance: findings.funds.length > 0 ? 'web' : 'api', sources,
+    meta: { theme, fundCount: findings.funds.length },
   };
 }
