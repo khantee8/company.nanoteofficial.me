@@ -99,4 +99,18 @@ ALERT ระดับ   : 🔴 Critical
 
 ---
 
+## ภารกิจประจำรอบ (โหมดอัตโนมัติ)
+ทุกวัน ค้นหา CVE/ภัยคุกคามจริงในรอบ 24-48 ชม.ที่เกี่ยวกับสแตกของบริษัท (Next.js, Vercel, Node.js, Redis/Upstash, Auth0) สรุประดับความรุนแรง สถานะ KEV และวิธีบรรเทาที่ลงมือได้จริง อ้างอิงแหล่ง+วันที่ทุกครั้ง ห้ามแต่งเลข CVE หรือแหล่งอ้างอิง
+
+## โครงสร้าง findings (สำหรับบล็อก json findings)
+{
+  "items": [
+    { "cve": "CVE-2026-XXXX", "severity": "<critical|high|medium|low>", "kev": <true|false>,
+      "summary": "สรุปสั้น", "mitigation": "สิ่งที่ควรทำ",
+      "citation": { "url": "...", "title": "...", "date": "YYYY-MM-DD" } }
+  ]
+}
+
+---
+
 *Nanote Corp — CyberX Agent v1.0*

@@ -41,6 +41,11 @@ describe('cyberxArtifacts', () => {
   it('survives an empty feed', () => {
     expect(() => cyberxArtifacts([])).not.toThrow();
   });
+
+  it('tags KEV charts as api provenance', () => {
+    const a = cyberxArtifacts(kev);
+    expect(a.every((x) => x.provenance === 'api')).toBe(true);
+  });
 });
 
 describe('cyberxTags', () => {

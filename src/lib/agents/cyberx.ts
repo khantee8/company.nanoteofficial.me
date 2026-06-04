@@ -2,7 +2,8 @@ import { complete } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { fetchKev, fetchSecurityNews, formatThreatIntel, type KevEntry } from '@/lib/sources/threatintel';
-import { normalizeTags, type Artifact } from './artifacts';
+import { extractFindingsBlock, hasCitation } from './findings';
+import { normalizeTags, withProvenance, type Artifact, type Citation } from './artifacts';
 import type { AgentRunResult, AgentContext } from './types';
 
 export function briefSummary(kev: KevEntry[]): string {
@@ -28,7 +29,7 @@ export function cyberxArtifacts(kev: KevEntry[]): Artifact[] {
     .slice(-7)
     .map(([d, n]) => ({ t: d.slice(5), value: n }));
 
-  return [
+  const charts: Artifact[] = [
     {
       kind: 'donut', title: 'severity',
       series: [
@@ -42,10 +43,45 @@ export function cyberxArtifacts(kev: KevEntry[]): Artifact[] {
       rows: kev.map((k) => [k.cveId, `${k.vendorProject} ${k.product}`, k.dateAdded]),
     },
   ];
+  return charts.map((a) => withProvenance(a, 'api'));
 }
 
 export function cyberxTags(kev: KevEntry[]): string[] {
   return normalizeTags(kev.flatMap((k) => [k.cveId, k.vendorProject]));
+}
+
+export interface CyberxFinding {
+  cve: string; severity: 'critical' | 'high' | 'medium' | 'low'; kev: boolean;
+  summary: string; mitigation: string; citation: Citation;
+}
+export interface CyberxFindings { items: CyberxFinding[] }
+
+export function parseCyberxFindings(markdown: string): CyberxFindings | null {
+  const raw = extractFindingsBlock<Partial<CyberxFindings>>(markdown);
+  if (!raw) return null;
+  if (!Array.isArray(raw.items)) return { items: [] };
+  const items = raw.items.filter(
+    (x): x is CyberxFinding =>
+      !!x &&
+      typeof x.cve === 'string' &&
+      typeof x.severity === 'string' &&
+      ['critical', 'high', 'medium', 'low'].includes(x.severity) &&
+      hasCitation(x as { citation?: Partial<Citation> }),
+  );
+  return { items };
+}
+
+/** A web·cited advisory table from researched findings. */
+export function cyberxAdvisoryArtifacts(f: CyberxFindings): Artifact[] {
+  if (f.items.length === 0) return [];
+  const sources = f.items.map((x) => x.citation);
+  return [
+    withProvenance({
+      kind: 'table', title: 'advisories (researched)',
+      columns: ['CVE', 'severity', 'KEV', 'mitigation'],
+      rows: f.items.map((x) => [x.cve, x.severity, x.kev ? 'yes' : 'no', x.mitigation]),
+    }, 'web', sources),
+  ];
 }
 
 export async function run(ctx: AgentContext): Promise<AgentRunResult> {
@@ -54,15 +90,22 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const context = formatContext(ctx);
   const markdown = await complete({
     system: PERSONAS.cyb,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}Today's threat feed:\n${lines.join('\n')}\n\nWrite a brief (120-180 word) threat-intelligence note: what's newly exploited, relevance to a small web/cloud company, and a one-line risk posture. Include a Sources list.`,
-    maxTokens: 600,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}Today's threat feed:\n${lines.join('\n')}\n\nวิเคราะห์ภัยคุกคามจริงในรอบ 24-48 ชม.ที่เกี่ยวกับสแตกของบริษัท ค้นเว็บหา advisory/รายละเอียดเพิ่มเติม อ้างอิงแหล่ง+วันที่ แล้วแนบบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
+    webSearch: true,
+    maxSearches: 5,
+    maxTokens: 1800,
   });
+  const findings = parseCyberxFindings(markdown) ?? { items: [] };
+  const artifacts = [...cyberxArtifacts(kev), ...cyberxAdvisoryArtifacts(findings)];
+  const sources = findings.items.map((x) => x.citation);
   return {
     markdown,
     summary: briefSummary(kev),
     feedMsg: `threat: ${news[0]?.title ?? kev[0]?.cveId ?? 'n/a'}`,
-    artifacts: cyberxArtifacts(kev),
+    artifacts,
     tags: cyberxTags(kev),
-    meta: { kev, news },
+    provenance: findings.items.length > 0 ? 'web' : 'api',
+    sources,
+    meta: { kev, news, advisories: findings.items.length },
   };
 }
