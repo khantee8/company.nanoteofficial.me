@@ -18,10 +18,11 @@ const snapshot: CompanySnapshot = {
 };
 
 const markdown = '## Summary\nGood day across the board.\n\n## Decisions\n- Ship the v1.4 banner\n- Patch the KEV CVE\n';
+const emptyFindings = { decisions: [], risks: [], priorities: [] };
 
 describe('ceoArtifacts', () => {
   it('builds a department health scorecard from statuses', () => {
-    const card = ceoArtifacts(snapshot, markdown).find((a) => a.kind === 'scorecard');
+    const card = ceoArtifacts(snapshot, markdown, emptyFindings).find((a) => a.kind === 'scorecard');
     if (card && card.kind === 'scorecard') {
       const byLabel = Object.fromEntries(card.tiles.map((t) => [t.label, t.state]));
       expect(byLabel).toMatchObject({ CYB: 'ok', FIN: 'ok', OPS: 'down', MKT: 'warn', RND: 'ok', CEO: 'warn' });
@@ -31,7 +32,7 @@ describe('ceoArtifacts', () => {
   });
 
   it('builds an open-flags-by-dept bar chart (descending, nonzero only)', () => {
-    const bars = ceoArtifacts(snapshot, markdown).find((a) => a.kind === 'bars');
+    const bars = ceoArtifacts(snapshot, markdown, emptyFindings).find((a) => a.kind === 'bars');
     if (bars && bars.kind === 'bars') {
       expect(bars.series.map((s) => [s.label, s.value])).toEqual([['OPS', 2], ['CYB', 1]]);
     } else {
@@ -40,7 +41,7 @@ describe('ceoArtifacts', () => {
   });
 
   it('builds a 7-day activity heatmap from digest dates', () => {
-    const heat = ceoArtifacts(snapshot, markdown).find((a) => a.kind === 'heatmap');
+    const heat = ceoArtifacts(snapshot, markdown, emptyFindings).find((a) => a.kind === 'heatmap');
     if (heat && heat.kind === 'heatmap') {
       expect(heat.cells).toEqual([{ label: '06-02', level: 1 }, { label: '06-03', level: 2 }]);
     } else {
@@ -48,8 +49,8 @@ describe('ceoArtifacts', () => {
     }
   });
 
-  it('parses a decisions checklist from the markdown', () => {
-    const list = ceoArtifacts(snapshot, markdown).find((a) => a.kind === 'checklist');
+  it('parses a decisions checklist from the markdown (fallback when findings empty)', () => {
+    const list = ceoArtifacts(snapshot, markdown, emptyFindings).find((a) => a.kind === 'checklist');
     if (list && list.kind === 'checklist') {
       expect(list.items).toEqual([
         { text: 'Ship the v1.4 banner', done: false },
@@ -61,7 +62,7 @@ describe('ceoArtifacts', () => {
   });
 
   it('survives an empty snapshot', () => {
-    expect(() => ceoArtifacts({ statuses: [], digest: [] }, '')).not.toThrow();
+    expect(() => ceoArtifacts({ statuses: [], digest: [] }, '', emptyFindings)).not.toThrow();
   });
 });
 

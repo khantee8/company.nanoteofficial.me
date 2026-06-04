@@ -46,7 +46,8 @@ export interface AgentRunResult {
   sources?: Citation[];
   /** Dominant data source for this run. */
   provenance?: 'api' | 'web';
-  /** Explicit cross-links (CEO synthesis → source entry ids). */
+  /** Explicit cross-links (CEO synthesis → source entry ids). These may reference
+   *  draft entries; the public /api/kb only resolves links to PUBLISHED entries. */
   related?: string[];
 }
 
@@ -93,5 +94,5 @@ export interface AgentContext {
   companyDigest: DigestEntry[];
   todayPeers: Array<{ dept: DeptId; summary: string; highlight: string; flags: string[] }>;
   /** Whole-company state — populated only for the CEO (Executive Cockpit). */
-  companySnapshot?: { statuses: AgentStatus[]; digest: DigestEntry[] };
+  companySnapshot?: { statuses: AgentStatus[]; digest: DigestEntry[]; relatedEntryIds?: string[] };
 }

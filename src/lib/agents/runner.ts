@@ -65,9 +65,19 @@ export async function buildContext(dept: DeptId, repo: RedisRepo): Promise<Agent
 
   // The CEO's Executive Cockpit aggregates whole-company state; only it pays the
   // extra status reads.
-  const companySnapshot = dept === 'ceo'
-    ? { statuses: await Promise.all(DEPARTMENTS.map((d) => repo.getStatus(d.id))), digest }
-    : undefined;
+  let companySnapshot: AgentContext['companySnapshot'];
+  if (dept === 'ceo') {
+    const statuses = await Promise.all(DEPARTMENTS.map((d) => repo.getStatus(d.id)));
+    const recent = await repo.listKb({ limit: 24 });
+    const seen = new Set<DeptId>();
+    const relatedEntryIds: string[] = [];
+    for (const e of recent) {
+      if (e.dept === 'ceo' || seen.has(e.dept)) continue;
+      seen.add(e.dept);
+      relatedEntryIds.push(e.id);
+    }
+    companySnapshot = { statuses, digest, relatedEntryIds };
+  }
 
   return {
     ownHistory,
