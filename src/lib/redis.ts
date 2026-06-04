@@ -2,6 +2,8 @@ import { Redis } from '@upstash/redis';
 import type { DeptId } from '@/lib/data/departments';
 import type { AgentStatus, AgentOutput, FeedEvent, HistoryEntry, DigestEntry, KbEntry } from './agents/types';
 import { CATEGORY_BY_DEPT } from './agents/artifacts';
+import { focusKey } from './telegram';
+import type { FocusSession } from './telegram';
 
 const FEED_KEY = 'feed:events';
 const FEED_CAP = 50;
@@ -175,6 +177,11 @@ export function makeRedisRepo(client: RedisClientLike) {
       }).slice(0, 12);
       return { entry, related };
     },
+    async setFocus(chatId: string | number, s: FocusSession) { await client.set(focusKey(chatId), s); },
+    async getFocus(chatId: string | number): Promise<FocusSession | null> {
+      return (await client.get<FocusSession>(focusKey(chatId))) ?? null;
+    },
+    async clearFocus(chatId: string | number) { await client.del(focusKey(chatId)); },
   };
   return repo;
 }
