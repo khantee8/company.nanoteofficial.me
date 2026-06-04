@@ -43,6 +43,11 @@ describe('rndArtifacts', () => {
   it('emits nothing when there are no repos (graceful)', () => {
     expect(rndArtifacts([])).toEqual([]);
   });
+
+  it('tags trending charts as api provenance', () => {
+    const a = rndArtifacts(repos);
+    expect(a.every((x) => x.provenance === 'api')).toBe(true);
+  });
 });
 
 describe('rndTags', () => {

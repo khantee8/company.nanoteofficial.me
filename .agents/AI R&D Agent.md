@@ -95,4 +95,19 @@
 
 ---
 
+## ภารกิจประจำรอบ (โหมดอัตโนมัติ)
+เลือกโฟกัสตามวัน: อังคาร → AI agents (theme: agents), พฤหัส → LLM infrastructure (theme: llm-infra). ค้นหา repo/เปเปอร์/รีลีสจริงที่กำลังมาแรงในโฟกัสนั้น สรุปว่าอะไรน่ารับมาใช้และเพราะอะไร อ้างอิงแหล่ง+วันที่ทุกครั้ง ห้ามแต่งชื่อหรือแหล่งอ้างอิง
+
+## โครงสร้าง findings (สำหรับบล็อก json findings)
+{
+  "theme": "<agents|llm-infra>",
+  "items": [
+    { "name": "ชื่อ repo/paper/release", "kind": "<repo|paper|release>", "why": "เหตุผลที่น่าสนใจ",
+      "lang": "ภาษา/เฟรมเวิร์ก (ถ้ามี)",
+      "citation": { "url": "...", "title": "...", "date": "YYYY-MM-DD" } }
+  ]
+}
+
+---
+
 *Nanote Corp — AI R&D Agent v1.0*
