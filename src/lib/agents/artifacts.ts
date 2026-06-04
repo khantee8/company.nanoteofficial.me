@@ -18,7 +18,12 @@ export const CATEGORY_BY_DEPT: Record<DeptId, KbCategory> = {
   ceo: 'exec-brief',
 };
 
-export type Artifact =
+export type Provenance = 'api' | 'web';
+export interface Citation { url: string; title: string; /** ISO 8601, YYYY-MM-DD */ date: string }
+
+interface ArtifactMeta { provenance?: Provenance; sources?: Citation[] }
+
+export type Artifact = ArtifactMeta & (
   | { kind: 'bars' | 'divergingBars' | 'donut'; title: string;
       series: { label: string; value: number; color?: string }[]; unit?: string }
   | { kind: 'line' | 'sparkline'; title: string;
@@ -29,7 +34,16 @@ export type Artifact =
       tiles: { label: string; state: 'ok' | 'warn' | 'down' }[] }
   | { kind: 'heatmap'; title: string; cells: { label: string; level: number }[] }
   | { kind: 'tags'; title: string; tags: string[] }
-  | { kind: 'checklist'; title: string; items: { text: string; done: boolean }[] };
+  | { kind: 'checklist'; title: string; items: { text: string; done: boolean }[] }
+);
+
+/** Stamp an artifact with its data provenance. `api` = built from a real API
+ *  (deterministic, can't be hallucinated). `web` = researched, MUST carry sources. */
+export function withProvenance(a: Artifact, provenance: 'api', sources?: Citation[]): Artifact;
+export function withProvenance(a: Artifact, provenance: 'web', sources: Citation[]): Artifact;
+export function withProvenance(a: Artifact, provenance: Provenance, sources: Citation[] = []): Artifact {
+  return { ...a, provenance, sources };
+}
 
 /** Deterministic, deduplicated, lowercased, capped tag list. */
 export function normalizeTags(raw: string[], cap = 12): string[] {
