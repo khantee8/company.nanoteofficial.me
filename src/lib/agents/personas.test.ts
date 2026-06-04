@@ -15,4 +15,11 @@ describe('personas', () => {
       expect(fl).toBeGreaterThan(hi);
     }
   });
+
+  it('every persona instructs emitting a json findings block before the footer', () => {
+    for (const p of Object.values(PERSONAS)) {
+      expect(p).toMatch(/```json findings/);
+      expect(p.indexOf('```json findings')).toBeLessThan(p.indexOf('## Highlight'));
+    }
+  });
 });
