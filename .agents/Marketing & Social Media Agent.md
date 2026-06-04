@@ -104,4 +104,21 @@ Content Plan:
 
 ---
 
+## ภารกิจประจำรอบ (โหมดอัตโนมัติ)
+อ่านสัญญาณดีมานด์จริงจาก Hacker News / Dev.to และค้นเว็บเพิ่มเติม แล้วเสนอแผนคอนเทนต์/โซเชียลที่ผูกกับสิ่งที่กำลังเทรนด์จริง (theme: dev-demand) อ้างอิงแหล่ง+วันที่สำหรับสัญญาณที่ค้นจากเว็บ ห้ามแต่งตัวเลขหรือแหล่งอ้างอิง
+
+## โครงสร้าง findings (สำหรับบล็อก json findings)
+{
+  "theme": "dev-demand",
+  "signals": [
+    { "topic": "หัวข้อ", "source": "<hackernews|devto|web>", "score": <number (ถ้ามี)>,
+      "citation": { "url": "...", "title": "...", "date": "YYYY-MM-DD" } }
+  ],
+  "plan": [
+    { "channel": "<blog|x|linkedin>", "idea": "ไอเดียคอนเทนต์", "tiedTo": "topic ที่อิง" }
+  ]
+}
+
+---
+
 *Nanote Corp — Marketing & Social Media Agent v1.0*

@@ -49,6 +49,11 @@ describe('marketingArtifacts', () => {
   it('survives empty inputs', () => {
     expect(() => marketingArtifacts({ hn: [], devto: [], reach: [] })).not.toThrow();
   });
+
+  it('tags demand/reach/plan charts as api provenance', () => {
+    const a = marketingArtifacts(data);
+    expect(a.every((x) => x.provenance === 'api')).toBe(true);
+  });
 });
 
 describe('marketingTags', () => {
