@@ -1,7 +1,7 @@
 import type { DeptId } from '@/lib/data/departments';
-import type { Artifact, KbCategory } from './artifacts';
+import type { Artifact, KbCategory, Citation } from './artifacts';
 
-export type { Artifact, KbCategory };
+export type { Artifact, KbCategory, Citation };
 
 export type AgentState = 'idle' | 'running' | 'done' | 'error';
 
@@ -61,10 +61,12 @@ export interface DigestEntry {
 /** Archived agent result for the knowledge base (future kb.nanoteofficial.me). */
 export interface KbEntry {
   id: string;
+  slug: string;
   dept: DeptId;
   date: string;
   ts: string;
   category: KbCategory;
+  theme?: string;
   tags: string[];
   status: 'draft' | 'published' | 'archived';
   pinned?: boolean;
@@ -72,6 +74,9 @@ export interface KbEntry {
   highlight: string;
   flags: string[];
   artifacts: Artifact[];
+  sources: Citation[];
+  provenance: 'api' | 'web';
+  related: string[];
   markdown: string;
 }
 

@@ -2,6 +2,7 @@ import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import type { AgentRunResult, AgentContext } from './types';
 import { CATEGORY_BY_DEPT } from './artifacts';
 import type { RedisRepo } from '@/lib/redis';
+import { deriveSlug } from '@/lib/redis';
 
 export interface Agent {
   dept: DeptId;
@@ -132,7 +133,9 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
       repo.pushDigest({ dept, date, summary: result.summary, highlight, flags }),
       // Archive into the knowledge base as a DRAFT — the Admin KB Manager
       // reviews and publishes before it surfaces on the public /api/kb feed.
-      repo.pushKb({ id, dept, date, ts, category, tags, status: 'draft', summary: result.summary, highlight, flags, artifacts, markdown: result.markdown }),
+      repo.pushKb({ id, slug: deriveSlug({ dept, date, category }), dept, date, ts, category,
+        tags, status: 'draft', summary: result.summary, highlight, flags, artifacts,
+        sources: [], provenance: 'api', related: [], markdown: result.markdown }),
     ]);
 
     await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}\n\n${result.markdown.slice(0, 800)}`);

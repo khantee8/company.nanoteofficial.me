@@ -23,9 +23,10 @@ export function memoryClient(): RedisClientLike {
 }
 
 const entry = (dept: KbEntry['dept'], date: string, over: Partial<KbEntry> = {}): KbEntry => ({
-  id: `${dept}:${date}`, dept, date, ts: `${date}T00:00:00Z`,
+  id: `${dept}:${date}`, slug: '', dept, date, ts: `${date}T00:00:00Z`,
   category: dept === 'fin' ? 'market-brief' : 'exec-brief', tags: [], status: 'published',
-  artifacts: [], summary: `${dept} ${date}`, highlight: `${dept} hi`, flags: [], markdown: `# ${dept}`,
+  artifacts: [], sources: [], provenance: 'api', related: [],
+  summary: `${dept} ${date}`, highlight: `${dept} hi`, flags: [], markdown: `# ${dept}`,
   ...over,
 });
 

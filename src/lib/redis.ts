@@ -28,16 +28,30 @@ export interface KbQuery {
   limit?: number;
 }
 
-export type KbPatch = Partial<Pick<KbEntry, 'status' | 'tags' | 'pinned' | 'category'>>;
+export type KbPatch = Partial<Pick<KbEntry, 'status' | 'tags' | 'pinned' | 'category' | 'theme'>>;
 
-/** Fill any fields missing on a pre-v1.3 (or partial) KB record. */
+const slugify = (s: string) =>
+  s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+/** Stable public slug for an entry: <dept>-<theme|category>-<date>. */
+export function deriveSlug(e: { dept: DeptId; date?: string; ts?: string; theme?: string; category?: KbEntry['category'] }): string {
+  const date = e.date ?? (e.ts ? e.ts.slice(0, 10) : '');
+  const mid = (e.theme ? slugify(e.theme) : '') || (e.category ?? CATEGORY_BY_DEPT[e.dept]);
+  return `${e.dept}-${mid}-${date}`;
+}
+
+/** Fill any fields missing on a pre-v1.3/v1.4 (or partial) KB record. */
 export function normalizeKbEntry(raw: Partial<KbEntry> & { dept: DeptId; ts: string }): KbEntry {
+  const date = raw.date ?? raw.ts.slice(0, 10);
+  const category = raw.category ?? CATEGORY_BY_DEPT[raw.dept];
   return {
     id: raw.id ?? `${raw.dept}:${raw.ts}`,
+    slug: raw.slug ?? deriveSlug({ dept: raw.dept, date, theme: raw.theme, category }),
     dept: raw.dept,
-    date: raw.date ?? raw.ts.slice(0, 10),
+    date,
     ts: raw.ts,
-    category: raw.category ?? CATEGORY_BY_DEPT[raw.dept],
+    category,
+    theme: raw.theme,
     tags: raw.tags ?? [],
     status: raw.status ?? 'published',
     pinned: raw.pinned,
@@ -45,6 +59,9 @@ export function normalizeKbEntry(raw: Partial<KbEntry> & { dept: DeptId; ts: str
     highlight: raw.highlight ?? '',
     flags: raw.flags ?? [],
     artifacts: raw.artifacts ?? [],
+    sources: raw.sources ?? [],
+    provenance: raw.provenance ?? 'api',
+    related: raw.related ?? [],
     markdown: raw.markdown ?? '',
   };
 }
