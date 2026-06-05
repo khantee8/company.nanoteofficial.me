@@ -142,10 +142,11 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
     const provenance = result.provenance ?? 'api';
     const sources = result.sources ?? [];
     const related = result.related ?? [];
+    const incomplete = result.incomplete ?? false;
     const slug = deriveSlug({ dept, date, theme, category });
 
     await Promise.all([
-      repo.setOutput({ dept, markdown, markdownEn, summary: result.summary, ts, category, tags, artifacts, meta: result.meta }),
+      repo.setOutput({ dept, markdown, markdownEn, summary: result.summary, ts, category, tags, artifacts, meta: result.meta, incomplete }),
       repo.pushEvent({ dept, msg: result.feedMsg, ts }),
       repo.setStatus({ dept, state: 'done', lastRun: ts, summary: result.summary }),
       repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown }),
@@ -154,10 +155,11 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
       // reviews and publishes before it surfaces on the public /api/kb feed.
       repo.pushKb({ id, slug, dept, date, ts, category, theme,
         tags, status: 'draft', summary: result.summary, highlight, flags, artifacts,
-        sources, provenance, related, markdown, markdownEn }),
+        sources, provenance, related, markdown, markdownEn, incomplete }),
     ]);
 
-    await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}\n\n${markdown.slice(0, 800)}`);
+    const warn = incomplete ? '\n⚠️ รายงานถูกตัด (max_tokens) — ตรวจก่อนเผยแพร่' : '';
+    await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}\n\n${markdown.slice(0, 800)}`);
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
