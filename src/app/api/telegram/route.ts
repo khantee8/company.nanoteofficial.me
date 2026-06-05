@@ -21,7 +21,7 @@ const NAME_TO_ID: Record<string, string> = {
 
 const CADENCE: Record<string, string> = {
   cyb: 'CyberX — รายวัน', fin: 'Finance — จ/พ/ศ (ธีมหมุน)', rnd: 'AI R&D — อ/พฤ',
-  mkt: 'Marketing — จ/พ/พฤ', ops: 'Operations — รายวัน', ceo: 'CEO — รายสัปดาห์',
+  mkt: 'Marketing — จ/พฤ', ops: 'Operations — รายวัน', ceo: 'CEO — รายสัปดาห์',
 };
 
 export async function POST(req: NextRequest) {
