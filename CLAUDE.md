@@ -27,7 +27,9 @@ screenshots.
 
 ## Architecture
 
-**AI Company Simulator** — pixel-art isometric office with 6 AI department agents (CEO, Finance, CyberX, Marketing & Social Media, AI R&D, Operations). v1.3 (current) = real Claude agents running from detailed role specs, a two-floor office, a public **executive `/dashboard`** (glassmorphism), a private **`/admin`** console (username+password login), and a **knowledge-base store** (`kb:` + `/api/kb`). CEO + Finance work on a raised executive **mezzanine (2nd floor)**; the other four on the **ground floor** with coffee bar, snack station, break room and meeting area.
+**AI Company Simulator** — a pixel-art, two-floor isometric office where **6 AI department agents** (CEO, Finance, CyberX, Marketing & Social Media, AI R&D, Operations) run real, scheduled Claude work from detailed `.agents/*.md` role specs. CEO + Finance occupy a raised executive **mezzanine (2nd floor)**; the other four the **ground floor** (coffee bar, snack station, break room, meeting area). User-facing surfaces: the live office (`/`), a public glassmorphism **`/dashboard`** + per-agent **`/dashboard/[dept]`**, a private **`/admin`** console (username+password), a bilingual **`/doc`** operator guide, a two-way **Telegram** bot, and a published-only **`/api/kb`** knowledge API.
+
+**Current version: 1.4.2** (`package.json` — the NavBar reads it). The architecture is the cumulative result of the feature lines below — the **v1.3 foundation** first, then the **v1.4 series** (newest 1.4.2 back to 1.4). Each links its design spec in `docs/superpowers/specs/`; the load-bearing invariants are restated in **Key Constraints**.
 
 **v1.3 core** adds **structured agent artifacts** (typed `Artifact` model in `src/lib/agents/artifacts.ts`, built deterministically from each agent's source data) rendered as hand-rolled SVG charts (`src/components/charts/` → `ArtifactRenderer`). Finance/CyberX/Marketing/CEO emit charts (Marketing pulls real Hacker News + Dev.to + Vercel Analytics data; CEO's **Executive Cockpit** aggregates `companySnapshot`). A NavBar agent sub-nav lands on per-agent **`/dashboard/[dept]`** detail pages, and the exec overview gains a cockpit hero + linked cards. The knowledge base moved to **addressable storage** (`kb:entry:<id>` + `kb:index`) with `category`/`tags`/`status`/`artifacts`; `/api/kb` is **published-only** with `?dept=&category=&q=&from=&to=&limit=`. **v1.3.1** completes the set: **R&D** emits a Research Radar (trending repos via `sources/githubTrending.ts`, language donut, radar table) and **Operations** a deployment-health scorecard + repo-activity table; the **Admin KB Manager** (`KbManager.tsx` in `/admin`, backed by cookie-gated `/api/admin/kb` GET/PATCH/DELETE) curates entries, and the **draft→publish gate is on** — runs archive as `draft` and only reach the public `/api/kb` once an admin publishes. See `docs/superpowers/specs/2026-06-03-v13-smart-agents-optimal-dashboard-design.md`.
 
@@ -117,6 +119,9 @@ language.
 - `KbManager.tsx` — Admin KB curation panel (status filter, publish/archive/restore/pin/delete via `/api/admin/kb`)
 - `ArtifactPanel.tsx` — displays agent-generated artifacts
 - `Markdown.tsx` — safe markdown renderer (no `dangerouslySetInnerHTML`)
+- `doc/` — the `/doc` user guide: `DocSidebar` (manifest-driven nav) + `DocView` (embeds both languages, toggle picks one) + `DocMarkdown` (a second **safe** renderer with URL-validated links — see `DocMarkdown.test.tsx`). Content is static MD in `content/doc/{en,th}/*.md`, loaded by `src/lib/doc.ts`, ordered by `content/doc/nav.ts`
+
+**i18n (`src/lib/i18n/`)** — the TH/EN seam, no library: `messages.ts` (typed `en`/`th` dict, key-parity tested), `LangProvider`/`useLang` (cookie-backed, English-first; wraps the tree in `app/layout.tsx`), `LangToggle` (in NavBar), `chartTitles.ts` (render-time chart-title localization), `pickMarkdown.ts` (active-language narrative picker). Client-side so the static `/dashboard` prerender survives.
 
 ## Env Vars (Vercel)
 
