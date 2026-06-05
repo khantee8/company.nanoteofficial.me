@@ -24,6 +24,8 @@ export interface AgentOutput {
   tags: string[];
   artifacts: Artifact[];
   meta?: Record<string, unknown>;
+  /** v1.4.5 — true when the model hit max_tokens and the report was cut off. */
+  incomplete?: boolean;
 }
 
 export interface FeedEvent {
@@ -51,6 +53,8 @@ export interface AgentRunResult {
   /** Explicit cross-links (CEO synthesis → source entry ids). These may reference
    *  draft entries; the public /api/kb only resolves links to PUBLISHED entries. */
   related?: string[];
+  /** v1.4.5 — true when the model hit max_tokens and the report was cut off. */
+  incomplete?: boolean;
 }
 
 export interface HistoryEntry {
@@ -91,6 +95,8 @@ export interface KbEntry {
   markdown: string;
   /** English narrative (v1.4.1 dual-generation). Backfilled from `markdown`. */
   markdownEn?: string;
+  /** v1.4.5 — true when the model hit max_tokens and the report was cut off. */
+  incomplete?: boolean;
 }
 
 export interface AgentContext {
