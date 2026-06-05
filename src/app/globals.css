@@ -4,10 +4,10 @@ html, body {
   margin: 0;
   padding: 0;
   background: #060610;
-  color: #ccc;
-  font-family: 'Courier New', monospace;
+  color: #d7d8ea;
+  font-family: var(--font-sans), system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   overflow: hidden;
-  height: 100vh;
+  height: 100dvh;
 }
 
 * { box-sizing: border-box; }

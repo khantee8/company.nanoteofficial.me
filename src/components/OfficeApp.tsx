@@ -52,7 +52,7 @@ export function OfficeApp() {
   const selected = selectedDept ? agents[selectedDept] : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden', fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace' }}>
       <TopBar focusedDept={selectedDept} onResetView={resetView} />
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
         <DepartmentSidebar selectedDept={selectedDept} onSelect={setSelectedDept} taskTexts={taskTexts} />
