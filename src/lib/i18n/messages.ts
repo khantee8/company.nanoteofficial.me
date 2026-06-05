@@ -45,6 +45,19 @@ export const MESSAGES = {
 
     'lang.en': 'EN',
     'lang.th': 'ไทย',
+
+    'doc.title': 'User Guide',
+    'doc.sec.start': 'Getting Started',
+    'doc.sec.runs': 'How it runs',
+    'doc.sec.using': 'Using it',
+    'doc.sec.operating': 'Operating',
+    'doc.overview': 'Overview',
+    'doc.agents': 'The 6 Agents',
+    'doc.cadence': 'Cadence & Provenance',
+    'doc.dashboard': 'Dashboard',
+    'doc.kb': 'Knowledge Base',
+    'doc.telegram': 'Telegram Bot',
+    'doc.admin': 'Admin Console',
   },
   th: {
     'nav.office': 'ออฟฟิศ',
@@ -85,6 +98,19 @@ export const MESSAGES = {
 
     'lang.en': 'EN',
     'lang.th': 'ไทย',
+
+    'doc.title': 'คู่มือผู้ใช้',
+    'doc.sec.start': 'เริ่มต้นใช้งาน',
+    'doc.sec.runs': 'การทำงาน',
+    'doc.sec.using': 'การใช้งาน',
+    'doc.sec.operating': 'การดูแลระบบ',
+    'doc.overview': 'ภาพรวม',
+    'doc.agents': 'เอเจนต์ทั้ง 6',
+    'doc.cadence': 'รอบการทำงาน & ที่มาข้อมูล',
+    'doc.dashboard': 'แดชบอร์ด',
+    'doc.kb': 'ฐานความรู้',
+    'doc.telegram': 'บอท Telegram',
+    'doc.admin': 'คอนโซลผู้ดูแล',
   },
 } as const;
 

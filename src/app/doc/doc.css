@@ -1,0 +1,130 @@
+/* v1.4.2 — /doc user guide. A deliberately light, GitHub-Docs-like theme that
+   shares only the (dark) NavBar with the rest of the app. Scoped to .doc-*. */
+
+.doc-shell {
+  display: flex;
+  gap: 32px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 20px 64px;
+  background: transparent;
+  align-items: flex-start;
+}
+
+/* Sidebar */
+.doc-sidebar {
+  position: sticky;
+  top: 16px;
+  flex: 0 0 232px;
+  align-self: flex-start;
+  padding: 20px 8px 20px 0;
+  font-size: 13px;
+}
+.doc-sidebar-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b8db5;
+  padding: 0 10px 10px;
+}
+.doc-sec { margin-bottom: 16px; }
+.doc-sec-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6a6c93;
+  padding: 6px 10px;
+}
+.doc-sidebar ul { list-style: none; margin: 0; padding: 0; }
+.doc-link {
+  display: block;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  color: #c5c6e2;
+  text-decoration: none;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.doc-link:hover { background: #ffffff0a; color: #fff; }
+.doc-link.is-active {
+  background: #7f8cff14;
+  border-left-color: #7f8cff;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Content card — the light "docs paper" */
+.doc-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 16px;
+  background: #fbfbfd;
+  color: #1f2328;
+  border: 1px solid #e2e3ec;
+  border-radius: 14px;
+  padding: 36px 40px;
+  box-shadow: 0 8px 30px #00000040;
+}
+
+.doc-md { max-width: 720px; }
+.doc-md h1 {
+  font-size: 28px;
+  line-height: 1.25;
+  font-weight: 800;
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e3ec;
+  color: #0d1117;
+}
+.doc-md h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 28px 0 10px;
+  color: #0d1117;
+}
+.doc-md h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 20px 0 8px;
+  color: #0d1117;
+}
+.doc-md p { font-size: 15px; line-height: 1.7; margin: 0 0 14px; color: #32383f; }
+.doc-md .doc-ul { margin: 0 0 14px; padding-left: 22px; }
+.doc-md .doc-ul li { font-size: 15px; line-height: 1.7; margin: 3px 0; color: #32383f; }
+.doc-md a { color: #4f57d8; text-decoration: none; font-weight: 500; }
+.doc-md a:hover { text-decoration: underline; }
+.doc-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  background: #eceef3;
+  color: #b1306b;
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+.doc-pre {
+  background: #0d1117;
+  color: #e6edf3;
+  padding: 14px 16px;
+  border-radius: 10px;
+  overflow-x: auto;
+  margin: 0 0 16px;
+}
+.doc-pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .doc-shell { flex-direction: column; gap: 8px; padding: 0 12px 48px; }
+  .doc-sidebar {
+    position: static;
+    flex-basis: auto;
+    width: 100%;
+    padding: 12px 0;
+    border-bottom: 1px solid #ffffff14;
+  }
+  .doc-main { padding: 24px 20px; }
+}

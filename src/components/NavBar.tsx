@@ -12,7 +12,7 @@ import { version as APP_VERSION } from '../../package.json';
 const LINKS: { href: string; key: MsgKey }[] = [
   { href: '/', key: 'nav.office' },
   { href: '/dashboard', key: 'nav.dashboard' },
-  // { href: '/doc', key: 'nav.doc' } — added in v1.4.2 when the route exists.
+  { href: '/doc', key: 'nav.doc' },
 ];
 
 interface Props {

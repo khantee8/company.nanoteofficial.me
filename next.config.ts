@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
   // briefs explicitly in every API function bundle that may run an agent.
   outputFileTracingIncludes: {
     "/api/**": ["./.agents/**/*"],
+    // The /doc pages read content/doc/<lang>/*.md (see src/lib/doc.ts). Pages are
+    // statically generated, but include the content defensively for any on-demand
+    // render — same mechanism as the agent briefs above.
+    "/doc/**": ["./content/doc/**/*"],
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
