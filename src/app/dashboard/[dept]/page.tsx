@@ -36,7 +36,7 @@ export default async function AgentPage({ params }: { params: Promise<{ dept: st
   const agent = data.agents.find((a) => a.dept === dept) ?? null;
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <NavBar />
       <main style={{ flex: 1, overflowY: 'auto' }}>
         <AgentDetail dept={dept} agent={agent} />
