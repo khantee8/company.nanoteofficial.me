@@ -72,10 +72,10 @@ function DeptItem({ dept, index, active, taskText, onClick }: ItemProps) {
         <PixelSprite dept={dept.id} animationDelay={animationDelay} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 10, color: active ? '#00ff88' : '#aaa', fontWeight: 'bold' }}>
+        <div style={{ fontSize: 12, color: active ? '#00ff88' : '#d7d8ea', fontWeight: 'bold' }}>
           {dept.name}
         </div>
-        <div style={{ fontSize: 8, color: active ? '#00ff88' : '#333', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 11, color: active ? '#00ff88' : '#8a8ca8', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {taskText}
         </div>
       </div>
