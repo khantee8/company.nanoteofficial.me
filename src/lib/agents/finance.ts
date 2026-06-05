@@ -1,4 +1,4 @@
-import { complete } from '@/lib/claude';
+import { completeRaw } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { extractFindingsBlock, hasCitation } from './findings';
@@ -66,12 +66,12 @@ export function financeTags(f: FinanceFindings): string[] {
 export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const { theme, label } = themeForToday();
   const context = formatContext(ctx);
-  const markdown = await complete({
+  const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.fin,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nค้นหาและเปรียบเทียบกองทุนรวมไทยจริง 3-5 กองในธีมนี้ พร้อมค่าธรรมเนียม กองแม่ AUM และผลตอบแทน อ้างอิงแหล่ง+วันที่ทุกตัวเลข แล้วแนบบล็อก \`\`\`json findings ตามสคีมา`,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nค้นหาและเปรียบเทียบกองทุนรวมไทยจริง 3-5 กองในธีมนี้ พร้อมค่าธรรมเนียม กองแม่ AUM และผลตอบแทน อ้างอิงแหล่ง+วันที่ทุกตัวเลข แล้วเขียนรายงานตามโครงสร้างในบทบาท แล้วแนบบล็อก \`\`\`json findings ตามสคีมา`,
     webSearch: true,
     maxSearches: 6,
-    maxTokens: 2200,
+    maxTokens: 8000,
   });
   const findings = parseFinanceFindings(markdown) ?? { theme, funds: [] };
   const artifacts = financeArtifacts(findings);
@@ -82,6 +82,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     feedMsg: `finance: ${label} — ${findings.funds.length} funds`,
     artifacts, tags: financeTags(findings),
     theme, provenance: findings.funds.length > 0 ? 'web' : 'api', sources,
-    meta: { theme, fundCount: findings.funds.length },
+    incomplete: stopReason === 'max_tokens',
+    meta: { theme, fundCount: findings.funds.length, stopReason },
   };
 }

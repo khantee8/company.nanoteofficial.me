@@ -1,5 +1,33 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { themeForToday } from './finance';
+
+const completeRaw = vi.fn();
+vi.mock('@/lib/claude', () => ({
+  completeRaw: (...args: unknown[]) => completeRaw(...args),
+}));
+
+const ctx = {
+  ownHistory: [],
+  companyDigest: [],
+  todayPeers: [],
+};
+
+describe('run — truncation flag', () => {
+  beforeEach(() => {
+    completeRaw.mockReset();
+  });
+
+  it('sets incomplete=true when the model stops on max_tokens', async () => {
+    completeRaw.mockResolvedValue({
+      text: '...```json findings\n{"theme":"x","funds":[]}\n```',
+      stopReason: 'max_tokens',
+      usage: { input: 10, output: 8000 },
+    });
+    const { run } = await import('./finance');
+    const result = await run(ctx);
+    expect(result.incomplete).toBe(true);
+  });
+});
 
 describe('themeForToday', () => {
   it('returns us-index-sp500 on Monday (UTC day 1)', () => {
