@@ -236,7 +236,7 @@ button { font-family: inherit; }
 }
 .exec-kpi { padding: 16px 18px; }
 .exec-kpi .v { font-size: 26px; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
-.exec-kpi .l { font-size: 11px; color: #9a9bc4; margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
+.exec-kpi .l { font-size: 12px; color: #a9abce; margin-top: 3px; text-transform: uppercase; letter-spacing: 1px; }
 .exec-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
@@ -254,7 +254,7 @@ button { font-family: inherit; }
 .exec-card .accent { height: 4px; width: 100%; }
 .exec-card .body { padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 10px; }
 .exec-artifact {
-  max-height: 260px; overflow-y: auto;
+  max-height: 340px; overflow-y: auto;
   background: rgba(8, 8, 22, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px; padding: 10px 12px;
@@ -269,7 +269,7 @@ button { font-family: inherit; }
   border-radius: 8px; padding: 3px 9px;
 }
 .exec-feed { margin-top: 22px; padding: 18px 20px; }
-.exec-feed .row { display: grid; grid-template-columns: 96px 70px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; }
+.exec-feed .row { display: grid; grid-template-columns: 96px 70px 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
 .exec-feed .row:last-child { border-bottom: none; }
 @media (max-width: 560px) {
   .exec-grid { grid-template-columns: 1fr; }
@@ -284,20 +284,21 @@ button { font-family: inherit; }
 .agent-hero h1 { font-size: 22px; color: #fff; margin: 0; }
 .agent-cat { font-size: 10px; color: #9ad; background: #11203f; border: 1px solid #1f3a6a; border-radius: 10px; padding: 2px 9px; text-transform: uppercase; letter-spacing: 0.5px; }
 .agent-pill { font-size: 10px; padding: 3px 10px; border-radius: 999px; border: 1px solid; text-transform: uppercase; letter-spacing: 1px; }
-.agent-when { font-size: 11px; color: #6a6c93; margin-left: auto; }
+.agent-when { font-size: 12px; color: #9a9bc4; margin-left: auto; }
 .agent-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
 .agent-kpi { padding: 12px 14px; }
 .agent-kpi .v { font-size: 18px; font-weight: 700; color: #fff; text-transform: capitalize; }
-.agent-kpi .l { font-size: 10px; color: #9a9bc4; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
-.agent-highlight { font-size: 14px; line-height: 1.6; color: #dfe0f2; font-weight: 500; border-left: 2px solid #2a2a4a; padding-left: 12px; margin: 0 0 16px; }
+.agent-kpi .l { font-size: 12px; color: #a9abce; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+.agent-highlight { font-size: 16px; line-height: 1.65; color: #ecedf8; font-weight: 500; border-left: 3px solid #7f8cff; padding-left: 14px; margin: 0 0 18px; max-width: 72ch; }
 .agent-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
 .agent-art-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .agent-art { padding: 14px 16px; }
 .agent-note { font-size: 12px; color: #7a7ca6; margin-bottom: 16px; }
-.agent-narrative { padding: 16px 18px; margin-bottom: 16px; }
-.agent-section-title { font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.agent-narrative { padding: 18px 20px; margin-bottom: 16px; }
+.agent-narrative .md-measure { max-width: 72ch; }
+.agent-section-title { font-size: 12px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
 .agent-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 18px; }
-.agent-tag { font-size: 9px; color: #9ad; background: #11203f; border: 1px solid #1f3a6a; border-radius: 10px; padding: 1px 8px; }
+.agent-tag { font-size: 11px; color: #bcd6ff; background: #11203f; border: 1px solid #1f3a6a; border-radius: 10px; padding: 2px 9px; }
 .agent-exports { display: flex; flex-wrap: wrap; gap: 8px; }
 .agent-exp { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #cfd0ee; border-radius: 8px; font-size: 11px; padding: 6px 14px; cursor: pointer; font-family: inherit; }
 .agent-exp:disabled { opacity: 0.4; cursor: default; }

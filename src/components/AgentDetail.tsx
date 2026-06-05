@@ -128,7 +128,7 @@ export function AgentDetail({
 
       <section className="glass agent-narrative">
         <div className="agent-section-title">{t('detail.analysis')}</div>
-        {md ? <Markdown text={narrativeOf(md)} /> : <div style={{ color: '#6a6c93', fontSize: 13 }}>{t('detail.awaiting')}</div>}
+        {md ? <div className="md-measure"><Markdown text={narrativeOf(md)} /></div> : <div style={{ color: '#9a9bc4', fontSize: 14 }}>{t('detail.awaiting')}</div>}
       </section>
 
       {tags.length > 0 && (
