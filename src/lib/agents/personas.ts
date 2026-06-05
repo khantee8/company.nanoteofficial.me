@@ -32,6 +32,19 @@ const FINDINGS_CONTRACT = `
 \`\`\`
 - โครงสร้างภายในบล็อกให้เป็นไปตามที่บทบาทของคุณกำหนด`;
 
+// v1.4.1 — dual-language output. The agent writes its narrative twice (Thai then
+// English) separated by the `<!-- ===EN=== -->` delimiter; the shared findings
+// block + Highlight/Flags footer appear ONCE after both. `splitBilingual`
+// (bilingual.ts) reconstructs the two per-language documents the KB stores.
+const BILINGUAL_RULE = `
+
+รายงานสองภาษา (สำคัญมาก): เขียน "เนื้อหารายงาน" สองรอบติดกัน
+1) รอบแรกเป็นภาษาไทยตามรูปแบบในบทบาทของคุณ
+2) คั่นด้วยบรรทัดที่มีเพียงข้อความนี้เป๊ะๆ บรรทัดเดียว: <!-- ===EN=== -->
+3) แล้วเขียนเนื้อหาเดียวกันซ้ำเป็นภาษาอังกฤษ (สาระเท่ากัน เป็นภาษาอังกฤษธรรมชาติ ไม่ใช่แปลคำต่อคำ)
+ลำดับผลลัพธ์ทั้งหมดต้องเป็น: [เนื้อหาไทย] → <!-- ===EN=== --> → [เนื้อหาอังกฤษ] → บล็อก \`\`\`json findings → ## Highlight → ## Flags
+บล็อก findings และสองหัวข้อปิดท้ายให้มี "ชุดเดียว" วางไว้หลังเนื้อหาภาษาอังกฤษเท่านั้น ห้ามทำซ้ำในแต่ละภาษา`;
+
 // Kept in English so the runner's parseHighlight/parseFlags and the dashboard
 // can extract these sections regardless of the report's body language (Thai).
 // Worded as a hard contract because the detailed role formats above otherwise
@@ -54,7 +67,7 @@ omit them, and never end your report without both.
 // Each persona = autonomous preamble + the verbatim `.agents/*.md` brief (via
 // ROLES, loaded at runtime) + the json findings contract + the mandatory English
 // output contract. Order: narrative → findings block → Highlight → Flags.
-const persona = (role: string): string => `${AUTONOMOUS_PREAMBLE}${role}${FINDINGS_CONTRACT}${OUTPUT_FOOTER}`;
+const persona = (role: string): string => `${AUTONOMOUS_PREAMBLE}${role}${FINDINGS_CONTRACT}${BILINGUAL_RULE}${OUTPUT_FOOTER}`;
 
 export const PERSONAS: Record<DeptId, string> = {
   ceo: persona(ROLES.ceo),

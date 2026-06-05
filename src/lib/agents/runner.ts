@@ -1,6 +1,7 @@
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import type { AgentRunResult, AgentContext } from './types';
 import { CATEGORY_BY_DEPT } from './artifacts';
+import { splitBilingual } from './bilingual';
 import type { RedisRepo } from '@/lib/redis';
 import { deriveSlug } from '@/lib/redis';
 
@@ -127,8 +128,11 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
     const ctx = await buildContext(dept, repo);
     const result = await agent.run(ctx);
     const ts = now();
-    const highlight = parseHighlight(result.markdown);
-    const flags = parseFlags(result.markdown);
+    // Dual-generated narrative → two clean per-language documents (both carry the
+    // shared findings + Highlight/Flags tail, so parsing works on either).
+    const { th: markdown, en: markdownEn } = splitBilingual(result.markdown);
+    const highlight = parseHighlight(markdown);
+    const flags = parseFlags(markdown);
     const date = todayDate();
     const category = CATEGORY_BY_DEPT[dept];
     const artifacts = result.artifacts ?? [];
@@ -141,19 +145,19 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
     const slug = deriveSlug({ dept, date, theme, category });
 
     await Promise.all([
-      repo.setOutput({ dept, markdown: result.markdown, summary: result.summary, ts, category, tags, artifacts, meta: result.meta }),
+      repo.setOutput({ dept, markdown, markdownEn, summary: result.summary, ts, category, tags, artifacts, meta: result.meta }),
       repo.pushEvent({ dept, msg: result.feedMsg, ts }),
       repo.setStatus({ dept, state: 'done', lastRun: ts, summary: result.summary }),
-      repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown: result.markdown }),
+      repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown }),
       repo.pushDigest({ dept, date, summary: result.summary, highlight, flags }),
       // Archive into the knowledge base as a DRAFT — the Admin KB Manager
       // reviews and publishes before it surfaces on the public /api/kb feed.
       repo.pushKb({ id, slug, dept, date, ts, category, theme,
         tags, status: 'draft', summary: result.summary, highlight, flags, artifacts,
-        sources, provenance, related, markdown: result.markdown }),
+        sources, provenance, related, markdown, markdownEn }),
     ]);
 
-    await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}\n\n${result.markdown.slice(0, 800)}`);
+    await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}\n\n${markdown.slice(0, 800)}`);
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -65,6 +65,8 @@ export function normalizeKbEntry(raw: Partial<KbEntry> & { dept: DeptId; ts: str
     provenance: raw.provenance ?? 'api',
     related: raw.related ?? [],
     markdown: raw.markdown ?? '',
+    // Pre-v1.4.1 entries are single-language; serve the same text for EN.
+    markdownEn: raw.markdownEn ?? raw.markdown ?? '',
   };
 }
 

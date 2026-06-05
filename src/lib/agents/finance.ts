@@ -44,15 +44,15 @@ export function financeArtifacts(f: FinanceFindings): Artifact[] {
   const sources = f.funds.map((x) => x.citation);
   return [
     withProvenance({
-      kind: 'bars', title: 'ค่าธรรมเนียมรวม (TER %)', unit: '%',
+      kind: 'bars', title: 'Total expense ratio (TER %)', unit: '%',
       series: f.funds.map((x) => ({ label: x.name, value: round2(x.ter) })),
     }, 'web', sources),
     withProvenance({
-      kind: 'divergingBars', title: 'ผลตอบแทนย้อนหลัง 1 ปี (%)', unit: '%',
+      kind: 'divergingBars', title: '1-year return (%)', unit: '%',
       series: f.funds.map((x) => ({ label: x.name, value: round2(x.return1y) })),
     }, 'web', sources),
     withProvenance({
-      kind: 'table', title: 'เปรียบเทียบกองทุน',
+      kind: 'table', title: 'Fund comparison',
       columns: ['กอง', 'บลจ.', 'TER%', 'AUM(ลบ.)', 'กองแม่', 'ป้องกันค่าเงิน', '1Y%'],
       rows: f.funds.map((x) => [x.name, x.amc, round2(x.ter), round2(x.aum), x.masterFund, x.hedged ? 'hedged' : 'unhedged', round2(x.return1y)]),
     }, 'web', sources),

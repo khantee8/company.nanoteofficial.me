@@ -83,6 +83,26 @@ button { font-family: inherit; }
 }
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .nav-slot { display: inline-flex; align-items: center; }
+.lang-toggle {
+  display: inline-flex;
+  border: 1px solid #3a3a6a;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #14142e;
+}
+.lang-opt {
+  background: transparent;
+  border: none;
+  color: #9a9bc4;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.lang-opt.is-active { background: #2a2a55; color: #fff; }
+.lang-opt:hover:not(.is-active) { color: #cfcfe6; }
 .nav-live {
   background: #00ff8815;
   border: 1px solid #00ff8855;

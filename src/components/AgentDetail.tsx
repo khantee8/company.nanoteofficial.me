@@ -4,6 +4,9 @@ import { Markdown } from './Markdown';
 import { ArtifactRenderer } from './charts/ArtifactRenderer';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import { parseHighlight, parseFlags } from '@/lib/agents/runner';
+import { narrativeOf } from '@/lib/agents/bilingual';
+import { useLang } from '@/lib/i18n/LangProvider';
+import { pickMarkdown } from '@/lib/i18n/pickMarkdown';
 import type { DashboardAgent } from '@/lib/dashboard';
 import type { AgentState, Citation } from '@/lib/agents/types';
 
@@ -69,12 +72,13 @@ export function AgentDetail({
   agent: DashboardAgent | null;
   related?: { slug: string; title: string; dept: string }[];
 }) {
+  const { t, lang } = useLang();
   const meta = DEPARTMENTS.find((d) => d.id === dept);
   const name = meta?.name ?? dept;
   const color = meta?.color ?? '#7f8cff';
   const state = (agent?.status?.state ?? 'idle') as AgentState;
   const output = agent?.output ?? null;
-  const md = output?.markdown ?? '';
+  const md = pickMarkdown(output, lang);
   const artifacts = output?.artifacts ?? [];
   const tags = output?.tags ?? [];
   const category = output?.category;
@@ -96,10 +100,10 @@ export function AgentDetail({
       </div>
 
       <div className="agent-kpis">
-        <Kpi v={state} l="status" />
-        <Kpi v={String(flags.length)} l="open flags" />
-        <Kpi v={String(artifacts.length)} l="charts" />
-        <Kpi v={String(agent?.history.length ?? 0)} l="history" />
+        <Kpi v={state} l={t('detail.status')} />
+        <Kpi v={String(flags.length)} l={t('detail.openFlags')} />
+        <Kpi v={String(artifacts.length)} l={t('detail.charts')} />
+        <Kpi v={String(agent?.history.length ?? 0)} l={t('detail.history')} />
       </div>
 
       {highlight && <p className="agent-highlight">{highlight}</p>}
@@ -119,12 +123,12 @@ export function AgentDetail({
           ))}
         </div>
       ) : md ? (
-        <div className="agent-note">This agent reports as a written brief — see the analysis below.</div>
+        <div className="agent-note">{t('detail.brief')}</div>
       ) : null}
 
       <section className="glass agent-narrative">
-        <div className="agent-section-title">Analysis</div>
-        {md ? <Markdown text={md} /> : <div style={{ color: '#6a6c93', fontSize: 13 }}>Awaiting the next scheduled run.</div>}
+        <div className="agent-section-title">{t('detail.analysis')}</div>
+        {md ? <Markdown text={narrativeOf(md)} /> : <div style={{ color: '#6a6c93', fontSize: 13 }}>{t('detail.awaiting')}</div>}
       </section>
 
       {tags.length > 0 && (
@@ -135,7 +139,7 @@ export function AgentDetail({
 
       {sources.length > 0 && (
         <section className="glass agent-sources">
-          <div className="agent-section-title">แหล่งอ้างอิง / Sources</div>
+          <div className="agent-section-title">{t('detail.sources')}</div>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {sources.map((c, i) => (
               <li key={i} style={{ fontSize: 12, lineHeight: 1.5, color: '#c5c6e2' }}>
@@ -158,7 +162,7 @@ export function AgentDetail({
 
       {related.length > 0 && (
         <section className="glass agent-related">
-          <div className="agent-section-title">Related</div>
+          <div className="agent-section-title">{t('detail.related')}</div>
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {related.map((r, i) => (
               <li key={i} style={{ fontSize: 12, color: '#c5c6e2' }}>

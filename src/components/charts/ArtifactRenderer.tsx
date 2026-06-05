@@ -1,4 +1,8 @@
+'use client';
+
 import type { Artifact } from '@/lib/agents/artifacts';
+import { useLang } from '@/lib/i18n/LangProvider';
+import { chartTitle } from '@/lib/i18n/chartTitles';
 import { Bars } from './Bars';
 import { Donut } from './Donut';
 import { Line } from './Line';
@@ -23,8 +27,10 @@ function renderChart(artifact: Artifact, compact?: boolean) {
   }
 }
 
-/** Routes an Artifact to its SVG/HTML primitive. Pure, dependency-free. */
-export function ArtifactRenderer({ artifact, compact }: { artifact: Artifact; compact?: boolean }) {
+/** Routes an Artifact to its SVG/HTML primitive, with the title localized. */
+export function ArtifactRenderer({ artifact: raw, compact }: { artifact: Artifact; compact?: boolean }) {
+  const { lang } = useLang();
+  const artifact = { ...raw, title: chartTitle(lang, raw.title) } as Artifact;
   const badge = artifact.provenance ? (
     <span
       className={

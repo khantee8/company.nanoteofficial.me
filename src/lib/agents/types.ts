@@ -16,6 +16,8 @@ export interface AgentStatus {
 export interface AgentOutput {
   dept: DeptId;
   markdown: string;
+  /** English narrative (v1.4.1 dual-generation). Falls back to `markdown`. */
+  markdownEn?: string;
   summary: string;
   ts: string;
   category: KbCategory;
@@ -87,6 +89,8 @@ export interface KbEntry {
   provenance: 'api' | 'web';
   related: string[];
   markdown: string;
+  /** English narrative (v1.4.1 dual-generation). Backfilled from `markdown`. */
+  markdownEn?: string;
 }
 
 export interface AgentContext {

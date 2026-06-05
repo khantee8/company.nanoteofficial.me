@@ -22,4 +22,12 @@ describe('personas', () => {
       expect(p.indexOf('```json findings')).toBeLessThan(p.indexOf('## Highlight'));
     }
   });
+
+  it('every persona instructs the bilingual TH→EN narrative with the delimiter', () => {
+    for (const p of Object.values(PERSONAS)) {
+      expect(p).toContain('<!-- ===EN=== -->');
+      // The bilingual narrative comes before the findings block + footer.
+      expect(p.indexOf('<!-- ===EN=== -->')).toBeLessThan(p.indexOf('## Highlight'));
+    }
+  });
 });

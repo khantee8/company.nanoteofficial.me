@@ -4,10 +4,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { DEPARTMENTS } from '@/lib/data/departments';
+import { useLang } from '@/lib/i18n/LangProvider';
+import { LangToggle } from '@/lib/i18n/LangToggle';
+import type { MsgKey } from '@/lib/i18n/messages';
+import { version as APP_VERSION } from '../../package.json';
 
-const LINKS = [
-  { href: '/', label: 'Office' },
-  { href: '/dashboard', label: 'Dashboard' },
+const LINKS: { href: string; key: MsgKey }[] = [
+  { href: '/', key: 'nav.office' },
+  { href: '/dashboard', key: 'nav.dashboard' },
+  // { href: '/doc', key: 'nav.doc' } — added in v1.4.2 when the route exists.
 ];
 
 interface Props {
@@ -18,6 +23,7 @@ interface Props {
 export function NavBar({ rightSlot }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { t } = useLang();
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -29,7 +35,7 @@ export function NavBar({ rightSlot }: Props) {
     <>
       <header className="nav">
         <Link href="/" className="nav-brand" onClick={() => setOpen(false)}>
-          ◈ <em>NANO</em>TE CORP<span className="nav-version">v1.3.1</span>
+          ◈ <em>NANO</em>TE CORP<span className="nav-version">v{APP_VERSION}</span>
         </Link>
 
         <nav className="nav-links">
@@ -39,14 +45,15 @@ export function NavBar({ rightSlot }: Props) {
               href={l.href}
               className={`nav-link${isActive(l.href) ? ' is-active' : ''}`}
             >
-              {l.label}
+              {t(l.key)}
             </Link>
           ))}
         </nav>
 
         <div className="nav-right">
           {rightSlot && <span className="nav-slot">{rightSlot}</span>}
-          <span className="nav-live">● 6 AGENTS LIVE</span>
+          <LangToggle />
+          <span className="nav-live">● {t('nav.live')}</span>
           <button
             className="nav-burger"
             aria-label="Toggle menu"
@@ -66,7 +73,7 @@ export function NavBar({ rightSlot }: Props) {
                 className={`nav-link${isActive(l.href) ? ' is-active' : ''}`}
                 onClick={() => setOpen(false)}
               >
-                {l.label}
+                {t(l.key)}
               </Link>
             ))}
           </nav>
@@ -76,7 +83,7 @@ export function NavBar({ rightSlot }: Props) {
       {onDashboard && (
         <nav className="nav-sub" aria-label="Agents">
           <Link href="/dashboard" className={`nav-sub-link${pathname === '/dashboard' ? ' is-active' : ''}`}>
-            Overview
+            {t('nav.overview')}
           </Link>
           {DEPARTMENTS.map((d) => {
             const href = `/dashboard/${d.id}`;

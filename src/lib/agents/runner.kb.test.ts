@@ -58,4 +58,39 @@ describe('runAgent enriched KB write', () => {
     expect(captured[0].sources).toEqual([]);
     expect(captured[0].related).toEqual([]);
   });
+
+  it('splits a dual-generated report into markdown (TH) + markdownEn (EN)', async () => {
+    const repo = makeRedisRepo(memClient());
+    const captured: KbEntry[] = [];
+    const orig = repo.pushKb.bind(repo);
+    repo.pushKb = async (e) => { captured.push(e); return orig(e); };
+    await runAgent(
+      { dept: 'rnd', run: async () => ({
+          markdown: 'รายงานไทย\n\n<!-- ===EN=== -->\n\nEnglish report\n\n## Highlight\nx\n## Flags\nNone.',
+          summary: 's', feedMsg: 'f', artifacts: [], tags: [],
+        }) },
+      { repo, notify: async () => {} },
+    );
+    const e = captured[0];
+    expect(e.markdown).toContain('รายงานไทย');
+    expect(e.markdown).not.toContain('English report');
+    expect(e.markdownEn).toContain('English report');
+    expect(e.markdownEn).not.toContain('รายงานไทย');
+    // Both documents keep the shared footer so highlight/flags parse on either.
+    expect(e.markdown).toContain('## Highlight');
+    expect(e.markdownEn).toContain('## Highlight');
+  });
+
+  it('backfills markdownEn from markdown for a single-language entry on read', async () => {
+    const repo = makeRedisRepo(memClient());
+    await repo.pushKb({
+      id: 'x:1', slug: 'x-1', dept: 'fin', date: '2026-01-01', ts: '2026-01-01T00:00:00Z',
+      category: 'market-brief', tags: [], status: 'published', summary: 's', highlight: '',
+      flags: [], artifacts: [], sources: [], provenance: 'api', related: [],
+      markdown: 'ไทยล้วน',
+      // markdownEn intentionally omitted (pre-v1.4.1 shape)
+    } as KbEntry);
+    const got = await repo.getKbEntry('x:1');
+    expect(got?.markdownEn).toBe('ไทยล้วน');
+  });
 });

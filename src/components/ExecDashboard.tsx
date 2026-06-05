@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArtifactRenderer } from './charts/ArtifactRenderer';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import { parseHighlight, parseFlags } from '@/lib/agents/runner';
+import { useLang } from '@/lib/i18n/LangProvider';
 import type { DashboardData, DashboardAgent } from '@/lib/dashboard';
 import type { AgentState } from '@/lib/agents/types';
 
@@ -15,6 +16,7 @@ const deptMeta = (id: DeptId) => DEPARTMENTS.find((d) => d.id === id);
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function ExecDashboard() {
+  const { t } = useLang();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -49,37 +51,34 @@ export function ExecDashboard() {
   return (
     <div className="exec">
       <div className="exec-hero">
-        <h1>Executive Dashboard</h1>
-        <p>
-          A live, data-driven view of NaNote Corp — six AI agents working across two floors,
-          each producing real daily intelligence.
-        </p>
+        <h1>{t('exec.title')}</h1>
+        <p>{t('exec.subtitle')}</p>
       </div>
 
       <div className="exec-kpis">
-        <Kpi value={`${reportsToday}/${agents.length || 6}`} label="Reporting today" />
-        <Kpi value={String(activeAgents)} label="Agents with output" />
-        <Kpi value={String(totalFlags)} label="Open flags" />
-        <Kpi value={lastActivity} label="Last activity" small />
+        <Kpi value={`${reportsToday}/${agents.length || 6}`} label={t('kpi.reportingToday')} />
+        <Kpi value={String(activeAgents)} label={t('kpi.agentsWithOutput')} />
+        <Kpi value={String(totalFlags)} label={t('kpi.openFlags')} />
+        <Kpi value={lastActivity} label={t('kpi.lastActivity')} small />
       </div>
 
       {ceoArts.length > 0 && (
         <section className="glass exec-cockpit">
-          <div className="exec-cockpit-title">CEO · Executive Cockpit</div>
+          <div className="exec-cockpit-title">{t('cockpit.title')}</div>
           <div className="exec-cockpit-grid">
             {ceoArts.map((a, i) => (
               <div key={i} className="exec-cockpit-cell"><ArtifactRenderer artifact={a} compact /></div>
             ))}
           </div>
-          <Link href="/dashboard/ceo" className="exec-cockpit-link">Open CEO detail →</Link>
+          <Link href="/dashboard/ceo" className="exec-cockpit-link">{t('cockpit.openCeo')}</Link>
         </section>
       )}
 
       {loading && agents.length === 0 ? (
-        <div style={{ color: '#9a9bc4', fontSize: 13, padding: 24 }}>Loading agent intelligence…</div>
+        <div style={{ color: '#9a9bc4', fontSize: 13, padding: 24 }}>{t('exec.loading')}</div>
       ) : agents.length === 0 ? (
         <div style={{ color: '#9a9bc4', fontSize: 13, padding: 24 }}>
-          No agent data yet — agents report on a daily schedule.
+          {t('exec.noData')}
         </div>
       ) : (
         <>
@@ -88,7 +87,7 @@ export function ExecDashboard() {
           </div>
           {data && data.digest.length > 0 && (
             <div className="glass exec-feed">
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Company Pulse</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 8 }}>{t('exec.pulse')}</div>
               {data.digest.slice(0, 10).map((e, i) => {
                 const m = deptMeta(e.dept);
                 return (
@@ -119,6 +118,7 @@ function Kpi({ value, label, small }: { value: string; label: string; small?: bo
 }
 
 function ExecCard({ agent }: { agent: DashboardAgent }) {
+  const { t } = useLang();
   const meta = deptMeta(agent.dept);
   const name = meta?.name ?? agent.dept;
   const color = meta?.color ?? '#7f8cff';
@@ -142,7 +142,7 @@ function ExecCard({ agent }: { agent: DashboardAgent }) {
           </span>
           <span className="exec-pill" style={{ color: STATE_COLOR[state], borderColor: STATE_COLOR[state] + '55' }}>{state}</span>
         </div>
-        <div style={{ fontSize: 10, color: '#7a7ca6' }}>updated {when}</div>
+        <div style={{ fontSize: 10, color: '#7a7ca6' }}>{t('common.updated')} {when}</div>
 
         {highlight && (
           <p style={{ fontSize: 13, lineHeight: 1.55, color: '#dfe0f2', margin: 0, fontWeight: 500 }}>{highlight}</p>
@@ -155,12 +155,12 @@ function ExecCard({ agent }: { agent: DashboardAgent }) {
         )}
 
         <div className="exec-artifact">
-          {artifact ? <ArtifactRenderer artifact={artifact} compact /> : <div style={{ color: '#6a6c93', fontSize: 12 }}>Awaiting next scheduled run.</div>}
+          {artifact ? <ArtifactRenderer artifact={artifact} compact /> : <div style={{ color: '#6a6c93', fontSize: 12 }}>{t('card.awaiting')}</div>}
         </div>
 
         {agent.history.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 10, color: '#7a7ca6' }}>history</span>
+            <span style={{ fontSize: 10, color: '#7a7ca6' }}>{t('card.history')}</span>
             {agent.history.slice(0, 7).map((h, i) => (
               <span key={i} title={`${h.date}: ${h.highlight || h.summary}`}
                 style={{ width: 7, height: 7, borderRadius: '50%', background: color, opacity: 0.35 + (0.65 * (agent.history.length - i)) / agent.history.length }} />
@@ -168,7 +168,7 @@ function ExecCard({ agent }: { agent: DashboardAgent }) {
           </div>
         )}
 
-        <div className="exec-card-cta">View detail →</div>
+        <div className="exec-card-cta">{t('card.viewDetail')}</div>
       </div>
     </Link>
   );
