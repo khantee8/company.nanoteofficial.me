@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { themeForToday } from './finance';
+import { themeForToday, financeArtifacts } from './finance';
 
 const completeRaw = vi.fn();
 vi.mock('@/lib/claude', () => ({
@@ -26,6 +26,21 @@ describe('run — truncation flag', () => {
     const { run } = await import('./finance');
     const result = await run(ctx);
     expect(result.incomplete).toBe(true);
+  });
+});
+
+describe('financeArtifacts', () => {
+  const FX = { theme: 'thai-tax-funds', funds: [
+    { name: 'A', amc: 'X', ter: 0.5, aum: 1000, masterFund: 'M', return1y: 8, hedged: true,  taxType: 'ssf'  as const, citation: { url: 'https://a', title: 'A', date: '2026-06-01' } },
+    { name: 'B', amc: 'Y', ter: 0.9, aum: 500,  masterFund: 'N', return1y: 5, hedged: false, taxType: 'rmf'  as const, citation: { url: 'https://b', title: 'B', date: '2026-06-01' } },
+  ]};
+  it('builds an AUM bars chart', () => {
+    const a = financeArtifacts(FX);
+    expect(a.some((x) => x.kind === 'bars' && /AUM/i.test(x.title))).toBe(true);
+  });
+  it('builds a tax-type donut for tax-fund themes', () => {
+    const a = financeArtifacts(FX);
+    expect(a.some((x) => x.kind === 'donut')).toBe(true);
   });
 });
 

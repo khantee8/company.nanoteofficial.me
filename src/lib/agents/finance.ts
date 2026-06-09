@@ -56,6 +56,16 @@ export function financeArtifacts(f: FinanceFindings): Artifact[] {
       columns: ['กอง', 'บลจ.', 'TER%', 'AUM(ลบ.)', 'กองแม่', 'ป้องกันค่าเงิน', '1Y%'],
       rows: f.funds.map((x) => [x.name, x.amc, round2(x.ter), round2(x.aum), x.masterFund, x.hedged ? 'hedged' : 'unhedged', round2(x.return1y)]),
     }, 'web', sources),
+    withProvenance({
+      kind: 'bars', title: 'Fund size — AUM (ล้านบาท)', unit: 'ลบ.',
+      series: f.funds.map((x) => ({ label: x.name, value: round2(x.aum) })),
+    }, 'web', sources),
+    withProvenance({
+      kind: 'donut', title: 'Tax type mix',
+      series: Object.entries(
+        f.funds.reduce<Record<string, number>>((m, x) => ((m[x.taxType] = (m[x.taxType] ?? 0) + 1), m), {}),
+      ).map(([label, value]) => ({ label, value })),
+    }, 'web', sources),
   ];
 }
 
