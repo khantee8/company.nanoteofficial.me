@@ -31,30 +31,20 @@ export interface CompleteResult {
   usage: { input: number; output: number };
 }
 
-/** Streamed completion that surfaces stop_reason + usage. Streaming avoids
- *  HTTP timeouts on the large max_tokens an analyst report needs. */
-export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
-  const { system, prompt, model = MODEL, maxTokens = 1500, webSearch = false, maxSearches = 5 } = opts;
-  const tools: Anthropic.Messages.Tool[] | undefined = webSearch
-    ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches } as unknown as Anthropic.Messages.Tool]
-    : undefined;
+// Server-side tool loops (web_search) cap at ~10 iterations per request and then
+// return stop_reason 'pause_turn'; the turn is resumed by re-sending the
+// assistant content unchanged (the API detects the trailing server_tool_use and
+// continues — do NOT append a "continue" user message). Bound the resumes.
+const MAX_PAUSE_RESUMES = 4;
 
+/** One streamed request with transient-error retry (429/5xx, exponential backoff). */
+async function streamOnce(
+  params: Anthropic.Messages.MessageStreamParams,
+): Promise<Anthropic.Messages.Message> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const stream = client().messages.stream({
-        model,
-        max_tokens: maxTokens,
-        system,
-        messages: [{ role: 'user', content: prompt }],
-        ...(tools ? { tools } : {}),
-      });
-      const msg = await stream.finalMessage();
-      return {
-        text: textOf(msg),
-        stopReason: msg.stop_reason,
-        usage: { input: msg.usage.input_tokens, output: msg.usage.output_tokens },
-      };
+      return await client().messages.stream(params).finalMessage();
     } catch (err) {
       lastErr = err;
       const status = (err as { status?: number })?.status;
@@ -63,6 +53,45 @@ export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
     }
   }
   throw lastErr;
+}
+
+/** Streamed completion that surfaces stop_reason + usage. Streaming avoids
+ *  HTTP timeouts on the large max_tokens an analyst report needs, and
+ *  `pause_turn` is resumed so long web_search loops aren't cut off mid-research. */
+export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
+  const { system, prompt, model = MODEL, maxTokens = 1500, webSearch = false, maxSearches = 5 } = opts;
+  const tools: Anthropic.Messages.Tool[] | undefined = webSearch
+    ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches } as unknown as Anthropic.Messages.Tool]
+    : undefined;
+
+  const messages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: prompt }];
+  const texts: string[] = [];
+  let stopReason: string | null = null;
+  let input = 0;
+  let output = 0;
+
+  for (let resume = 0; resume <= MAX_PAUSE_RESUMES; resume++) {
+    const msg = await streamOnce({
+      model,
+      max_tokens: maxTokens,
+      system,
+      messages,
+      ...(tools ? { tools } : {}),
+    });
+    texts.push(textOf(msg));
+    input += msg.usage.input_tokens;
+    output += msg.usage.output_tokens;
+    stopReason = msg.stop_reason;
+    if (msg.stop_reason !== 'pause_turn') break;
+    // Resume the paused turn: append the assistant content verbatim and re-request.
+    messages.push({ role: 'assistant', content: msg.content });
+  }
+
+  return {
+    text: texts.filter(Boolean).join('\n').trim(),
+    stopReason,
+    usage: { input, output },
+  };
 }
 
 export async function complete(opts: CompleteOpts): Promise<string> {
