@@ -9,9 +9,12 @@ const f: FinanceFindings = { theme: 'us-index-sp500', funds: [
 describe('financeArtifacts', () => {
   it('builds web·cited charts from findings', () => {
     const a = financeArtifacts(f);
-    expect(a).toHaveLength(3);
+    // TER bars, 1Y diverging bars, comparison table, AUM bars (v1.4.5), tax donut (v1.4.5)
+    expect(a).toHaveLength(5);
     expect(a.every((x) => x.provenance === 'web')).toBe(true);
     expect(a[0].sources?.[0].url).toBe('https://e.com');
+    expect(a.some((x) => x.kind === 'bars' && /AUM/i.test(x.title))).toBe(true);
+    expect(a.some((x) => x.kind === 'donut')).toBe(true);
   });
   it('maps every fund into the chart series and table rows', () => {
     const a = financeArtifacts(f);
