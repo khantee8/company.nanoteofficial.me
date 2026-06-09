@@ -69,13 +69,29 @@ omit them, and never end your report without both.
 // output contract. Order: narrative → findings block → Highlight → Flags.
 const persona = (role: string): string => `${AUTONOMOUS_PREAMBLE}${role}${FINDINGS_CONTRACT}${BILINGUAL_RULE}${OUTPUT_FOOTER}`;
 
+// v1.4.5 — Finance writes ONE full Thai analyst report, then a SHORT English
+// executive summary (not a full dual report) — halves output size and matches
+// the single-language analyst format. The shared findings + Highlight/Flags tail
+// still appears once. Same `<!-- ===EN=== -->` delimiter, so splitBilingual works.
+const FINANCE_BILINGUAL_RULE = `
+
+รายงานสองภาษาแบบ Thai-primary (สำคัญมาก):
+1) เขียน "รายงานฉบับเต็ม" เป็นภาษาไทยตามโครงสร้างในบทบาท
+2) คั่นด้วยบรรทัดที่มีเพียงข้อความนี้เป๊ะๆ บรรทัดเดียว: <!-- ===EN=== -->
+3) แล้วเขียน "บทสรุปผู้บริหารฉบับย่อ" เป็นภาษาอังกฤษ ความยาว 150-250 คำเท่านั้น (verdict + ตัวเลขสำคัญ + ข้อควรระวัง) — ไม่ใช่การแปลทั้งฉบับ
+ลำดับผลลัพธ์: [รายงานไทยฉบับเต็ม] → <!-- ===EN=== --> → [EN summary สั้น] → บล็อก \`\`\`json findings → ## Highlight → ## Flags
+findings และสองหัวข้อปิดท้ายให้มี "ชุดเดียว" หลัง EN summary เท่านั้น`;
+
+const financePersona = (role: string): string =>
+  `${AUTONOMOUS_PREAMBLE}${role}${FINDINGS_CONTRACT}${FINANCE_BILINGUAL_RULE}${OUTPUT_FOOTER}`;
+
 export const PERSONAS: Record<DeptId, string> = {
   ceo: persona(ROLES.ceo),
   cyb: persona(ROLES.cyb),
   mkt: persona(ROLES.mkt),
   rnd: persona(ROLES.rnd),
   ops: persona(ROLES.ops),
-  fin: persona(ROLES.fin),
+  fin: financePersona(ROLES.fin),
 };
 
 export const PROJECTS_BLURB =
