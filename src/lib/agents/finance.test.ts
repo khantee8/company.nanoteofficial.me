@@ -27,6 +27,33 @@ describe('run — truncation flag', () => {
     const result = await run(ctx);
     expect(result.incomplete).toBe(true);
   });
+
+  it('sets incomplete=true when a completed run yields zero cited funds (research failure / rate limit)', async () => {
+    // stop_reason is clean, but no fund survived citation validation — e.g. the
+    // web_search tool was rate-limited mid-run, so the model wrote uncited funds.
+    completeRaw.mockResolvedValue({
+      text: 'รายงาน...```json findings\n{"theme":"thai-tax-funds","funds":[]}\n```',
+      stopReason: 'end_turn',
+      usage: { input: 10, output: 2000 },
+    });
+    const { run } = await import('./finance');
+    const result = await run(ctx);
+    expect(result.incomplete).toBe(true);
+  });
+
+  it('does NOT flag a healthy run with cited funds as incomplete', async () => {
+    completeRaw.mockResolvedValue({
+      text: 'รายงาน...```json findings\n' + JSON.stringify({
+        theme: 'thai-tax-funds',
+        funds: [{ name: 'A', amc: 'X', ter: 0.5, aum: 1000, masterFund: 'M', return1y: 8, hedged: true, taxType: 'ssf', citation: { url: 'https://a', title: 'A', date: '2026-06-01' } }],
+      }) + '\n```',
+      stopReason: 'end_turn',
+      usage: { input: 10, output: 3000 },
+    });
+    const { run } = await import('./finance');
+    const result = await run(ctx);
+    expect(result.incomplete).toBe(false);
+  });
 });
 
 describe('financeArtifacts', () => {

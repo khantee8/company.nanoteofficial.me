@@ -158,7 +158,7 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
         sources, provenance, related, markdown, markdownEn, incomplete }),
     ]);
 
-    const warn = incomplete ? '\n⚠️ รายงานถูกตัด (max_tokens) — ตรวจก่อนเผยแพร่' : '';
+    const warn = incomplete ? '\n⚠️ รายงานอาจไม่สมบูรณ์ — ตรวจก่อนเผยแพร่' : '';
     await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}\n\n${markdown.slice(0, 800)}`);
     return result;
   } catch (err) {

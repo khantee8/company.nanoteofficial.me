@@ -86,13 +86,23 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const findings = parseFinanceFindings(markdown) ?? { theme, funds: [] };
   const artifacts = financeArtifacts(findings);
   const sources = findings.funds.map((x) => x.citation);
+  // A run is incomplete if the model was truncated (max_tokens) OR it finished
+  // but produced no citation-backed fund — the latter is almost always the
+  // web_search tool getting rate-limited mid-run, leaving the model to write
+  // uncited funds that parseFinanceFindings() then drops. Either way the
+  // deliverable is unusable and must not be presented as clean.
+  const noCitedFunds = findings.funds.length === 0;
+  const incomplete = stopReason === 'max_tokens' || noCitedFunds;
+  const summary = noCitedFunds
+    ? `⚠️ ไม่พบกองที่อ้างอิงได้ในธีม ${label} (การค้นเว็บอาจติด rate limit)`
+    : `${findings.funds.length} กองในธีม ${label}`;
   return {
     markdown,
-    summary: `${findings.funds.length} กองในธีม ${label}`,
+    summary,
     feedMsg: `finance: ${label} — ${findings.funds.length} funds`,
     artifacts, tags: financeTags(findings),
-    theme, provenance: findings.funds.length > 0 ? 'web' : 'api', sources,
-    incomplete: stopReason === 'max_tokens',
+    theme, provenance: noCitedFunds ? 'api' : 'web', sources,
+    incomplete,
     meta: { theme, fundCount: findings.funds.length, stopReason },
   };
 }
