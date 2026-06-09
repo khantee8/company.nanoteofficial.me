@@ -43,24 +43,90 @@ function exportHistoryCsv(name: string, history: DashboardAgent['history']) {
   const rows = [['date', 'summary', 'highlight'], ...history.map((h) => [h.date, h.summary, h.highlight])];
   downloadBlob(`${name}-history.csv`, rows.map((r) => r.map(csvCell).join(',')).join('\r\n'), 'text/csv');
 }
+// Walk markdown into structured DOM nodes (headings / tables / lists /
+// paragraphs) using textContent ONLY — no dangerouslySetInnerHTML. Mirrors the
+// subset of rules in Markdown.tsx: `#`/`##`/`###` headings, `|` tables (first
+// row = header), `-`/`*` list items, blank lines flush, everything else a <p>.
+function renderMarkdownToDoc(d: Document, md: string) {
+  const lines = md.replace(/\r\n/g, '\n').split('\n');
+  let table: string[][] | null = null;
+  let list: HTMLUListElement | null = null;
+  const flushTable = () => {
+    if (!table || table.length === 0) { table = null; return; }
+    const t = d.createElement('table');
+    table.forEach((cells, i) => {
+      const tr = d.createElement('tr');
+      cells.forEach((c) => {
+        const cell = d.createElement(i === 0 ? 'th' : 'td');
+        cell.textContent = c.trim();
+        tr.appendChild(cell);
+      });
+      t.appendChild(tr);
+    });
+    d.body.appendChild(t);
+    table = null;
+  };
+  const flushList = () => { list = null; };
+  const isDivider = (s: string) => /^\s*\|?[\s:|-]+\|?\s*$/.test(s) && s.includes('-');
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    // table rows (a line with a leading/embedded pipe)
+    if (line.includes('|') && line.trim().startsWith('|')) {
+      flushList();
+      if (isDivider(line)) continue; // skip the |---|---| separator row
+      const cells = line.replace(/^\||\|$/g, '').split('|');
+      (table ??= []).push(cells);
+      continue;
+    }
+    flushTable();
+    if (line.trim() === '') { flushList(); continue; }
+
+    const h = /^(#{1,3})\s+(.*)$/.exec(line);
+    if (h) {
+      flushList();
+      const tag = h[1].length === 3 ? 'h3' : 'h2'; // # and ## both render as h2 section heads
+      const el = d.createElement(tag);
+      el.textContent = h[2].replace(/\*\*/g, '');
+      d.body.appendChild(el);
+      continue;
+    }
+    const li = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (li) {
+      if (!list) { list = d.createElement('ul'); d.body.appendChild(list); }
+      const item = d.createElement('li');
+      item.textContent = li[1].replace(/\*\*/g, '');
+      list.appendChild(item);
+      continue;
+    }
+    flushList();
+    const p = d.createElement('p');
+    p.textContent = line.replace(/\*\*/g, '');
+    d.body.appendChild(p);
+  }
+  flushTable();
+}
+
 function exportPdf(title: string, markdown: string) {
   const w = window.open('', '_blank');
   if (!w) return;
   const d = w.document;
   const style = d.createElement('style');
   style.textContent =
-    `body{font-family:Georgia,'Times New Roman',serif;max-width:720px;margin:36px auto;padding:0 24px;line-height:1.6;color:#111}` +
-    `h1{font-size:20px;border-bottom:2px solid #333;padding-bottom:8px}` +
-    `pre{white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:13px;margin:0}` +
-    `footer{margin-top:24px;color:#888;font-size:11px}`;
+    `body{font-family:Georgia,'Times New Roman',serif;max-width:760px;margin:36px auto;padding:0 28px;line-height:1.6;color:#111}` +
+    `h1{font-size:22px;border-bottom:3px solid #1f3a6a;padding-bottom:8px;margin:0 0 4px}` +
+    `h2{font-size:16px;margin:20px 0 6px;color:#1f3a6a}h3{font-size:13px;margin:14px 0 4px}` +
+    `table{border-collapse:collapse;width:100%;margin:10px 0;font-size:12px}` +
+    `th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#eef2fa}` +
+    `p,li{font-size:13px}footer{margin-top:28px;color:#888;font-size:11px;border-top:1px solid #ddd;padding-top:8px}`;
   d.head.appendChild(style);
   d.title = `${title} — NaNote Corp`;
-  const h1 = d.createElement('h1'); h1.textContent = title;
-  const pre = d.createElement('pre'); pre.textContent = markdown;
+  const h1 = d.createElement('h1'); h1.textContent = title; d.body.appendChild(h1);
+  renderMarkdownToDoc(d, markdown);
   const footer = d.createElement('footer');
   footer.textContent = `NaNote Corp · company.nanoteofficial.me · ${new Date().toLocaleString()}`;
-  d.body.append(h1, pre, footer);
-  setTimeout(() => w.print(), 300);
+  d.body.appendChild(footer);
+  setTimeout(() => w.print(), 350);
 }
 
 export function AgentDetail({
