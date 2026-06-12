@@ -1,4 +1,4 @@
-import { complete } from '@/lib/claude';
+import { completeRaw } from '@/lib/claude';
 import { PERSONAS, PROJECTS_BLURB } from './personas';
 import { formatContext } from './runner';
 import { fetchHN, type HNItem } from '@/lib/sources/hackernews';
@@ -119,12 +119,12 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     ...devto.map((d) => `${d.title} (${d.reactions}♥ ${d.comments}💬)`),
   ].slice(0, 6);
   const context = formatContext(ctx);
-  const markdown = await complete({
+  const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.mkt,
     prompt: `${context ? context + '\n\n---\n\n' : ''}${PROJECTS_BLURB}\n\nกำลังเทรนด์จริงในวงการตอนนี้ (engagement จริง):\n${trending.join('\n') || 'n/a'}\n\nวิเคราะห์สัญญาณดีมานด์จริง ค้นเว็บเพิ่มเติมพร้อมอ้างอิงแหล่ง แล้วเสนอแผนคอนเทนต์ที่ผูกกับเทรนด์ ระบุ "## X post" / "## LinkedIn post" / "## Blog idea" และแนบบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 4,
-    maxTokens: 1800,
+    maxTokens: 4000,
   });
   const findings = parseMarketingFindings(markdown) ?? { theme: 'dev-demand', signals: [], plan: [] };
   const artifacts = [...marketingArtifacts(data), ...marketingSignalArtifacts(findings), ...marketingPlanArtifacts(findings)];
@@ -138,6 +138,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     theme: 'dev-demand',
     provenance: findings.signals.length > 0 ? 'web' : 'api',
     sources,
-    meta: { hn, devto, reach, signals: findings.signals.length, plan: findings.plan.length },
+    incomplete: stopReason === 'max_tokens',
+    meta: { hn, devto, reach, signals: findings.signals.length, plan: findings.plan.length, stopReason },
   };
 }

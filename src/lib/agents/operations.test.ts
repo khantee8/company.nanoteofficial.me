@@ -2,44 +2,35 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { completeRawMock } = vi.hoisted(() => ({
   completeRawMock: vi.fn(async () => ({
-    text: '# Brief\n\n## Highlight\nx\n\n## Flags\nNone',
+    text: 'รายงาน ops\n\n## Highlight\nx\n\n## Flags\nNone',
     stopReason: 'end_turn',
     usage: { input: 1, output: 100 },
   })),
 }));
 
 vi.mock('@/lib/claude', () => ({ completeRaw: completeRawMock }));
-vi.mock('@/lib/sources/threatintel', () => ({
-  fetchKev: vi.fn(async () => [
-    { cveId: 'CVE-9', vendorProject: 'Acme', product: 'Widget', vulnerabilityName: 'RCE', dateAdded: '2026-06-01', shortDescription: 'x' },
-  ]),
-  fetchSecurityNews: vi.fn(async () => [{ title: 'Big breach', link: 'l' }]),
-  formatThreatIntel: vi.fn(() => ['CVE-9 line', 'news: Big breach']),
+vi.mock('@/lib/sources/vercelApi', () => ({
+  fetchDeployments: vi.fn(async () => []),
+  formatDeployments: vi.fn(() => []),
+}));
+vi.mock('@/lib/sources/githubApi', () => ({
+  fetchActivity: vi.fn(async () => []),
+  formatActivity: vi.fn(() => []),
 }));
 
-import { run } from './cyberx';
+import { run } from './operations';
 import type { AgentContext } from './types';
 
 const emptyCtx: AgentContext = { ownHistory: [], companyDigest: [], todayPeers: [] };
 
-describe('cyberx.run', () => {
+describe('operations.run — truncation flag', () => {
   beforeEach(() => completeRawMock.mockClear());
 
-  it('calls Claude with webSearch enabled and a budget that fits a full dual-language report', async () => {
+  it('requests a budget that fits a full dual-language report', async () => {
     await run(emptyCtx);
-    // No model override — CyberX tracks the company default like the other agents.
     expect(completeRawMock).toHaveBeenCalledWith(
       expect.objectContaining({ maxTokens: 4000, webSearch: true }),
     );
-    const firstCallArgs = completeRawMock.mock.calls[0] as unknown[];
-    expect(firstCallArgs[0]).not.toHaveProperty('model');
-  });
-
-  it('returns a populated AgentRunResult', async () => {
-    const result = await run(emptyCtx);
-    expect(result.markdown).toContain('Brief');
-    expect(result.summary).toContain('CVE');
-    expect(result.feedMsg).toContain('Big breach');
   });
 
   it('sets incomplete=true when the model stops on max_tokens', async () => {

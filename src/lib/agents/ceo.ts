@@ -1,4 +1,4 @@
-import { complete } from '@/lib/claude';
+import { completeRaw } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
@@ -84,10 +84,10 @@ export function ceoTags(snapshot: CompanySnapshot): string[] {
 
 export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const context = formatContext(ctx);
-  const markdown = await complete({
+  const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.ceo,
     prompt: `${context ? context + '\n\n---\n\n' : ''}สังเคราะห์บทสรุปผู้บริหารจากผลงานของทุกแผนก: "## Summary" (3-4 ประโยค เชื่อมโยงกิจกรรมล่าสุดของบริษัท) และ "## Decisions" (2-3 ข้อ ลงมือได้จริง อ้างถึงผลงานของแผนกที่เจาะจง) แล้วแนบบล็อก \`\`\`json findings (decisions/risks/priorities) ตามสคีมาในบทบาทของคุณ`,
-    maxTokens: 1200,
+    maxTokens: 4000,
   });
   const snapshot = ctx.companySnapshot ?? { statuses: [], digest: [] };
   const findings = parseCeoFindings(markdown) ?? { decisions: [], risks: [], priorities: [] };
@@ -100,6 +100,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     theme: 'weekly-synthesis',
     provenance: 'api',
     related: ctx.companySnapshot?.relatedEntryIds ?? [],
-    meta: { risks: findings.risks, priorities: findings.priorities },
+    incomplete: stopReason === 'max_tokens',
+    meta: { risks: findings.risks, priorities: findings.priorities, stopReason },
   };
 }

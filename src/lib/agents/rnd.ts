@@ -1,4 +1,4 @@
-import { complete } from '@/lib/claude';
+import { completeRaw } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { fetchTrending, type TrendingRepo } from '@/lib/sources/githubTrending';
@@ -115,14 +115,14 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     .join('\n');
 
   const context = formatContext(ctx);
-  const markdown = await complete({
+  const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.rnd,
     prompt: `${context ? context + '\n\n---\n\n' : ''}โฟกัสประจำรอบวันนี้: **${label}** (theme: ${theme}).\n${
       radar ? `Repo ที่กำลังมาแรง (14 วัน):\n${radar}\n\n` : ''
     }ค้นหา repo/paper/release จริงในโฟกัสนี้ สรุปว่าอะไรน่ารับมาใช้และเพราะอะไร อ้างอิงแหล่ง+วันที่ แล้วแนบบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 5,
-    maxTokens: 1800,
+    maxTokens: 4000,
   });
 
   const findings = parseRndFindings(markdown) ?? { theme, items: [] };
@@ -138,6 +138,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     theme,
     provenance: findings.items.length > 0 ? 'web' : 'api',
     sources,
-    meta: { theme, repos, items: findings.items.length },
+    incomplete: stopReason === 'max_tokens',
+    meta: { theme, repos, items: findings.items.length, stopReason },
   };
 }

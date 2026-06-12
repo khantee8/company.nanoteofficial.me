@@ -1,4 +1,4 @@
-import { complete } from '@/lib/claude';
+import { completeRaw } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { fetchDeployments, formatDeployments, type DeployState } from '@/lib/sources/vercelApi';
@@ -76,12 +76,12 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const activityLines = formatActivity(activity);
   const allOk = deploys.length > 0 && deploys.every((d) => d.ok);
   const context = formatContext(ctx);
-  const markdown = await complete({
+  const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.ops,
     prompt: `${context ? context + '\n\n---\n\n' : ''}CI/CD snapshot.\n\nDeployments:\n${deployLines.join('\n') || 'none'}\n\nRepo activity:\n${activityLines.join('\n') || 'none'}\n\nสรุปสุขภาพ deploy/CI แล้วชี้ "สิ่งเดียวที่ควรแก้วันนี้" ถ้าต้องอ้างอิงภายนอก (status page/changelog) ให้ค้นเว็บและแนบแหล่ง แล้วแนบบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 3,
-    maxTokens: 1200,
+    maxTokens: 4000,
   });
   const findings = parseOperationsFindings(markdown) ?? { fixToday: '', notes: [] };
   const artifacts = [...opsArtifacts(deploys, activity), ...opsNoteArtifacts(findings)];
@@ -95,6 +95,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     tags: opsTags(deploys, activity),
     provenance: findings.notes.length > 0 ? 'web' : 'api',
     sources,
-    meta: { deploys, activity, fixToday: findings.fixToday, notes: findings.notes.length },
+    incomplete: stopReason === 'max_tokens',
+    meta: { deploys, activity, fixToday: findings.fixToday, notes: findings.notes.length, stopReason },
   };
 }
