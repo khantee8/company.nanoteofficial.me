@@ -96,12 +96,24 @@ export interface RedisClientLike {
   lrange<T = unknown>(key: string, start: number, stop: number): Promise<T[]>;
 }
 
+// A run hard-killed by the platform (function timeout is 300s) never reaches the
+// runner's catch, leaving `running` stuck in Redis. Normalize on read: anything
+// `running` for longer than this was interrupted.
+export const STALE_RUNNING_MS = 15 * 60_000;
+
+export function normalizeStatus(s: AgentStatus, nowMs = Date.now()): AgentStatus {
+  if (s.state !== 'running') return s;
+  const startedMs = s.lastRun ? Date.parse(s.lastRun) : NaN;
+  if (Number.isFinite(startedMs) && nowMs - startedMs <= STALE_RUNNING_MS) return s;
+  return { ...s, state: 'error', error: 'run interrupted (timed out before completing)' };
+}
+
 export function makeRedisRepo(client: RedisClientLike) {
   const repo = {
     async setStatus(s: AgentStatus) { await client.set(`agent:${s.dept}:status`, s); },
     async getStatus(dept: DeptId): Promise<AgentStatus> {
       const v = await client.get<AgentStatus>(`agent:${dept}:status`);
-      return v ?? { dept, state: 'idle', lastRun: null };
+      return v ? normalizeStatus(v) : { dept, state: 'idle', lastRun: null };
     },
     async setOutput(o: AgentOutput) { await client.set(`agent:${o.dept}:output`, o); },
     async getOutput(dept: DeptId): Promise<AgentOutput | null> {

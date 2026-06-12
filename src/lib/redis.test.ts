@@ -39,6 +39,26 @@ describe('redis repo', () => {
     expect(await repo.getStatus('ceo')).toEqual({ dept: 'ceo', state: 'idle', lastRun: null });
   });
 
+  it('normalizes a stale running status to error (hard-killed run)', async () => {
+    const lastRun = new Date(Date.now() - 16 * 60_000).toISOString();
+    await repo.setStatus({ dept: 'fin', state: 'running', lastRun });
+    const s = await repo.getStatus('fin');
+    expect(s.state).toBe('error');
+    expect(s.lastRun).toBe(lastRun);
+    expect(s.error).toMatch(/interrupted/);
+  });
+
+  it('keeps a fresh running status as running', async () => {
+    const lastRun = new Date(Date.now() - 2 * 60_000).toISOString();
+    await repo.setStatus({ dept: 'fin', state: 'running', lastRun });
+    expect((await repo.getStatus('fin')).state).toBe('running');
+  });
+
+  it('treats running with no lastRun as stale', async () => {
+    await repo.setStatus({ dept: 'fin', state: 'running', lastRun: null });
+    expect((await repo.getStatus('fin')).state).toBe('error');
+  });
+
   it('stores and reads an output', async () => {
     const o: AgentOutput = { dept: 'mkt', markdown: '# hi', summary: 's', ts: '2026-05-28T13:00:00Z', category: 'content-plan', tags: [], artifacts: [] };
     await repo.setOutput(o);
