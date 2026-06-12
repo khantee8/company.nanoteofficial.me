@@ -47,6 +47,31 @@ describe('complete model selection', () => {
   });
 });
 
+describe('web_search tool declaration', () => {
+  beforeEach(() => streamMock.mockClear());
+
+  it('declares web_search with allowed_callers direct (Haiku has no programmatic tool calling)', async () => {
+    await complete({ system: 's', prompt: 'p', webSearch: true, maxSearches: 3 });
+    expect(streamMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: [
+          expect.objectContaining({
+            type: 'web_search_20260209',
+            name: 'web_search',
+            max_uses: 3,
+            allowed_callers: ['direct'],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('sends no tools when webSearch is off', async () => {
+    await complete({ system: 's', prompt: 'p' });
+    expect(streamMock.mock.calls[0][0]).not.toHaveProperty('tools');
+  });
+});
+
 describe('completeRaw pause_turn resumption', () => {
   beforeEach(() => streamMock.mockClear());
 

@@ -61,8 +61,11 @@ async function streamOnce(
  *  `pause_turn` is resumed so long web_search loops aren't cut off mid-research. */
 export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
   const { system, prompt, model = MODEL, maxTokens = 1500, webSearch = false, maxSearches = 5 } = opts;
+  // allowed_callers: ['direct'] — web_search_20260209 ships dynamic filtering,
+  // which needs programmatic tool calling; Haiku doesn't support it and 400s
+  // without this. Direct-only calls are all this wrapper ever makes anyway.
   const tools: Anthropic.Messages.Tool[] | undefined = webSearch
-    ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches } as unknown as Anthropic.Messages.Tool]
+    ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches, allowed_callers: ['direct'] } as unknown as Anthropic.Messages.Tool]
     : undefined;
 
   const messages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: prompt }];
