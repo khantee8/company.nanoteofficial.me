@@ -58,3 +58,23 @@ export function splitBilingual(markdown: string): { th: string; en: string } {
   const en = enBody ? join(enBody, tail) : th;
   return { th, en };
 }
+
+// v1.5.0 — agents EMIT the machine-readable head first (findings → Highlight →
+// Flags → ---) so truncation can't destroy it, but storage keeps the legacy
+// narrative-first layout. Normalized once on ingest (runner.ts), so every
+// downstream consumer — splitBilingual, narrativeOf, dashboards, exports, and
+// all pre-v1.5 KB entries — keeps seeing one canonical shape.
+const HEAD_SEP_RE = /\n---[ \t]*(\n|$)/;
+
+export function normalizeReportOrder(raw: string): string {
+  const text = (raw ?? '').trim();
+  if (!text.startsWith('```json findings')) return text;
+  const flagsIdx = text.search(/\n##\s+Flags/i);
+  if (flagsIdx === -1) return text;
+  const sep = text.slice(flagsIdx).match(HEAD_SEP_RE);
+  if (!sep || sep.index === undefined) return text;
+  const head = text.slice(0, flagsIdx + sep.index).trim();
+  const body = text.slice(flagsIdx + sep.index + sep[0].length).trim();
+  if (!body) return text;
+  return `${body}\n\n${head}`;
+}
