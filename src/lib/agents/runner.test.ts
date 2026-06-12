@@ -61,6 +61,24 @@ describe('runAgent', () => {
     expect(repo.setStatus).toHaveBeenLastCalledWith(expect.objectContaining({ state: 'error', error: 'boom' }));
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('failed'));
   });
+
+  it('normalizes head-first (v1.5) output into the legacy storage layout', async () => {
+    const repo = fakeRepo();
+    const notify = vi.fn(async () => {});
+    const head = '```json findings\n{}\n```\n\n## Highlight\nHead verdict.\n\n## Flags\n- Follow up\n\n---';
+    const run = vi.fn(async (): Promise<AgentRunResult> => ({
+      markdown: `${head}\n\nรายงานไทย\n\n<!-- ===EN=== -->\n\nEnglish body`,
+      summary: 's', feedMsg: 'm',
+    }));
+
+    await runAgent({ dept: 'fin', run }, { repo, notify });
+
+    const stored = (repo.setOutput as ReturnType<typeof vi.fn>).mock.calls[0][0] as { markdown: string };
+    expect(stored.markdown.startsWith('รายงานไทย')).toBe(true);
+    expect(stored.markdown.indexOf('## Highlight')).toBeGreaterThan(stored.markdown.indexOf('รายงานไทย'));
+    expect(repo.pushHistory).toHaveBeenCalledWith(expect.objectContaining({ highlight: 'Head verdict.' }));
+    expect(repo.pushDigest).toHaveBeenCalledWith(expect.objectContaining({ flags: ['Follow up'] }));
+  });
 });
 
 describe('parseHighlight', () => {

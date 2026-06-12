@@ -1,7 +1,7 @@
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import type { AgentRunResult, AgentContext } from './types';
 import { CATEGORY_BY_DEPT } from './artifacts';
-import { splitBilingual } from './bilingual';
+import { normalizeReportOrder, splitBilingual } from './bilingual';
 import type { RedisRepo } from '@/lib/redis';
 import { deriveSlug } from '@/lib/redis';
 
@@ -130,7 +130,9 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
     const ts = now();
     // Dual-generated narrative → two clean per-language documents (both carry the
     // shared findings + Highlight/Flags tail, so parsing works on either).
-    const { th: markdown, en: markdownEn } = splitBilingual(result.markdown);
+    // v1.5: agents emit the findings/Highlight/Flags head FIRST (truncation-
+    // safe); normalize back to the narrative-first storage layout before split.
+    const { th: markdown, en: markdownEn } = splitBilingual(normalizeReportOrder(result.markdown));
     const highlight = parseHighlight(markdown);
     const flags = parseFlags(markdown);
     const date = todayDate();
