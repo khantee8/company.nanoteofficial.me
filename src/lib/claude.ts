@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-const MODEL = 'claude-sonnet-4-6';
+// Haiku by default to keep agent-run spend low; set CLAUDE_MODEL in Vercel to override
+const MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 
 let _client: Anthropic | null = null;
 function client(): Anthropic {

@@ -32,10 +32,10 @@ import { complete, completeRaw } from './claude';
 describe('complete model selection', () => {
   beforeEach(() => streamMock.mockClear());
 
-  it('defaults to sonnet when no model is given', async () => {
+  it('defaults to haiku when no model is given (cost-saving default)', async () => {
     await complete({ system: 's', prompt: 'p' });
     expect(streamMock).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'claude-sonnet-4-6' }),
+      expect.objectContaining({ model: 'claude-haiku-4-5-20251001' }),
     );
   });
 
