@@ -93,8 +93,7 @@ describe('normalizeReportOrder', () => {
   });
 
   it('passes through when there is no body after the separator', () => {
-    const out = normalizeReportOrder(HEAD);
-    expect(out).toContain('## Highlight');
+    expect(normalizeReportOrder(HEAD)).toBe(HEAD);
   });
 
   it('never throws on empty input', () => {

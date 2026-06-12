@@ -67,7 +67,7 @@ export function splitBilingual(markdown: string): { th: string; en: string } {
 const HEAD_SEP_RE = /\n---[ \t]*(\n|$)/;
 
 export function normalizeReportOrder(raw: string): string {
-  const text = (raw ?? '').trim();
+  const text = (raw ?? '').replace(/\r\n/g, '\n').trim();
   if (!text.startsWith('```json findings')) return text;
   const flagsIdx = text.search(/\n##\s+Flags/i);
   if (flagsIdx === -1) return text;
