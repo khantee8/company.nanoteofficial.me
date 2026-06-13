@@ -229,6 +229,7 @@ export function AgentDetail({
   related?: { slug: string; title: string; dept: string }[];
 }) {
   const { t, lang } = useLang();
+  const gridRef = useRef<HTMLDivElement>(null);
   const meta = DEPARTMENTS.find((d) => d.id === dept);
   const name = meta?.name ?? dept;
   const color = meta?.color ?? '#7f8cff';
@@ -271,7 +272,7 @@ export function AgentDetail({
       )}
 
       {artifacts.length > 0 ? (
-        <div className="agent-art-grid">
+        <div className="agent-art-grid" ref={gridRef}>
           {artifacts.map((a, i) => (
             <section key={i} className="glass agent-art">
               <ArtifactRenderer artifact={a} />
@@ -336,7 +337,11 @@ export function AgentDetail({
 
       <div className="agent-exports">
         <button onClick={() => downloadBlob(`${dept}.md`, md, 'text/markdown')} disabled={!md} className="agent-exp">⤓ MD</button>
-        <button onClick={() => exportPdf(name, md)} disabled={!md} className="agent-exp">⤓ PDF</button>
+        <button
+          onClick={() => exportPdf({ title: name, narrative: narrativeOf(md), highlight, flags, sources, chartsEl: gridRef.current })}
+          disabled={!md}
+          className="agent-exp"
+        >⤓ PDF</button>
         <button onClick={() => downloadBlob(`${dept}-artifacts.json`, JSON.stringify(artifacts, null, 2), 'application/json')} disabled={!artifacts.length} className="agent-exp">⤓ JSON</button>
         <button onClick={() => exportHistoryCsv(dept, agent?.history ?? [])} disabled={!agent?.history.length} className="agent-exp">⤓ CSV</button>
       </div>
