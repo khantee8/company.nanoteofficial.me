@@ -1,7 +1,7 @@
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import type { AgentRunResult, AgentContext } from './types';
 import { CATEGORY_BY_DEPT } from './artifacts';
-import { normalizeReportOrder, splitBilingual } from './bilingual';
+import { EN_DELIMITER, normalizeReportOrder, splitBilingual } from './bilingual';
 import type { RedisRepo } from '@/lib/redis';
 import { deriveSlug } from '@/lib/redis';
 
@@ -21,16 +21,26 @@ function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function parseHighlight(markdown: string): string {
-  const match = markdown.match(/## Highlight\s*\n([\s\S]*?)(?=\n## |\n---|\s*$)/i);
-  if (!match) return '';
-  return match[1].trim().slice(0, 300);
+type Lang = 'th' | 'en';
+
+// The captured Highlight/Flags body may be bilingual: Thai, then a line with
+// EN_DELIMITER, then English (v1.5.1). Pick the requested half; fall back to the
+// Thai half when there is no delimiter (legacy single-language entries).
+function pickLangSegment(body: string, lang: Lang): string {
+  const parts = body.split(EN_DELIMITER);
+  return (lang === 'en' ? parts[1] ?? parts[0] : parts[0]).trim();
 }
 
-export function parseFlags(markdown: string): string[] {
+export function parseHighlight(markdown: string, lang: Lang = 'th'): string {
+  const match = markdown.match(/## Highlight\s*\n([\s\S]*?)(?=\n## |\n---|\s*$)/i);
+  if (!match) return '';
+  return pickLangSegment(match[1], lang).slice(0, 300);
+}
+
+export function parseFlags(markdown: string, lang: Lang = 'th'): string[] {
   const match = markdown.match(/## Flags\s*\n([\s\S]*?)(?=\n## |\n---|\s*$)/i);
   if (!match) return [];
-  return match[1]
+  return pickLangSegment(match[1], lang)
     .split('\n')
     .map((l) => l.replace(/^[-*]\s*/, '').trim())
     .filter(Boolean)

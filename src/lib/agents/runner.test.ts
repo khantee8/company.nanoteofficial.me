@@ -90,6 +90,18 @@ describe('parseHighlight', () => {
   it('returns empty string when no highlight section', () => {
     expect(parseHighlight('# Just a report\nNo sections')).toBe('');
   });
+
+  it('returns the English half of a bilingual highlight when lang=en', () => {
+    const md = '## Highlight\nสรุปภาษาไทย\n<!-- ===EN=== -->\nEnglish verdict.\n\n## Flags\nNone.';
+    expect(parseHighlight(md, 'en')).toBe('English verdict.');
+    expect(parseHighlight(md, 'th')).toBe('สรุปภาษาไทย');
+    expect(parseHighlight(md)).toBe('สรุปภาษาไทย'); // no-arg = Thai (legacy)
+  });
+
+  it('falls back to the Thai half for lang=en when there is no delimiter', () => {
+    const md = '## Highlight\nThai only verdict\n\n## Flags\nNone.';
+    expect(parseHighlight(md, 'en')).toBe('Thai only verdict');
+  });
 });
 
 describe('parseFlags', () => {
@@ -105,6 +117,18 @@ describe('parseFlags', () => {
 
   it('returns empty array when no flags section', () => {
     expect(parseFlags('no flags here')).toEqual([]);
+  });
+
+  it('returns the English bullets of bilingual flags when lang=en', () => {
+    const md = '## Flags\n- ก ข ค\n- ง จ\n<!-- ===EN=== -->\n- Alpha\n- Beta';
+    expect(parseFlags(md, 'en')).toEqual(['Alpha', 'Beta']);
+    expect(parseFlags(md, 'th')).toEqual(['ก ข ค', 'ง จ']);
+    expect(parseFlags(md)).toEqual(['ก ข ค', 'ง จ']); // no-arg = Thai (legacy)
+  });
+
+  it('falls back to the Thai bullets for lang=en when there is no delimiter', () => {
+    const md = '## Flags\n- only one list';
+    expect(parseFlags(md, 'en')).toEqual(['only one list']);
   });
 });
 
