@@ -41,6 +41,7 @@ export function ExecDashboard() {
   const td = today();
   const reportsToday = agents.filter((a) => a.status?.lastRun?.startsWith(td)).length;
   const activeAgents = agents.filter((a) => a.output).length;
+  // Flag count is language-neutral by contract (the model emits the same bullets in TH and EN), so this stays no-arg (Thai).
   const totalFlags = agents.reduce((n, a) => n + (a.output ? parseFlags(a.output.markdown).length : 0), 0);
   const lastRunMs = agents.reduce((m, a) => {
     const t = a.status?.lastRun ? Date.parse(a.status.lastRun) : 0;
@@ -123,6 +124,7 @@ function ExecCard({ agent }: { agent: DashboardAgent }) {
   const name = meta?.name ?? agent.dept;
   const color = meta?.color ?? '#7f8cff';
   const state = (agent.status?.state ?? 'idle') as AgentState;
+  // Pass the TH doc directly; parseHighlight/parseFlags extract the EN half from the <!-- ===EN=== --> delimiter in the shared Highlight/Flags tail (no pickMarkdown needed here).
   const md = agent.output?.markdown ?? '';
   const highlight = md ? parseHighlight(md, lang) : agent.status?.summary ?? '';
   const flags = md ? parseFlags(md, lang) : [];
