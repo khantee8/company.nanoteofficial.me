@@ -46,6 +46,12 @@ describe('completeRaw with mcpServers', () => {
     });
     expect(betaStream).toHaveBeenCalledTimes(2);
     expect(res.text).toBe('part1\npart2');
+    // the resumed call must still carry the connector wiring, and a tokenless
+    // server must NOT emit an authorization_token field
+    expect(betaStream.mock.calls[1][0].betas).toContain('mcp-client-2025-11-20');
+    expect(betaStream.mock.calls[1][0].mcp_servers).toEqual([
+      { type: 'url', url: 'https://x/api/mcp', name: 'tf' },
+    ]);
   });
 
   it('uses the plain (non-beta) path when no mcpServers', async () => {
