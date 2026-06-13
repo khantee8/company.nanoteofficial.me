@@ -59,7 +59,10 @@ export function normalizeKbEntry(raw: Partial<KbEntry> & { dept: DeptId; ts: str
     pinned: raw.pinned,
     summary: raw.summary ?? '',
     highlight: raw.highlight ?? '',
+    // Pre-v1.5.1 entries are single-language; serve the Thai text for EN too.
+    highlightEn: raw.highlightEn ?? raw.highlight ?? '',
     flags: raw.flags ?? [],
+    flagsEn: raw.flagsEn ?? raw.flags ?? [],
     artifacts: raw.artifacts ?? [],
     sources: raw.sources ?? [],
     provenance: raw.provenance ?? 'api',

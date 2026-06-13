@@ -26,3 +26,23 @@ describe('normalizeKbEntry v2 backfill', () => {
     expect(e.status).toBe('published');
   });
 });
+
+describe('normalizeKbEntry — bilingual backfill', () => {
+  it('backfills highlightEn/flagsEn from the single-language fields', () => {
+    const e = normalizeKbEntry({
+      dept: 'fin', ts: '2026-06-10T00:00:00Z',
+      highlight: 'สรุปไทย', flags: ['ก', 'ข'],
+    });
+    expect(e.highlightEn).toBe('สรุปไทย');
+    expect(e.flagsEn).toEqual(['ก', 'ข']);
+  });
+
+  it('keeps explicit English fields when present', () => {
+    const e = normalizeKbEntry({
+      dept: 'fin', ts: '2026-06-10T00:00:00Z',
+      highlight: 'ไทย', highlightEn: 'EN', flags: ['ก'], flagsEn: ['en'],
+    });
+    expect(e.highlightEn).toBe('EN');
+    expect(e.flagsEn).toEqual(['en']);
+  });
+});
