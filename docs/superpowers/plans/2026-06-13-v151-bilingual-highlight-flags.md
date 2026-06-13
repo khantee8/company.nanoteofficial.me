@@ -20,7 +20,7 @@
 | `src/lib/agents/runner.test.ts` | add lang-split tests | guards parser language selection + fallback |
 | `src/lib/agents/types.ts` | add `highlightEn?`/`flagsEn?` to `DigestEntry` + `KbEntry` | bilingual storage shape |
 | `src/lib/redis.ts` | `normalizeKbEntry` backfills the two new fields | legacy KB entries render under either toggle |
-| `src/lib/redis.test.ts` (or `kb.test.ts`) | backfill test | guards backfill |
+| `src/lib/redis.kb.test.ts` | backfill test | guards backfill |
 | `src/lib/agents/personas.ts` | `OUTPUT_HEAD_CONTRACT` instructs a bilingual Highlight/Flags | emission |
 | `src/lib/agents/personas.test.ts` | assert bilingual head instruction | guards contract |
 | `src/components/ExecDashboard.tsx` | pass `lang` to parsers; lang-pick `highlightEn` in the Pulse list | bilingual display (exec) |
@@ -220,13 +220,11 @@ git commit -m "feat(agents): persist highlightEn/flagsEn on digest + KB entries"
 
 **Files:**
 - Modify: `src/lib/redis.ts` (`normalizeKbEntry`, ~lines 45-72)
-- Test: `src/lib/redis.test.ts` if it exists, else `src/lib/kb.test.ts`
+- Test: `src/lib/redis.kb.test.ts` (this is the file that already imports `normalizeKbEntry`)
 
-- [ ] **Step 1: Write the failing test** — locate the existing normalize/KB test file (run `ls src/lib/redis.test.ts src/lib/kb.test.ts 2>/dev/null`; use whichever exists, preferring `redis.test.ts`). If `redis.test.ts` imports `normalizeKbEntry`, add:
+- [ ] **Step 1: Write the failing test** — append this `describe` to `src/lib/redis.kb.test.ts` (it already imports `normalizeKbEntry` from `./redis`; reuse that import, do not re-import):
 
 ```ts
-import { normalizeKbEntry } from './redis';
-
 describe('normalizeKbEntry — bilingual backfill', () => {
   it('backfills highlightEn/flagsEn from the single-language fields', () => {
     const e = normalizeKbEntry({
@@ -248,11 +246,9 @@ describe('normalizeKbEntry — bilingual backfill', () => {
 });
 ```
 
-If neither test file imports `normalizeKbEntry` directly, add this `describe` to `src/lib/kb.test.ts` with `import { normalizeKbEntry } from './redis';`.
-
 - [ ] **Step 2: Run to verify failure**
 
-Run: `npx vitest run src/lib/redis.test.ts src/lib/kb.test.ts -t "bilingual backfill"`
+Run: `npx vitest run src/lib/redis.kb.test.ts -t "bilingual backfill"`
 Expected: FAIL — `e.highlightEn` / `e.flagsEn` are `undefined` (not yet set by `normalizeKbEntry`).
 
 - [ ] **Step 3: Implement** — in `src/lib/redis.ts` `normalizeKbEntry`, add the two backfills right after the existing `highlight` / `flags` lines:
@@ -268,13 +264,13 @@ Expected: FAIL — `e.highlightEn` / `e.flagsEn` are `undefined` (not yet set by
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `npx vitest run src/lib/redis.test.ts src/lib/kb.test.ts`
+Run: `npx vitest run src/lib/redis.kb.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/lib/redis.ts src/lib/redis.test.ts src/lib/kb.test.ts
+git add src/lib/redis.ts src/lib/redis.kb.test.ts
 git commit -m "feat(redis): backfill highlightEn/flagsEn for legacy KB entries"
 ```
 
