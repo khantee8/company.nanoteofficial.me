@@ -28,6 +28,17 @@ const CATEGORY_LABEL: Record<string, string> = {
   'content-plan': 'Content Plan', 'ops-status': 'Ops Status', 'exec-brief': 'Exec Brief',
 };
 
+// Only http(s)/mailto links are safe to emit; anything else (javascript:, data:)
+// gets no href so the exported PDF can't carry a clickable script URL.
+function safeHref(url: string): string | null {
+  try {
+    const u = new URL(url);
+    return ['http:', 'https:', 'mailto:'].includes(u.protocol) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── dependency-free exports ───────────────────────────────────────────
 function downloadBlob(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -156,10 +167,18 @@ export function buildPdfDoc(d: Document, args: PdfArgs) {
     const ul = d.createElement('ul'); ul.className = 'pdf-sources';
     for (const c of sources) {
       const li = d.createElement('li');
-      const a = d.createElement('a');
-      a.setAttribute('href', c.url);
-      a.textContent = c.title || c.url;
-      li.appendChild(a);
+      const href = safeHref(c.url);
+      const label = c.title || c.url;
+      if (href) {
+        const a = d.createElement('a');
+        a.setAttribute('href', href);
+        a.setAttribute('rel', 'noopener noreferrer');
+        a.setAttribute('target', '_blank');
+        a.textContent = label;
+        li.appendChild(a);
+      } else {
+        li.textContent = label;
+      }
       if (c.date) {
         const span = d.createElement('span');
         span.textContent = ` — ${c.date}`;

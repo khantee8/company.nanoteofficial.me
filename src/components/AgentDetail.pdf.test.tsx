@@ -90,6 +90,17 @@ describe('buildPdfDoc', () => {
     expect(empty.querySelector('.pdf-sources')).toBeNull();
   });
 
+  it('renders a javascript: source as plain text, never as a clickable href', () => {
+    const d = freshDoc();
+    buildPdfDoc(d, { title: 'T', narrative: '', sources: [
+      { url: 'javascript:alert(1)', title: 'Bad', date: '2026-06-01' },
+    ] });
+    const li = d.querySelector('.pdf-sources li');
+    expect(li?.querySelector('a')).toBeNull();           // no anchor
+    expect(li?.textContent).toContain('Bad');             // still shows the label
+    expect(d.body.innerHTML).not.toContain('javascript:'); // no js url emitted
+  });
+
   it('renders the narrative markdown and does NOT include a raw "## Highlight" head', () => {
     const d = freshDoc();
     buildPdfDoc(d, { title: 'T', narrative: '## Section\n\nBody text.' });
