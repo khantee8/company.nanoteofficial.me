@@ -119,10 +119,10 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     system: PERSONAS.rnd,
     prompt: `${context ? context + '\n\n---\n\n' : ''}โฟกัสประจำรอบวันนี้: **${label}** (theme: ${theme}).\n${
       radar ? `Repo ที่กำลังมาแรง (14 วัน):\n${radar}\n\n` : ''
-    }ค้นหา repo/paper/release จริงในโฟกัสนี้ สรุปว่าอะไรน่ารับมาใช้และเพราะอะไร อ้างอิงแหล่ง+วันที่ แล้วแนบบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
+    }ค้นหา repo/paper/release จริงในโฟกัสนี้ สรุปว่าอะไรน่ารับมาใช้และเพราะอะไร อ้างอิงแหล่ง+วันที่ เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 5,
-    maxTokens: 4000,
+    maxTokens: 8000,
   });
 
   const findings = parseRndFindings(markdown) ?? { theme, items: [] };

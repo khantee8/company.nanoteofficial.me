@@ -86,8 +86,8 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const context = formatContext(ctx);
   const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.ceo,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}สังเคราะห์บทสรุปผู้บริหารจากผลงานของทุกแผนก: "## Summary" (3-4 ประโยค เชื่อมโยงกิจกรรมล่าสุดของบริษัท) และ "## Decisions" (2-3 ข้อ ลงมือได้จริง อ้างถึงผลงานของแผนกที่เจาะจง) แล้วแนบบล็อก \`\`\`json findings (decisions/risks/priorities) ตามสคีมาในบทบาทของคุณ`,
-    maxTokens: 4000,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}สังเคราะห์บทสรุปผู้บริหารจากผลงานของทุกแผนก: "## Summary" (3-4 ประโยค เชื่อมโยงกิจกรรมล่าสุดของบริษัท) และ "## Decisions" (2-3 ข้อ ลงมือได้จริง อ้างถึงผลงานของแผนกที่เจาะจง) เปิดรายงานด้วยบล็อก \`\`\`json findings (decisions/risks/priorities) ตามสคีมาในบทบาทของคุณ`,
+    maxTokens: 8000,
   });
   const snapshot = ctx.companySnapshot ?? { statuses: [], digest: [] };
   const findings = parseCeoFindings(markdown) ?? { decisions: [], risks: [], priorities: [] };

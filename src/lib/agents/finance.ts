@@ -78,7 +78,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const context = formatContext(ctx);
   const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.fin,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nค้นหาและเปรียบเทียบกองทุนรวมไทยจริง 3-5 กองในธีมนี้ พร้อมค่าธรรมเนียม กองแม่ AUM และผลตอบแทน อ้างอิงแหล่ง+วันที่ทุกตัวเลข แล้วเขียนรายงานตามโครงสร้างในบทบาท แล้วแนบบล็อก \`\`\`json findings ตามสคีมา`,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nค้นหาและเปรียบเทียบกองทุนรวมไทยจริง 3-5 กองในธีมนี้ พร้อมค่าธรรมเนียม กองแม่ AUM และผลตอบแทน อ้างอิงแหล่ง+วันที่ทุกตัวเลข เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมา แล้วเขียนรายงานตามโครงสร้างในบทบาท`,
     webSearch: true,
     maxSearches: 6,
     maxTokens: 8000,

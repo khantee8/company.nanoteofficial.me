@@ -121,10 +121,10 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const context = formatContext(ctx);
   const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.mkt,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}${PROJECTS_BLURB}\n\nกำลังเทรนด์จริงในวงการตอนนี้ (engagement จริง):\n${trending.join('\n') || 'n/a'}\n\nวิเคราะห์สัญญาณดีมานด์จริง ค้นเว็บเพิ่มเติมพร้อมอ้างอิงแหล่ง แล้วเสนอแผนคอนเทนต์ที่ผูกกับเทรนด์ ระบุ "## X post" / "## LinkedIn post" / "## Blog idea" และแนบบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}${PROJECTS_BLURB}\n\nกำลังเทรนด์จริงในวงการตอนนี้ (engagement จริง):\n${trending.join('\n') || 'n/a'}\n\nวิเคราะห์สัญญาณดีมานด์จริง ค้นเว็บเพิ่มเติมพร้อมอ้างอิงแหล่ง แล้วเสนอแผนคอนเทนต์ที่ผูกกับเทรนด์ ระบุ "## X post" / "## LinkedIn post" / "## Blog idea" และเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 4,
-    maxTokens: 4000,
+    maxTokens: 8000,
   });
   const findings = parseMarketingFindings(markdown) ?? { theme: 'dev-demand', signals: [], plan: [] };
   const artifacts = [...marketingArtifacts(data), ...marketingSignalArtifacts(findings), ...marketingPlanArtifacts(findings)];

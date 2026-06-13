@@ -78,10 +78,10 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const context = formatContext(ctx);
   const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.ops,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}CI/CD snapshot.\n\nDeployments:\n${deployLines.join('\n') || 'none'}\n\nRepo activity:\n${activityLines.join('\n') || 'none'}\n\nสรุปสุขภาพ deploy/CI แล้วชี้ "สิ่งเดียวที่ควรแก้วันนี้" ถ้าต้องอ้างอิงภายนอก (status page/changelog) ให้ค้นเว็บและแนบแหล่ง แล้วแนบบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}CI/CD snapshot.\n\nDeployments:\n${deployLines.join('\n') || 'none'}\n\nRepo activity:\n${activityLines.join('\n') || 'none'}\n\nสรุปสุขภาพ deploy/CI แล้วชี้ "สิ่งเดียวที่ควรแก้วันนี้" ถ้าต้องอ้างอิงภายนอก (status page/changelog) ให้ค้นเว็บและแนบแหล่ง เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 3,
-    maxTokens: 4000,
+    maxTokens: 8000,
   });
   const findings = parseOperationsFindings(markdown) ?? { fixToday: '', notes: [] };
   const artifacts = [...opsArtifacts(deploys, activity), ...opsNoteArtifacts(findings)];

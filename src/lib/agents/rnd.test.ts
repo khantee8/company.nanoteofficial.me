@@ -22,7 +22,7 @@ describe('rnd.run — truncation flag', () => {
   it('requests a budget that fits a full dual-language report', async () => {
     await run(emptyCtx);
     expect(completeRawMock).toHaveBeenCalledWith(
-      expect.objectContaining({ maxTokens: 4000, webSearch: true }),
+      expect.objectContaining({ maxTokens: 8000, webSearch: true }),
     );
   });
 

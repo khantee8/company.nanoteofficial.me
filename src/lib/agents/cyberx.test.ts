@@ -29,7 +29,7 @@ describe('cyberx.run', () => {
     await run(emptyCtx);
     // No model override — CyberX tracks the company default like the other agents.
     expect(completeRawMock).toHaveBeenCalledWith(
-      expect.objectContaining({ maxTokens: 4000, webSearch: true }),
+      expect.objectContaining({ maxTokens: 8000, webSearch: true }),
     );
     const firstCallArgs = completeRawMock.mock.calls[0] as unknown[];
     expect(firstCallArgs[0]).not.toHaveProperty('model');

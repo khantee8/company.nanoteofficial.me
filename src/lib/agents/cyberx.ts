@@ -90,10 +90,10 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const context = formatContext(ctx);
   const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.cyb,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}Today's threat feed:\n${lines.join('\n')}\n\nวิเคราะห์ภัยคุกคามจริงในรอบ 24-48 ชม.ที่เกี่ยวกับสแตกของบริษัท ค้นเว็บหา advisory/รายละเอียดเพิ่มเติม อ้างอิงแหล่ง+วันที่ แล้วแนบบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}Today's threat feed:\n${lines.join('\n')}\n\nวิเคราะห์ภัยคุกคามจริงในรอบ 24-48 ชม.ที่เกี่ยวกับสแตกของบริษัท ค้นเว็บหา advisory/รายละเอียดเพิ่มเติม อ้างอิงแหล่ง+วันที่ เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 5,
-    maxTokens: 4000,
+    maxTokens: 8000,
   });
   const findings = parseCyberxFindings(markdown) ?? { items: [] };
   const artifacts = [...cyberxArtifacts(kev), ...cyberxAdvisoryArtifacts(findings)];

@@ -21,7 +21,7 @@ describe('ceo.run — truncation flag', () => {
   it('requests a budget that fits a full dual-language synthesis', async () => {
     await run(emptyCtx);
     expect(completeRawMock).toHaveBeenCalledWith(
-      expect.objectContaining({ maxTokens: 4000 }),
+      expect.objectContaining({ maxTokens: 8000 }),
     );
   });
 
