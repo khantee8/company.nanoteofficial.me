@@ -94,8 +94,8 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const artifacts = financeArtifacts(findings);
   const sources = findings.funds.map((x) => x.citation);
   // A run is incomplete if the model was truncated (max_tokens) OR it finished
-  // but produced no citation-backed fund — the latter is almost always the
-  // web_search tool getting rate-limited mid-run, leaving the model to write
+  // but produced no citation-backed fund — the latter usually means the Thai-funds
+  // MCP server or the upstream SEC fund API did not respond, so the model wrote
   // uncited funds that parseFinanceFindings() then drops. Either way the
   // deliverable is unusable and must not be presented as clean.
   const noCitedFunds = findings.funds.length === 0;

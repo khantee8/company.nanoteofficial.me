@@ -43,4 +43,12 @@ describe('finance.run with MCP', () => {
     expect(opts.mcpServers).toBeUndefined();
     expect((res.artifacts ?? []).length).toBeGreaterThan(0);
   });
+
+  it('omits the token when only the URL env is set', async () => {
+    process.env.THAI_FUNDS_MCP_URL = 'https://tf/api/mcp';
+    delete process.env.THAI_FUNDS_MCP_TOKEN;
+    completeRaw.mockResolvedValueOnce({ text: FINDINGS, stopReason: 'end_turn', usage: { input: 1, output: 1 } });
+    await run(ctx);
+    expect(completeRaw.mock.calls[0][0].mcpServers).toEqual([{ url: 'https://tf/api/mcp', name: 'thai-funds' }]);
+  });
 });
