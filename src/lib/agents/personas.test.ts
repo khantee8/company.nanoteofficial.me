@@ -32,4 +32,16 @@ describe('personas', () => {
       expect(c).not.toContain('<!-- ===EN=== -->');
     }
   });
+
+  it('the head contract instructs a bilingual Highlight and Flags', () => {
+    for (const p of Object.values(PERSONAS)) {
+      // Scope the assertion to the head-contract block (from the MANDATORY
+      // marker onward) — the bilingual-narrative rule that precedes it already
+      // mentions the delimiter, so we must check the head contract itself.
+      const headContract = p.slice(p.indexOf('MANDATORY OUTPUT CONTRACT'));
+      expect(headContract).toContain('## Highlight');
+      expect(headContract).toContain('## Flags');
+      expect(headContract).toContain('<!-- ===EN=== -->');
+    }
+  });
 });
