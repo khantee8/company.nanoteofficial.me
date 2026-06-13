@@ -56,7 +56,7 @@ parseFlags(markdown: string, lang?: 'th' | 'en'): string[]
 
 - Capture the `## Highlight` / `## Flags` section exactly as today (regex unchanged: stops at the next `## ` / `---` / end — the `<!-- ===EN=== -->` line is neither, so the whole bilingual body is captured).
 - Split the captured body on `EN_DELIMITER`. `lang === 'en'` → second segment (fallback to first if there is no delimiter); `lang === 'th'` or omitted → first segment.
-- `parseFlags` parses bullets from the selected segment (same bullet logic as today). A segment equal to "None." yields `[]`.
+- `parseFlags` parses bullets from the selected segment (same bullet logic as today — including the existing "None." handling, which is preserved verbatim; not changed by this feature).
 - **Backward compatible:** no-arg calls return the first (Thai) segment, identical to current behavior for legacy single-language entries.
 
 ## 5. Storage (`types.ts`, `runner.ts`, `redis.ts`)
