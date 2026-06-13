@@ -24,6 +24,9 @@ export interface CompleteOpts {
   maxTokens?: number;
   webSearch?: boolean;
   maxSearches?: number;
+  /** Remote MCP servers for the Anthropic MCP connector. When set, the request
+   *  routes through the beta Messages API and web_search is ignored. */
+  mcpServers?: { url: string; name: string; token?: string }[];
 }
 
 export interface CompleteResult {
@@ -38,14 +41,20 @@ export interface CompleteResult {
 // continues — do NOT append a "continue" user message). Bound the resumes.
 const MAX_PAUSE_RESUMES = 4;
 
-/** One streamed request with transient-error retry (429/5xx, exponential backoff). */
+const MCP_BETA = 'mcp-client-2025-11-20';
+
+/** One streamed request (plain or beta) with transient-error retry (429/5xx). */
 async function streamOnce(
   params: Anthropic.Messages.MessageStreamParams,
+  beta = false,
 ): Promise<Anthropic.Messages.Message> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      return await client().messages.stream(params).finalMessage();
+      const stream = beta
+        ? client().beta.messages.stream({ ...(params as object), betas: [MCP_BETA] } as never)
+        : client().messages.stream(params);
+      return (await stream.finalMessage()) as Anthropic.Messages.Message;
     } catch (err) {
       lastErr = err;
       const status = (err as { status?: number })?.status;
@@ -60,12 +69,20 @@ async function streamOnce(
  *  HTTP timeouts on the large max_tokens an analyst report needs, and
  *  `pause_turn` is resumed so long web_search loops aren't cut off mid-research. */
 export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
-  const { system, prompt, model = MODEL, maxTokens = 1500, webSearch = false, maxSearches = 5 } = opts;
-  // allowed_callers: ['direct'] — web_search_20260209 ships dynamic filtering,
-  // which needs programmatic tool calling; Haiku doesn't support it and 400s
-  // without this. Direct-only calls are all this wrapper ever makes anyway.
-  const tools: Anthropic.Messages.Tool[] | undefined = webSearch
-    ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches, allowed_callers: ['direct'] } as unknown as Anthropic.Messages.Tool]
+  const { system, prompt, model = MODEL, maxTokens = 1500, webSearch = false, maxSearches = 5, mcpServers } = opts;
+  const useMcp = !!mcpServers && mcpServers.length > 0;
+
+  // MCP connector and web_search are mutually exclusive in this wrapper; MCP wins.
+  // web_search_20260209 keeps allowed_callers:['direct'] (Haiku can't do its
+  // dynamic filtering otherwise; this wrapper only ever calls it directly).
+  const tools: unknown[] | undefined = useMcp
+    ? mcpServers!.map((s) => ({ type: 'mcp_toolset', mcp_server_name: s.name }))
+    : webSearch
+      ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches, allowed_callers: ['direct'] }]
+      : undefined;
+
+  const mcp_servers = useMcp
+    ? mcpServers!.map((s) => ({ type: 'url', url: s.url, name: s.name, ...(s.token ? { authorization_token: s.token } : {}) }))
     : undefined;
 
   const messages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: prompt }];
@@ -74,14 +91,20 @@ export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
   let input = 0;
   let output = 0;
 
+  // Server-side tool loops (web_search / MCP) cap at ~10 iterations and return
+  // stop_reason 'pause_turn'; resume by re-sending the assistant content verbatim.
   for (let resume = 0; resume <= MAX_PAUSE_RESUMES; resume++) {
-    const msg = await streamOnce({
-      model,
-      max_tokens: maxTokens,
-      system,
-      messages,
-      ...(tools ? { tools } : {}),
-    });
+    const msg = await streamOnce(
+      {
+        model,
+        max_tokens: maxTokens,
+        system,
+        messages,
+        ...(tools ? { tools } : {}),
+        ...(mcp_servers ? { mcp_servers } : {}),
+      } as unknown as Anthropic.Messages.MessageStreamParams,
+      useMcp,
+    );
     texts.push(textOf(msg));
     input += msg.usage.input_tokens;
     output += msg.usage.output_tokens;
