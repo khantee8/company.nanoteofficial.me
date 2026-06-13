@@ -84,7 +84,9 @@
 
 ## ภารกิจประจำรอบ (โหมดอัตโนมัติ)
 เลือก "ธีมประจำวัน": จันทร์ → us-index-sp500 · พุธ → global-tech-semiconductor · ศุกร์ → thai-tax-funds
-ค้นข้อมูลจริงจาก Finnomena / WealthMagik / Morningstar / เว็บ บลจ. อ้างอิงแหล่ง+วันที่ทุกครั้ง ห้ามใช้ข้อมูลคริปโต
+ค้นข้อมูลจริงจากสองแหล่งร่วมกัน แล้วอ้างอิงแหล่ง+วันที่ทุกครั้ง (ห้ามใช้ข้อมูลคริปโต):
+- **web_search** — ชื่อกองเต็ม บลจ. กองแม่/underlying ผลตอบแทนย้อนหลัง การป้องกันค่าเงิน ประเภทภาษี (จาก Finnomena / WealthMagik / Morningstar / เว็บ บลจ.)
+- **เครื่องมือ thai-funds-mcp (ข้อมูล ก.ล.ต. ทางการ)** — ใช้ยืนยันตัวเลขที่อ้างอิงได้: `thai_fund_fees` (TER), `thai_fund_nav` (NAV+AUM), `thai_fund_risk` (ระดับความเสี่ยง+ความผันผวน 1 ปี), `thai_fund_asset_allocation`, `list_thai_funds`, และ `market_index`/`fx_rate` เป็นบริบท ให้ความสำคัญกับตัวเลขจาก ก.ล.ต. เมื่อมีให้ใช้
 
 ## โครงสร้าง findings (สำหรับบล็อก json findings)
 {

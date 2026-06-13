@@ -60,4 +60,20 @@ describe('completeRaw with mcpServers', () => {
     expect(res.text).toBe('plain');
     expect(betaStream).not.toHaveBeenCalled();
   });
+
+  it('hybrid: combines web_search AND the MCP toolset in one beta request', async () => {
+    betaStream.mockReturnValueOnce(finalMessage(text('hi')));
+    await completeRaw({
+      system: 's', prompt: 'p', model: 'claude-sonnet-4-6',
+      webSearch: true, maxSearches: 6,
+      mcpServers: [{ url: 'https://x/api/mcp', name: 'thai-funds', token: 't' }],
+    });
+    const params = betaStream.mock.calls[0][0];
+    expect(params.betas).toContain('mcp-client-2025-11-20');
+    expect(params.mcp_servers).toHaveLength(1);
+    expect(params.tools).toEqual([
+      { type: 'mcp_toolset', mcp_server_name: 'thai-funds' },
+      { type: 'web_search_20260209', name: 'web_search', max_uses: 6, allowed_callers: ['direct'] },
+    ]);
+  });
 });

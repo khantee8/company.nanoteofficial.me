@@ -72,14 +72,14 @@ export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
   const { system, prompt, model = MODEL, maxTokens = 1500, webSearch = false, maxSearches = 5, mcpServers } = opts;
   const useMcp = !!mcpServers && mcpServers.length > 0;
 
-  // MCP connector and web_search are mutually exclusive in this wrapper; MCP wins.
-  // web_search_20260209 keeps allowed_callers:['direct'] (Haiku can't do its
-  // dynamic filtering otherwise; this wrapper only ever calls it directly).
-  const tools: unknown[] | undefined = useMcp
-    ? mcpServers!.map((s) => ({ type: 'mcp_toolset', mcp_server_name: s.name }))
-    : webSearch
-      ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches, allowed_callers: ['direct'] }]
-      : undefined;
+  // web_search and the MCP connector can be combined (hybrid): the tools array
+  // carries an mcp_toolset per server AND/OR the web_search tool. The presence of
+  // mcp_servers forces the beta Messages path (useMcp). web_search_20260209 keeps
+  // allowed_callers:['direct'] (Haiku can't do its dynamic filtering otherwise).
+  const tools: unknown[] = [
+    ...(useMcp ? mcpServers!.map((s) => ({ type: 'mcp_toolset', mcp_server_name: s.name })) : []),
+    ...(webSearch ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches, allowed_callers: ['direct'] }] : []),
+  ];
 
   const mcp_servers = useMcp
     ? mcpServers!.map((s) => ({ type: 'url', url: s.url, name: s.name, ...(s.token ? { authorization_token: s.token } : {}) }))
@@ -100,7 +100,7 @@ export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
         max_tokens: maxTokens,
         system,
         messages,
-        ...(tools ? { tools } : {}),
+        ...(tools.length ? { tools } : {}),
         ...(mcp_servers ? { mcp_servers } : {}),
       } as unknown as Anthropic.Messages.MessageStreamParams,
       useMcp,
