@@ -12,6 +12,8 @@ export interface FundFinding {
 }
 export interface FinanceFindings { theme: string; funds: FundFinding[] }
 
+const FINANCE_MODEL = 'claude-sonnet-4-6';
+
 const THEME_BY_DOW: Record<number, { theme: string; label: string }> = {
   1: { theme: 'us-index-sp500', label: 'กองดัชนีสหรัฐ / S&P500' },
   3: { theme: 'global-tech-semiconductor', label: 'เทคโนโลยีโลก / เซมิคอนดักเตอร์' },
@@ -76,11 +78,16 @@ export function financeTags(f: FinanceFindings): string[] {
 export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const { theme, label } = themeForToday();
   const context = formatContext(ctx);
+  const mcpUrl = process.env.THAI_FUNDS_MCP_URL;
+  const mcpToken = process.env.THAI_FUNDS_MCP_TOKEN;
+  const mcpServers = mcpUrl
+    ? [{ url: mcpUrl, name: 'thai-funds', ...(mcpToken ? { token: mcpToken } : {}) }]
+    : undefined;
   const { text: markdown, stopReason } = await completeRaw({
     system: PERSONAS.fin,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nค้นหาและเปรียบเทียบกองทุนรวมไทยจริง 3-5 กองในธีมนี้ พร้อมค่าธรรมเนียม กองแม่ AUM และผลตอบแทน อ้างอิงแหล่ง+วันที่ทุกตัวเลข เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมา แล้วเขียนรายงานตามโครงสร้างในบทบาท`,
-    webSearch: true,
-    maxSearches: 6,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nใช้เครื่องมือกองทุน (search_thai_funds → thai_fund_factsheet/thai_fund_nav) ดึงข้อมูลกองทุนรวมไทยจริง 3-5 กองในธีมนี้ และใช้ market_index/fx_rate เป็นบริบทเปรียบเทียบ. อ้างอิง sourceUrl + asOf จากผลของเครื่องมือทุกตัวเลข เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมา แล้วเขียนรายงานตามโครงสร้างในบทบาท`,
+    model: FINANCE_MODEL,
+    mcpServers,
     maxTokens: 8000,
   });
   const findings = parseFinanceFindings(markdown) ?? { theme, funds: [] };
@@ -94,7 +101,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const noCitedFunds = findings.funds.length === 0;
   const incomplete = stopReason === 'max_tokens' || noCitedFunds;
   const summary = noCitedFunds
-    ? `⚠️ ไม่พบกองที่อ้างอิงได้ในธีม ${label} (การค้นเว็บอาจติด rate limit)`
+    ? `⚠️ ไม่พบกองที่อ้างอิงได้ในธีม ${label} (แหล่งข้อมูล SEC/MCP อาจไม่ตอบสนอง)`
     : `${findings.funds.length} กองในธีม ${label}`;
   return {
     markdown,
