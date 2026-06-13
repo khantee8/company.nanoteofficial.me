@@ -16,7 +16,7 @@ const deptMeta = (id: DeptId) => DEPARTMENTS.find((d) => d.id === id);
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function ExecDashboard() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -95,7 +95,7 @@ export function ExecDashboard() {
                     <span className="date" style={{ color: '#7a7ca6' }}>{e.date}</span>
                     <span style={{ color: m?.color ?? '#9a9bc4', fontWeight: 600 }}>{m?.shortName ?? e.dept}</span>
                     <span style={{ color: '#c5c6e2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {e.highlight || e.summary}
+                      {(lang === 'en' ? (e.highlightEn || e.highlight) : e.highlight) || e.summary}
                     </span>
                   </div>
                 );
@@ -118,14 +118,14 @@ function Kpi({ value, label, small }: { value: string; label: string; small?: bo
 }
 
 function ExecCard({ agent }: { agent: DashboardAgent }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const meta = deptMeta(agent.dept);
   const name = meta?.name ?? agent.dept;
   const color = meta?.color ?? '#7f8cff';
   const state = (agent.status?.state ?? 'idle') as AgentState;
   const md = agent.output?.markdown ?? '';
-  const highlight = md ? parseHighlight(md) : agent.status?.summary ?? '';
-  const flags = md ? parseFlags(md) : [];
+  const highlight = md ? parseHighlight(md, lang) : agent.status?.summary ?? '';
+  const flags = md ? parseFlags(md, lang) : [];
   const artifact = agent.output?.artifacts?.[0];
   const when = agent.output?.ts
     ? new Date(agent.output.ts).toLocaleDateString()

@@ -148,8 +148,8 @@ export function AgentDetail({
   const artifacts = output?.artifacts ?? [];
   const tags = output?.tags ?? [];
   const category = output?.category;
-  const highlight = md ? parseHighlight(md) : agent?.status?.summary ?? '';
-  const flags = md ? parseFlags(md) : [];
+  const highlight = md ? parseHighlight(md, lang) : agent?.status?.summary ?? '';
+  const flags = md ? parseFlags(md, lang) : [];
   const when = output?.ts
     ? new Date(output.ts).toLocaleString()
     : agent?.status?.lastRun ? new Date(agent.status.lastRun).toLocaleString() : '—';
