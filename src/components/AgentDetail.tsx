@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { Markdown } from './Markdown';
 import { ArtifactRenderer } from './charts/ArtifactRenderer';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
@@ -107,25 +108,95 @@ function renderMarkdownToDoc(d: Document, md: string) {
   flushTable();
 }
 
-function exportPdf(title: string, markdown: string) {
+export interface PdfArgs {
+  title: string;
+  narrative: string;
+  highlight?: string;
+  flags?: string[];
+  sources?: Citation[];
+  chartsEl?: HTMLElement | null;
+}
+
+// Populate a print Document with the analyst deliverable — textContent only for
+// the prose blocks (no innerHTML), and importNode clones for the live charts
+// (real node copy, never string parsing). Pure + DOM-only so it is unit-testable
+// in jsdom without opening a window.
+export function buildPdfDoc(d: Document, args: PdfArgs) {
+  const { title, narrative, highlight, flags = [], sources = [], chartsEl } = args;
+
+  const h1 = d.createElement('h1'); h1.textContent = title; d.body.appendChild(h1);
+
+  if (highlight) {
+    const v = d.createElement('div');
+    v.className = 'pdf-verdict';
+    v.textContent = highlight;
+    d.body.appendChild(v);
+  }
+
+  if (flags.length > 0) {
+    const h2 = d.createElement('h2'); h2.textContent = 'Flags'; d.body.appendChild(h2);
+    const ul = d.createElement('ul'); ul.className = 'pdf-flags';
+    for (const f of flags) {
+      const li = d.createElement('li'); li.textContent = `⚑ ${f}`; ul.appendChild(li);
+    }
+    d.body.appendChild(ul);
+  }
+
+  const chartNodes = chartsEl ? Array.from(chartsEl.children) : [];
+  if (chartNodes.length > 0) {
+    const wrap = d.createElement('div'); wrap.className = 'pdf-charts';
+    for (const node of chartNodes) wrap.appendChild(d.importNode(node, true));
+    d.body.appendChild(wrap);
+  }
+
+  renderMarkdownToDoc(d, narrative);
+
+  if (sources.length > 0) {
+    const h2 = d.createElement('h2'); h2.textContent = 'Sources'; d.body.appendChild(h2);
+    const ul = d.createElement('ul'); ul.className = 'pdf-sources';
+    for (const c of sources) {
+      const li = d.createElement('li');
+      const a = d.createElement('a');
+      a.setAttribute('href', c.url);
+      a.textContent = c.title || c.url;
+      li.appendChild(a);
+      if (c.date) {
+        const span = d.createElement('span');
+        span.textContent = ` — ${c.date}`;
+        li.appendChild(span);
+      }
+      ul.appendChild(li);
+    }
+    d.body.appendChild(ul);
+  }
+
+  const footer = d.createElement('footer');
+  footer.textContent = `NaNote Corp · company.nanoteofficial.me · ${new Date().toLocaleString()}`;
+  d.body.appendChild(footer);
+}
+
+function exportPdf(args: PdfArgs) {
   const w = window.open('', '_blank');
   if (!w) return;
   const d = w.document;
   const style = d.createElement('style');
   style.textContent =
+    `*{-webkit-print-color-adjust:exact;print-color-adjust:exact}` +
     `body{font-family:Georgia,'Times New Roman',serif;max-width:760px;margin:36px auto;padding:0 28px;line-height:1.6;color:#111}` +
     `h1{font-size:22px;border-bottom:3px solid #1f3a6a;padding-bottom:8px;margin:0 0 4px}` +
     `h2{font-size:16px;margin:20px 0 6px;color:#1f3a6a}h3{font-size:13px;margin:14px 0 4px}` +
     `table{border-collapse:collapse;width:100%;margin:10px 0;font-size:12px}` +
     `th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#eef2fa}` +
-    `p,li{font-size:13px}footer{margin-top:28px;color:#888;font-size:11px;border-top:1px solid #ddd;padding-top:8px}`;
+    `p,li{font-size:13px}footer{margin-top:28px;color:#888;font-size:11px;border-top:1px solid #ddd;padding-top:8px}` +
+    `.pdf-verdict{background:#eef2fa;border-left:4px solid #1f3a6a;padding:10px 14px;margin:14px 0;font-size:14px;font-style:italic}` +
+    `.pdf-flags{margin:8px 0;padding-left:0}.pdf-flags li{list-style:none;font-size:13px}` +
+    `.pdf-charts{display:flex;flex-direction:column;gap:14px;margin:16px 0}` +
+    `.pdf-charts .agent-art{background:#0b0b1e;border:1px solid #2a2a4a;border-radius:8px;padding:12px;color:#dfe0f2;break-inside:avoid}` +
+    `.pdf-charts svg{max-width:520px}` +
+    `.pdf-sources{padding-left:0}.pdf-sources li{list-style:none;font-size:12px;margin:3px 0}.pdf-sources a{color:#1f3a6a}`;
   d.head.appendChild(style);
-  d.title = `${title} — NaNote Corp`;
-  const h1 = d.createElement('h1'); h1.textContent = title; d.body.appendChild(h1);
-  renderMarkdownToDoc(d, markdown);
-  const footer = d.createElement('footer');
-  footer.textContent = `NaNote Corp · company.nanoteofficial.me · ${new Date().toLocaleString()}`;
-  d.body.appendChild(footer);
+  d.title = `${args.title} — NaNote Corp`;
+  buildPdfDoc(d, args);
   setTimeout(() => w.print(), 350);
 }
 
