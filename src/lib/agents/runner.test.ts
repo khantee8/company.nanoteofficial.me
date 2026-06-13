@@ -79,6 +79,28 @@ describe('runAgent', () => {
     expect(repo.pushHistory).toHaveBeenCalledWith(expect.objectContaining({ highlight: 'Head verdict.' }));
     expect(repo.pushDigest).toHaveBeenCalledWith(expect.objectContaining({ flags: ['Follow up'] }));
   });
+
+  it('stores both languages of highlight and flags from a bilingual head', async () => {
+    const repo = fakeRepo();
+    const notify = vi.fn(async () => {});
+    const head =
+      '```json findings\n{}\n```\n\n## Highlight\nสรุปไทย\n<!-- ===EN=== -->\nEnglish verdict.\n\n' +
+      '## Flags\n- ใช่\n<!-- ===EN=== -->\n- Yes follow up\n\n---';
+    const run = vi.fn(async (): Promise<AgentRunResult> => ({
+      markdown: `${head}\n\nรายงานไทย\n\n<!-- ===EN=== -->\n\nEnglish body`,
+      summary: 's', feedMsg: 'm',
+    }));
+
+    await runAgent({ dept: 'fin', run }, { repo, notify });
+
+    expect(repo.pushDigest).toHaveBeenCalledWith(expect.objectContaining({
+      highlight: 'สรุปไทย', highlightEn: 'English verdict.',
+      flags: ['ใช่'], flagsEn: ['Yes follow up'],
+    }));
+    expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({
+      highlightEn: 'English verdict.', flagsEn: ['Yes follow up'],
+    }));
+  });
 });
 
 describe('parseHighlight', () => {

@@ -143,8 +143,10 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
     // v1.5: agents emit the findings/Highlight/Flags head FIRST (truncation-
     // safe); normalize back to the narrative-first storage layout before split.
     const { th: markdown, en: markdownEn } = splitBilingual(normalizeReportOrder(result.markdown));
-    const highlight = parseHighlight(markdown);
-    const flags = parseFlags(markdown);
+    const highlight = parseHighlight(markdown, 'th');
+    const highlightEn = parseHighlight(markdown, 'en');
+    const flags = parseFlags(markdown, 'th');
+    const flagsEn = parseFlags(markdown, 'en');
     const date = todayDate();
     const category = CATEGORY_BY_DEPT[dept];
     const artifacts = result.artifacts ?? [];
@@ -162,11 +164,11 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
       repo.pushEvent({ dept, msg: result.feedMsg, ts }),
       repo.setStatus({ dept, state: 'done', lastRun: ts, summary: result.summary }),
       repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown }),
-      repo.pushDigest({ dept, date, summary: result.summary, highlight, flags }),
+      repo.pushDigest({ dept, date, summary: result.summary, highlight, highlightEn, flags, flagsEn }),
       // Archive into the knowledge base as a DRAFT — the Admin KB Manager
       // reviews and publishes before it surfaces on the public /api/kb feed.
       repo.pushKb({ id, slug, dept, date, ts, category, theme,
-        tags, status: 'draft', summary: result.summary, highlight, flags, artifacts,
+        tags, status: 'draft', summary: result.summary, highlight, highlightEn, flags, flagsEn, artifacts,
         sources, provenance, related, markdown, markdownEn, incomplete }),
     ]);
 

@@ -70,7 +70,9 @@ export interface DigestEntry {
   date: string;
   summary: string;
   highlight: string;
+  highlightEn?: string;
   flags: string[];
+  flagsEn?: string[];
 }
 
 /** Archived agent result for the knowledge base (future kb.nanoteofficial.me). */
@@ -87,7 +89,9 @@ export interface KbEntry {
   pinned?: boolean;
   summary: string;
   highlight: string;
+  highlightEn?: string;
   flags: string[];
+  flagsEn?: string[];
   artifacts: Artifact[];
   sources: Citation[];
   provenance: 'api' | 'web';
