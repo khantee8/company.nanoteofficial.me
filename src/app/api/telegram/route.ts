@@ -6,7 +6,7 @@ import { AGENTS, isDeptId } from '@/lib/agents';
 import { runAgent } from '@/lib/agents/runner';
 import { getRepo } from '@/lib/redis';
 import { complete } from '@/lib/claude';
-import { PERSONAS } from '@/lib/agents/personas';
+import { CHAT_PERSONAS } from '@/lib/agents/personas';
 import { DEPARTMENTS } from '@/lib/data/departments';
 import { getKnowledge } from '@/lib/kb';
 
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         try {
           const history = session.turns.map((t) => `${t.role === 'user' ? 'ผู้ใช้' : 'คุณ'}: ${t.text}`).join('\n');
           const prompt = `${history}\nผู้ใช้: ${text}\n\nตอบต่อเนื่องในบทสนทนานี้ (ค้นเว็บเพิ่มได้ถ้าจำเป็น อ้างอิงแหล่ง)`;
-          const answer = await complete({ system: PERSONAS[session.dept as keyof typeof PERSONAS], prompt, webSearch: true, maxSearches: 5, maxTokens: 1500 });
+          const answer = await complete({ system: CHAT_PERSONAS[session.dept as keyof typeof CHAT_PERSONAS], prompt, webSearch: true, maxSearches: 5, maxTokens: 1500 });
           await sendMessage(`*${session.dept.toUpperCase()}*: ${answer}`, String(chatId));
           const turns = [...session.turns, { role: 'user' as const, text }, { role: 'assistant' as const, text: answer }].slice(-8);
           await repo.setFocus(chatId, { dept: session.dept, turns, until: Date.now() + FOCUS_TTL_MS });
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     if (!id || !isDeptId(id) || !question) { await reply('Usage: /ask <dept> <question>'); return NextResponse.json({ ok: true }); }
     after(async () => {
       try {
-        const answer = await complete({ system: PERSONAS[id], prompt: question, webSearch: true, maxSearches: 5, maxTokens: 1800 });
+        const answer = await complete({ system: CHAT_PERSONAS[id], prompt: question, webSearch: true, maxSearches: 5, maxTokens: 1800 });
         await sendMessage(`*${id.toUpperCase()}*: ${answer}`, String(chatId));
         const repo = getRepo();
         const session: FocusSession = { dept: id, turns: [{ role: 'user', text: question }, { role: 'assistant', text: answer }], until: Date.now() + FOCUS_TTL_MS };
