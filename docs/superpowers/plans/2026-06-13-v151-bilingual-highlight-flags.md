@@ -287,9 +287,13 @@ git commit -m "feat(redis): backfill highlightEn/flagsEn for legacy KB entries"
 ```ts
   it('the head contract instructs a bilingual Highlight and Flags', () => {
     for (const p of Object.values(PERSONAS)) {
-      // The bilingual instruction names the delimiter inside the head contract,
-      // not only between narratives.
-      expect(p).toMatch(/Highlight[\s\S]*<!-- ===EN=== -->/);
+      // Scope the assertion to the head-contract block (from the MANDATORY
+      // marker onward) — the bilingual-narrative rule that precedes it already
+      // mentions the delimiter, so we must check the head contract itself.
+      const headContract = p.slice(p.indexOf('MANDATORY OUTPUT CONTRACT'));
+      expect(headContract).toContain('## Highlight');
+      expect(headContract).toContain('## Flags');
+      expect(headContract).toContain('<!-- ===EN=== -->');
     }
   });
 ```
@@ -297,7 +301,7 @@ git commit -m "feat(redis): backfill highlightEn/flagsEn for legacy KB entries"
 - [ ] **Step 2: Run to verify failure**
 
 Run: `npx vitest run src/lib/agents/personas.test.ts -t "bilingual Highlight"`
-Expected: FAIL — the current `OUTPUT_HEAD_CONTRACT` has the delimiter only in the bilingual-narrative rules, which sit *before* the head contract, so within the head-contract text there is no `<!-- ===EN=== -->` after `## Highlight`. (If it passes incidentally due to ordering, the assertion still becomes meaningful after Step 3; verify the message wording targets the head contract.)
+Expected: FAIL — the current `OUTPUT_HEAD_CONTRACT` (the text from "MANDATORY OUTPUT CONTRACT" onward) contains no `<!-- ===EN=== -->`; the delimiter lives only in `BILINGUAL_RULE`, which is concatenated *before* the head contract.
 
 - [ ] **Step 3: Implement** — in `src/lib/agents/personas.ts`, replace items 2 and 3 of `OUTPUT_HEAD_CONTRACT` (the `## Highlight` and `## Flags` bullet lines) with the bilingual versions:
 
