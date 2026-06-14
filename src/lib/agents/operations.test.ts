@@ -48,3 +48,56 @@ describe('operations.run — truncation flag', () => {
     expect(result.incomplete).toBe(false);
   });
 });
+
+describe('operations.run — internal monitoring', () => {
+  const now = new Date().toISOString();
+  const critCtx: AgentContext = {
+    ownHistory: [], companyDigest: [], todayPeers: [],
+    companySnapshot: {
+      statuses: [
+        { dept: 'fin', state: 'error', lastRun: now, error: 'boom' },
+        { dept: 'cyb', state: 'done', lastRun: now },
+      ],
+      digest: [],
+      outputs: [
+        { dept: 'fin', incomplete: false, artifactCount: 0, hasSummary: false, ts: null },
+        { dept: 'cyb', incomplete: false, artifactCount: 3, hasSummary: true, ts: now },
+      ],
+    },
+  };
+  const healthyCtx: AgentContext = {
+    ownHistory: [], companyDigest: [], todayPeers: [],
+    companySnapshot: {
+      statuses: [{ dept: 'cyb', state: 'done', lastRun: now }],
+      digest: [],
+      outputs: [{ dept: 'cyb', incomplete: false, artifactCount: 3, hasSummary: true, ts: now }],
+    },
+  };
+
+  beforeEach(() => completeRawMock.mockClear());
+
+  it('feeds agent run-health into the prompt', async () => {
+    await run(critCtx);
+    expect(completeRawMock).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: expect.stringContaining('run failed: boom') }),
+    );
+  });
+
+  it('returns a critical alert when an agent is down', async () => {
+    const r = await run(critCtx);
+    expect(r.alert?.severity).toBe('critical');
+    expect(r.alert?.text).toContain('OPS ALERT');
+    expect(r.alert?.text).toContain('FIN');
+  });
+
+  it('emits agent-health artifacts', async () => {
+    const r = await run(critCtx);
+    expect((r.artifacts ?? []).some((a) => a.title === 'agent health')).toBe(true);
+    expect((r.artifacts ?? []).some((a) => a.title === 'agent issues')).toBe(true);
+  });
+
+  it('no alert when all monitored agents are healthy', async () => {
+    const r = await run(healthyCtx);
+    expect(r.alert).toBeUndefined();
+  });
+});
