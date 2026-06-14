@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { opsArtifacts, opsTags } from './operations';
+import { opsArtifacts, opsTags, agentHealthArtifacts } from './operations';
 import type { DeployState } from '@/lib/sources/vercelApi';
 import type { RepoActivity } from '@/lib/sources/githubApi';
+import type { AgentHealth } from './health';
 
 const deploys: DeployState[] = [
   { project: 'company.nanoteofficial.me', state: 'READY', ok: true, createdAt: 1 },
@@ -54,5 +55,53 @@ describe('opsArtifacts', () => {
 describe('opsTags', () => {
   it('includes stable ops tags plus distinct CI conclusions', () => {
     expect(opsTags(deploys, activity)).toEqual(['ci-cd', 'vercel', 'deploy', 'success']);
+  });
+});
+
+const healths: AgentHealth[] = [
+  { dept: 'cyb', severity: 'ok', state: 'done', lastRun: 'x', stale: false, issues: [] },
+  { dept: 'fin', severity: 'critical', state: 'error', lastRun: 'x', stale: false,
+    issues: [{ kind: 'error', severity: 'critical', detail: 'run failed: boom' }] },
+  { dept: 'rnd', severity: 'info', state: 'done', lastRun: 'x', stale: false,
+    issues: [{ kind: 'flags', severity: 'info', detail: '2 open flags' }] },
+];
+
+describe('agentHealthArtifacts', () => {
+  it('maps severity to scorecard tiles (info counts as ok)', () => {
+    const card = agentHealthArtifacts(healths).find((a) => a.kind === 'scorecard');
+    if (card && card.kind === 'scorecard') {
+      expect(card.tiles).toEqual([
+        { label: 'CYB', state: 'ok' },
+        { label: 'FIN', state: 'down' },
+        { label: 'RND', state: 'ok' },
+      ]);
+    } else {
+      throw new Error('no scorecard');
+    }
+  });
+
+  it('lists only warning/critical rows in the issues table', () => {
+    const table = agentHealthArtifacts(healths).find((a) => a.kind === 'table');
+    if (table && table.kind === 'table') {
+      expect(table.columns).toEqual(['agent', 'severity', 'issue']);
+      expect(table.rows).toEqual([['FIN', '🔴 critical', 'run failed: boom']]);
+    } else {
+      throw new Error('no issues table');
+    }
+  });
+
+  it('omits the issues table when nothing is unhealthy', () => {
+    const ok: AgentHealth[] = [
+      { dept: 'cyb', severity: 'ok', state: 'done', lastRun: 'x', stale: false, issues: [] },
+    ];
+    expect(agentHealthArtifacts(ok).some((a) => a.kind === 'table')).toBe(false);
+  });
+
+  it('survives empty input', () => {
+    expect(agentHealthArtifacts([])).toEqual([]);
+  });
+
+  it('tags health artifacts as api provenance', () => {
+    expect(agentHealthArtifacts(healths).every((a) => a.provenance === 'api')).toBe(true);
   });
 });

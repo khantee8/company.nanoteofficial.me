@@ -28,6 +28,17 @@ export interface AgentOutput {
   incomplete?: boolean;
 }
 
+/** Slim per-dept health projection the Operations monitor reads (v1.7).
+ *  Deliberately omits markdown/artifacts payloads to keep the context lean. */
+export interface AgentOutputHealth {
+  dept: DeptId;
+  incomplete: boolean;
+  stopReason?: string;
+  artifactCount: number;
+  hasSummary: boolean;
+  ts: string | null;
+}
+
 export interface FeedEvent {
   dept: DeptId;
   msg: string;
@@ -55,6 +66,9 @@ export interface AgentRunResult {
   related?: string[];
   /** v1.4.5 — true when the model hit max_tokens and the report was cut off. */
   incomplete?: boolean;
+  /** v1.7 — a critical operations alert the runner sends as a distinct Telegram
+   *  message, in addition to the routine run notify. */
+  alert?: { severity: 'critical'; text: string };
 }
 
 export interface HistoryEntry {
@@ -107,6 +121,12 @@ export interface AgentContext {
   ownHistory: HistoryEntry[];
   companyDigest: DigestEntry[];
   todayPeers: Array<{ dept: DeptId; summary: string; highlight: string; flags: string[] }>;
-  /** Whole-company state — populated only for the CEO (Executive Cockpit). */
-  companySnapshot?: { statuses: AgentStatus[]; digest: DigestEntry[]; relatedEntryIds?: string[] };
+  /** Whole-company state — populated for the CEO (Executive Cockpit) and the
+   *  Operations monitor (run-health). `outputs` is filled for ops only. */
+  companySnapshot?: {
+    statuses: AgentStatus[];
+    digest: DigestEntry[];
+    relatedEntryIds?: string[];
+    outputs?: AgentOutputHealth[];
+  };
 }
