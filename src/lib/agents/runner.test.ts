@@ -101,6 +101,34 @@ describe('runAgent', () => {
       highlightEn: 'English verdict.', flagsEn: ['Yes follow up'],
     }));
   });
+
+  it('sends a second notify for a critical alert', async () => {
+    const repo = fakeRepo();
+    const notify = vi.fn(async () => {});
+    const run = vi.fn(async (): Promise<AgentRunResult> => ({
+      markdown: '# x\n\n## Highlight\nh\n\n## Flags\n- f',
+      summary: 's', feedMsg: 'm',
+      alert: { severity: 'critical', text: '🔴 OPS ALERT\nระบบ: FIN' },
+    }));
+
+    await runAgent({ dept: 'ops', run }, { repo, notify });
+
+    expect(notify).toHaveBeenCalledTimes(2);
+    expect(notify).toHaveBeenLastCalledWith(expect.stringContaining('OPS ALERT'));
+  });
+
+  it('sends only one notify when there is no alert', async () => {
+    const repo = fakeRepo();
+    const notify = vi.fn(async () => {});
+    const run = vi.fn(async (): Promise<AgentRunResult> => ({
+      markdown: '# x\n\n## Highlight\nh\n\n## Flags\n- f',
+      summary: 's', feedMsg: 'm',
+    }));
+
+    await runAgent({ dept: 'ops', run }, { repo, notify });
+
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('parseHighlight', () => {

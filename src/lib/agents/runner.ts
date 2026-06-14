@@ -190,6 +190,7 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
 
     const warn = incomplete ? '\n⚠️ รายงานอาจไม่สมบูรณ์ — ตรวจก่อนเผยแพร่' : '';
     await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}\n\n${markdown.slice(0, 800)}`);
+    if (result.alert) await notify(result.alert.text);
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
