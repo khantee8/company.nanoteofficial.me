@@ -1,5 +1,5 @@
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
-import type { AgentRunResult, AgentContext } from './types';
+import type { AgentRunResult, AgentContext, AgentOutputHealth } from './types';
 import { CATEGORY_BY_DEPT } from './artifacts';
 import { EN_DELIMITER, normalizeReportOrder, splitBilingual } from './bilingual';
 import type { RedisRepo } from '@/lib/redis';
@@ -88,6 +88,22 @@ export async function buildContext(dept: DeptId, repo: RedisRepo): Promise<Agent
       relatedEntryIds.push(e.id);
     }
     companySnapshot = { statuses, digest, relatedEntryIds };
+  } else if (dept === 'ops') {
+    const statuses = await Promise.all(DEPARTMENTS.map((d) => repo.getStatus(d.id)));
+    const outputs = await Promise.all(
+      DEPARTMENTS.map(async (d): Promise<AgentOutputHealth> => {
+        const o = await repo.getOutput(d.id);
+        return {
+          dept: d.id,
+          incomplete: o?.incomplete ?? false,
+          stopReason: typeof o?.meta?.stopReason === 'string' ? o.meta.stopReason : undefined,
+          artifactCount: o?.artifacts?.length ?? 0,
+          hasSummary: !!o?.summary,
+          ts: o?.ts ?? null,
+        };
+      }),
+    );
+    companySnapshot = { statuses, digest, outputs };
   }
 
   return {

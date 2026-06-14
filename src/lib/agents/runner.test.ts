@@ -192,3 +192,31 @@ describe('buildContext run order', () => {
     expect(ctx.todayPeers.some((p) => p.dept === 'cyb')).toBe(true);
   });
 });
+
+describe('buildContext ops snapshot', () => {
+  it('populates statuses + slim output health for ops', async () => {
+    const repo = {
+      getHistory: vi.fn(async () => []),
+      getDigest: vi.fn(async () => [
+        { dept: 'fin', date: '2026-06-14', summary: 's', highlight: 'h', flags: ['watch'] },
+      ]),
+      getStatus: vi.fn(async (d: string) => ({
+        dept: d, state: d === 'fin' ? 'error' : 'done', lastRun: '2026-06-14T00:00:00Z',
+        error: d === 'fin' ? 'boom' : undefined,
+      })),
+      getOutput: vi.fn(async (d: string) =>
+        d === 'fin'
+          ? { dept: 'fin', markdown: 'x', summary: '', ts: '2026-06-14T00:00:00Z',
+              artifacts: [], incomplete: true, meta: { stopReason: 'max_tokens' } }
+          : { dept: d, markdown: 'x', summary: 'ok', ts: '2026-06-14T00:00:00Z',
+              artifacts: [{ kind: 'tags', title: 't', tags: ['a'] }] },
+      ),
+    } as unknown as RedisRepo;
+
+    const ctx = await buildContext('ops', repo);
+    expect(ctx.companySnapshot).toBeDefined();
+    const fin = ctx.companySnapshot!.outputs!.find((o) => o.dept === 'fin')!;
+    expect(fin).toMatchObject({ incomplete: true, stopReason: 'max_tokens', artifactCount: 0, hasSummary: false });
+    expect(ctx.companySnapshot!.statuses.length).toBeGreaterThan(0);
+  });
+});
