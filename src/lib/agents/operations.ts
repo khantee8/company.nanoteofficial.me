@@ -6,6 +6,7 @@ import { fetchActivity, formatActivity, type RepoActivity } from '@/lib/sources/
 import { normalizeTags, withProvenance, type Artifact, type Citation } from './artifacts';
 import { extractFindingsBlock, hasCitation } from './findings';
 import type { AgentRunResult, AgentContext } from './types';
+import { type AgentHealth, type Severity } from './health';
 
 const shortProject = (p: string) => p.replace('.nanoteofficial.me', '').replace('nanoteofficial.me', 'portfolio');
 
@@ -59,6 +60,39 @@ export function opsArtifacts(deploys: DeployState[], activity: RepoActivity[]): 
     });
   }
 
+  return arts.map((a) => withProvenance(a, 'api'));
+}
+
+const SEVERITY_TILE: Record<Severity, 'ok' | 'warn' | 'down'> = {
+  ok: 'ok', info: 'ok', warning: 'warn', critical: 'down',
+};
+const SEVERITY_LABEL: Record<Severity, string> = {
+  ok: '🟢 ok', info: '🟢 info', warning: '🟡 warning', critical: '🔴 critical',
+};
+
+/** Internal agent-monitoring charts — deterministic from the health snapshot. */
+export function agentHealthArtifacts(healths: AgentHealth[]): Artifact[] {
+  if (healths.length === 0) return [];
+  const arts: Artifact[] = [
+    {
+      kind: 'scorecard',
+      title: 'agent health',
+      tiles: healths.map((h) => ({ label: h.dept.toUpperCase(), state: SEVERITY_TILE[h.severity] })),
+    },
+  ];
+  const unhealthy = healths.filter((h) => h.severity === 'warning' || h.severity === 'critical');
+  if (unhealthy.length > 0) {
+    arts.push({
+      kind: 'table',
+      title: 'agent issues',
+      columns: ['agent', 'severity', 'issue'],
+      rows: unhealthy.map((h) => [
+        h.dept.toUpperCase(),
+        SEVERITY_LABEL[h.severity],
+        h.issues.map((i) => i.detail).join('; '),
+      ]),
+    });
+  }
   return arts.map((a) => withProvenance(a, 'api'));
 }
 
