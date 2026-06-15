@@ -35,7 +35,7 @@ const STALE_GRACE_HOURS = 12;
 
 const SEVERITY_RANK: Record<Severity, number> = { ok: 0, info: 1, warning: 2, critical: 3 };
 
-function worst(severities: Severity[]): Severity {
+export function worst(severities: Severity[]): Severity {
   return severities.reduce<Severity>((a, b) => (SEVERITY_RANK[b] > SEVERITY_RANK[a] ? b : a), 'ok');
 }
 
