@@ -36,7 +36,10 @@ export function aggregateUsage(
   const { now } = opts;
   const budgetUsd = opts.budgetUsd && opts.budgetUsd > 0 ? opts.budgetUsd : null;
   const monthStart = startOfMonthUtc(now);
-  const sevenDayStart = now - 7 * DAY_MS;
+  // Burn window is the trailing 7 days, but never earlier than the month start:
+  // otherwise the first days of a month mix last month's spend into the burn rate
+  // (and thus the projection) while MTD does not — a false projected-overrun alert.
+  const burnWindowStart = Math.max(now - 7 * DAY_MS, monthStart);
 
   const perDeptMap = new Map<DeptId, DeptUsage>();
   let mtdUsd = 0;
@@ -54,12 +57,15 @@ export function aggregateUsage(
       cur.costUsd += cost;
       perDeptMap.set(e.dept, cur);
     }
-    if (e.ts >= sevenDayStart) last7dUsd += cost;
+    if (e.ts >= burnWindowStart) last7dUsd += cost;
   }
 
   const perDept = [...perDeptMap.values()].sort((a, b) => b.costUsd - a.costUsd);
-  const last7dBurnUsdPerDay = last7dUsd / 7;
-  const daysLeftInMonth = daysInMonthUtc(now) - new Date(now).getUTCDate();
+  const daysElapsed = new Date(now).getUTCDate(); // 1-based day of month
+  // Divide by the days the window actually spans (≤7 early in the month) so the
+  // daily rate is accurate from day 1 instead of diluted by a fixed /7.
+  const last7dBurnUsdPerDay = last7dUsd / Math.min(7, daysElapsed);
+  const daysLeftInMonth = daysInMonthUtc(now) - daysElapsed;
   // daily-granularity projection: assumes today's run isn't yet double-counted in mtd+burn
   const projectedMonthEndUsd = mtdUsd + last7dBurnUsdPerDay * daysLeftInMonth;
   const pctUsed = budgetUsd ? (mtdUsd / budgetUsd) * 100 : null;

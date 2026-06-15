@@ -53,6 +53,19 @@ describe('aggregateUsage', () => {
     expect(agg.mtdUsd).toBe(0);
     expect(agg.pctUsed).toBe(0);
   });
+
+  it('does not let last month bleed into the month-start burn/projection', () => {
+    const jun3 = Date.UTC(2026, 5, 3, 12, 0, 0);
+    const entries = [
+      sonnet(Date.UTC(2026, 4, 28), 4_000_000), // May 28: $60 — huge, prior month
+      sonnet(Date.UTC(2026, 5, 2), 33_000),      // June 2: ~$0.50, this month
+    ];
+    const agg = aggregateUsage(entries, { now: jun3, budgetUsd: 30 });
+    expect(agg.mtdUsd).toBeCloseTo(0.495, 3);             // June only, May excluded
+    expect(agg.last7dBurnUsdPerDay).toBeCloseTo(0.495 / 3, 6); // window clamped to month start, ÷ days elapsed
+    expect(agg.projectedMonthEndUsd).toBeLessThan(30);    // NOT inflated by May's spend
+    expect(assessBudget(agg)!.severity).not.toBe('critical');
+  });
 });
 
 describe('assessBudget', () => {
