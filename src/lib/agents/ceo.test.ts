@@ -5,6 +5,7 @@ const { completeRawMock } = vi.hoisted(() => ({
     text: '## Summary\nx\n\n## Decisions\ny\n\n## Highlight\nx\n\n## Flags\nNone',
     stopReason: 'end_turn',
     usage: { input: 1, output: 100 },
+    model: 'claude-haiku-4-5-20251001',
   })),
 }));
 
@@ -30,6 +31,7 @@ describe('ceo.run — truncation flag', () => {
       text: 'รายงานถูกตัดกลางคัน',
       stopReason: 'max_tokens',
       usage: { input: 1, output: 4000 },
+      model: 'claude-haiku-4-5-20251001',
     });
     const result = await run(emptyCtx);
     expect(result.incomplete).toBe(true);
