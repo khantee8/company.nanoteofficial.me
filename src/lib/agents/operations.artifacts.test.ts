@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { opsArtifacts, opsTags, agentHealthArtifacts } from './operations';
+import { opsArtifacts, opsTags, agentHealthArtifacts, operationsCostArtifacts } from './operations';
 import type { DeployState } from '@/lib/sources/vercelApi';
 import type { RepoActivity } from '@/lib/sources/githubApi';
 import type { AgentHealth } from './health';
+import type { UsageAggregate } from './usage';
 
 const deploys: DeployState[] = [
   { project: 'company.nanoteofficial.me', state: 'READY', ok: true, createdAt: 1 },
@@ -103,5 +104,39 @@ describe('agentHealthArtifacts', () => {
 
   it('tags health artifacts as api provenance', () => {
     expect(agentHealthArtifacts(healths).every((a) => a.provenance === 'api')).toBe(true);
+  });
+});
+
+const aggBase: UsageAggregate = {
+  perDept: [{ dept: 'fin', tokens: 1_000_000, costUsd: 4.1 }, { dept: 'cyb', tokens: 800_000, costUsd: 1.9 }],
+  mtdUsd: 6, mtdTokens: 1_800_000, last7dBurnUsdPerDay: 0.55,
+  projectedMonthEndUsd: 14.25, daysLeftInMonth: 15, budgetUsd: 30, pctUsed: 20,
+};
+
+describe('operationsCostArtifacts', () => {
+  it('builds a per-agent cost bars chart + a budget table (api provenance)', () => {
+    const arts = operationsCostArtifacts(aggBase);
+    const bars = arts.find((a) => a.kind === 'bars');
+    const table = arts.find((a) => a.kind === 'table');
+    expect(bars?.title).toBe('agent cost (MTD)');
+    expect(table?.title).toBe('cost & budget');
+    expect(arts.every((a) => a.provenance === 'api')).toBe(true);
+    expect(JSON.stringify(table)).toContain('budget');
+    expect(JSON.stringify(table)).toContain('20%');
+  });
+
+  it('shows "tracking only" when no budget is set', () => {
+    const arts = operationsCostArtifacts({ ...aggBase, budgetUsd: null, pctUsed: null });
+    const table = arts.find((a) => a.kind === 'table');
+    expect(JSON.stringify(table)).toContain('tracking only');
+  });
+
+  it('renders a $0 table for an empty aggregate (no per-dept bars)', () => {
+    const empty: UsageAggregate = { perDept: [], mtdUsd: 0, mtdTokens: 0, last7dBurnUsdPerDay: 0,
+      projectedMonthEndUsd: 0, daysLeftInMonth: 15, budgetUsd: null, pctUsed: null };
+    const arts = operationsCostArtifacts(empty);
+    expect(arts.some((a) => a.kind === 'bars')).toBe(false);
+    expect(arts.some((a) => a.kind === 'table')).toBe(true);
+    expect(JSON.stringify(arts)).toContain('$0.00');
   });
 });

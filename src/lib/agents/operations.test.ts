@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const { completeRawMock } = vi.hoisted(() => ({
   completeRawMock: vi.fn(async () => ({
@@ -20,7 +20,7 @@ vi.mock('@/lib/sources/githubApi', () => ({
 }));
 
 import { run } from './operations';
-import type { AgentContext } from './types';
+import type { AgentContext, UsageEntry } from './types';
 
 const emptyCtx: AgentContext = { ownHistory: [], companyDigest: [], todayPeers: [] };
 
@@ -101,5 +101,36 @@ describe('operations.run — internal monitoring', () => {
   it('no alert when all monitored agents are healthy', async () => {
     const r = await run(healthyCtx);
     expect(r.alert).toBeUndefined();
+  });
+});
+
+describe('operations.run — budget monitoring', () => {
+  afterEach(() => { vi.unstubAllEnvs(); completeRawMock.mockClear(); });
+
+  const now = Date.now();
+  // $6 of Sonnet output (400k @ $15/Mtok) this month — over a $5 budget.
+  const overBudget: UsageEntry[] = [{ dept: 'fin', model: 'claude-sonnet-4-6', input: 0, output: 400_000, ts: now }];
+  const ctxWithUsage = (usage: UsageEntry[]): AgentContext => ({
+    ownHistory: [], companyDigest: [], todayPeers: [],
+    companySnapshot: { statuses: [{ dept: 'cyb', state: 'done', lastRun: new Date(now).toISOString() }], digest: [], outputs: [], usage },
+  });
+
+  it('fires a critical OPS ALERT when the budget is exceeded', async () => {
+    vi.stubEnv('MONTHLY_BUDGET_USD', '5');
+    const r = await run(ctxWithUsage(overBudget));
+    expect(r.alert?.severity).toBe('critical');
+    expect(r.alert?.text).toContain('OPS ALERT');
+    expect(r.alert?.text.toUpperCase()).toContain('BUDGET');
+  });
+
+  it('does not alert on budget when unset (tracking only)', async () => {
+    const r = await run(ctxWithUsage(overBudget)); // no MONTHLY_BUDGET_USD
+    expect(r.alert).toBeUndefined();
+    expect((r.artifacts ?? []).some((a) => a.title === 'cost & budget')).toBe(true);
+  });
+
+  it('always includes the cost & budget artifact', async () => {
+    const r = await run(ctxWithUsage([]));
+    expect((r.artifacts ?? []).some((a) => a.title === 'cost & budget')).toBe(true);
   });
 });
