@@ -124,7 +124,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const crit = criticalAlerts(healths);
 
   const context = formatContext(ctx);
-  const { text: markdown, stopReason } = await completeRaw({
+  const { text: markdown, stopReason, usage, model } = await completeRaw({
     system: PERSONAS.ops,
     prompt: `${context ? context + '\n\n---\n\n' : ''}CI/CD snapshot.\n\nDeployments:\n${deployLines.join('\n') || 'none'}\n\nRepo activity:\n${activityLines.join('\n') || 'none'}\n\nAgent run-health (internal monitoring):\n${healthLines || 'no snapshot'}\n\nสรุปสุขภาพ deploy/CI และสุขภาพการทำงานของเอเจนต์อื่น แล้วชี้ "สิ่งเดียวที่ควรแก้วันนี้" วิเคราะห์เอเจนต์ที่มีปัญหา (error/stale/truncated/empty) พร้อมสาเหตุและวิธีแก้ และใส่ประเด็นเหล่านี้ในส่วน ## Flags เพื่อส่งต่อ CEO ถ้าต้องอ้างอิงภายนอก (status page/changelog) ให้ค้นเว็บและแนบแหล่ง เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
@@ -173,6 +173,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     sources,
     alert,
     incomplete: stopReason === 'max_tokens',
+    usage, model,
     meta: { deploys, activity, fixToday: findings.fixToday, notes: findings.notes.length, health: healths, stopReason },
   };
 }

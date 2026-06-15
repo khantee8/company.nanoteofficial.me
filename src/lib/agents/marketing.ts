@@ -119,7 +119,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     ...devto.map((d) => `${d.title} (${d.reactions}♥ ${d.comments}💬)`),
   ].slice(0, 6);
   const context = formatContext(ctx);
-  const { text: markdown, stopReason } = await completeRaw({
+  const { text: markdown, stopReason, usage, model } = await completeRaw({
     system: PERSONAS.mkt,
     prompt: `${context ? context + '\n\n---\n\n' : ''}${PROJECTS_BLURB}\n\nกำลังเทรนด์จริงในวงการตอนนี้ (engagement จริง):\n${trending.join('\n') || 'n/a'}\n\nวิเคราะห์สัญญาณดีมานด์จริง ค้นเว็บเพิ่มเติมพร้อมอ้างอิงแหล่ง แล้วเสนอแผนคอนเทนต์ที่ผูกกับเทรนด์ ระบุ "## X post" / "## LinkedIn post" / "## Blog idea" และเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
@@ -139,6 +139,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     provenance: findings.signals.length > 0 ? 'web' : 'api',
     sources,
     incomplete: stopReason === 'max_tokens',
+    usage, model,
     meta: { hn, devto, reach, signals: findings.signals.length, plan: findings.plan.length, stopReason },
   };
 }
