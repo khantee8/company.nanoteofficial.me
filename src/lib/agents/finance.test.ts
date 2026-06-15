@@ -22,6 +22,7 @@ describe('run — truncation flag', () => {
       text: '...```json findings\n{"theme":"x","funds":[]}\n```',
       stopReason: 'max_tokens',
       usage: { input: 10, output: 8000 },
+      model: 'claude-sonnet-4-6',
     });
     const { run } = await import('./finance');
     const result = await run(ctx);
@@ -35,6 +36,7 @@ describe('run — truncation flag', () => {
       text: 'รายงาน...```json findings\n{"theme":"thai-tax-funds","funds":[]}\n```',
       stopReason: 'end_turn',
       usage: { input: 10, output: 2000 },
+      model: 'claude-sonnet-4-6',
     });
     const { run } = await import('./finance');
     const result = await run(ctx);
@@ -49,6 +51,7 @@ describe('run — truncation flag', () => {
       }) + '\n```',
       stopReason: 'end_turn',
       usage: { input: 10, output: 3000 },
+      model: 'claude-sonnet-4-6',
     });
     const { run } = await import('./finance');
     const result = await run(ctx);

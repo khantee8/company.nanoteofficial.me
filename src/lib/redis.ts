@@ -1,12 +1,14 @@
 import { Redis } from '@upstash/redis';
 import type { DeptId } from '@/lib/data/departments';
-import type { AgentStatus, AgentOutput, FeedEvent, HistoryEntry, DigestEntry, KbEntry } from './agents/types';
+import type { AgentStatus, AgentOutput, FeedEvent, HistoryEntry, DigestEntry, KbEntry, UsageEntry } from './agents/types';
 import { CATEGORY_BY_DEPT } from './agents/artifacts';
 import { focusKey } from './telegram';
 import type { FocusSession } from './telegram';
 
 const FEED_KEY = 'feed:events';
 const FEED_CAP = 50;
+const USAGE_KEY = 'usage:ledger';
+const USAGE_CAP = 1000; // ~months of runs at the current cadence; window-filtered on read
 const HISTORY_CAP = 7;
 const DIGEST_KEY = 'company:digest';
 const DIGEST_CAP = 25;
@@ -143,6 +145,14 @@ export function makeRedisRepo(client: RedisClientLike) {
     },
     async getDigest(): Promise<DigestEntry[]> {
       return await client.lrange<DigestEntry>(DIGEST_KEY, 0, DIGEST_CAP - 1);
+    },
+    async recordUsage(entry: UsageEntry) {
+      await client.lpush(USAGE_KEY, entry);
+      await client.ltrim(USAGE_KEY, 0, USAGE_CAP - 1);
+    },
+    async getUsageSince(sinceTs: number): Promise<UsageEntry[]> {
+      const all = await client.lrange<UsageEntry>(USAGE_KEY, 0, USAGE_CAP - 1);
+      return all.filter((e) => e && typeof e.ts === 'number' && e.ts >= sinceTs);
     },
     async pushKb(entry: KbEntry) {
       await client.set(kbKey(entry.id), entry);

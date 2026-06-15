@@ -17,6 +17,8 @@ function fakeRepo() {
     getDigest: vi.fn(async () => []),
     pushKb: vi.fn(async () => {}),
     getKb: vi.fn(async () => []),
+    recordUsage: vi.fn(async () => {}),
+    getUsageSince: vi.fn(async () => []),
   } as unknown as RedisRepo;
 }
 
@@ -214,6 +216,7 @@ describe('buildContext run order', () => {
           ? { dept: 'cyb', markdown: '## Highlight\nThreat up.\n\n## Flags\n- Patch Foo', summary: 'cyb sum', ts: today }
           : null,
       ),
+      getUsageSince: vi.fn(async () => []),
     } as unknown as RedisRepo;
 
     const ctx = await buildContext('ops', repo);
@@ -239,6 +242,7 @@ describe('buildContext ops snapshot', () => {
           : { dept: d, markdown: 'x', summary: 'ok', ts: '2026-06-14T00:00:00Z',
               artifacts: [{ kind: 'tags', title: 't', tags: ['a'] }] },
       ),
+      getUsageSince: vi.fn(async () => []),
     } as unknown as RedisRepo;
 
     const ctx = await buildContext('ops', repo);

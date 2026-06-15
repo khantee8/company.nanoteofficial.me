@@ -33,6 +33,8 @@ export interface CompleteResult {
   text: string;
   stopReason: string | null;
   usage: { input: number; output: number };
+  /** v1.8 — the model actually used for the call (for cost attribution). */
+  model: string;
 }
 
 // Server-side tool loops (web_search) cap at ~10 iterations per request and then
@@ -118,6 +120,7 @@ export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
     text: texts.filter(Boolean).join('\n').trim(),
     stopReason,
     usage: { input, output },
+    model,
   };
 }
 

@@ -83,7 +83,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const mcpServers = mcpUrl
     ? [{ url: mcpUrl, name: 'thai-funds', ...(mcpToken ? { token: mcpToken } : {}) }]
     : undefined;
-  const { text: markdown, stopReason } = await completeRaw({
+  const { text: markdown, stopReason, usage, model } = await completeRaw({
     system: PERSONAS.fin,
     prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nหากองทุนรวมไทยจริง 3-5 กองในธีมนี้ โดยใช้สองแหล่งร่วมกัน:\n1) web_search — หาชื่อกองเต็ม บลจ. กองแม่/underlying ผลตอบแทนย้อนหลัง 1 ปี การป้องกันค่าเงิน และประเภทภาษี (SSF/RMF/ThaiESG)\n2) เครื่องมือ thai-funds-mcp (ข้อมูล ก.ล.ต. ที่อ้างอิงได้) — ใช้ตรวจสอบ/ยืนยันตัวเลขทางการ: thai_fund_fees (TER), thai_fund_nav (NAV+AUM), thai_fund_risk (ระดับความเสี่ยง+ความผันผวน), list_thai_funds (ค้นด้วยรหัสคลาส), และ market_index/fx_rate เป็นบริบท\nให้ความสำคัญกับตัวเลขจาก ก.ล.ต. (MCP) เมื่อมีให้ใช้ และอ้างอิง sourceUrl + วันที่ (asOf) ของทุกตัวเลขเสมอ — ห้ามแต่งตัวเลข\nเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมา แล้วเขียนรายงานตามโครงสร้างในบทบาท`,
     model: FINANCE_MODEL,
@@ -112,6 +112,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     artifacts, tags: financeTags(findings),
     theme, provenance: noCitedFunds ? 'api' : 'web', sources,
     incomplete,
+    usage, model,
     meta: { theme, fundCount: findings.funds.length, stopReason },
   };
 }

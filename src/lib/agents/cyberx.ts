@@ -88,7 +88,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const [kev, news] = await Promise.all([fetchKev(), fetchSecurityNews()]);
   const lines = formatThreatIntel(kev, news);
   const context = formatContext(ctx);
-  const { text: markdown, stopReason } = await completeRaw({
+  const { text: markdown, stopReason, usage, model } = await completeRaw({
     system: PERSONAS.cyb,
     prompt: `${context ? context + '\n\n---\n\n' : ''}Today's threat feed:\n${lines.join('\n')}\n\nวิเคราะห์ภัยคุกคามจริงในรอบ 24-48 ชม.ที่เกี่ยวกับสแตกของบริษัท ค้นเว็บหา advisory/รายละเอียดเพิ่มเติม อ้างอิงแหล่ง+วันที่ เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
@@ -107,6 +107,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     provenance: findings.items.length > 0 ? 'web' : 'api',
     sources,
     incomplete: stopReason === 'max_tokens',
+    usage, model,
     meta: { kev, news, advisories: findings.items.length, stopReason },
   };
 }

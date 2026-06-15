@@ -115,7 +115,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     .join('\n');
 
   const context = formatContext(ctx);
-  const { text: markdown, stopReason } = await completeRaw({
+  const { text: markdown, stopReason, usage, model } = await completeRaw({
     system: PERSONAS.rnd,
     prompt: `${context ? context + '\n\n---\n\n' : ''}โฟกัสประจำรอบวันนี้: **${label}** (theme: ${theme}).\n${
       radar ? `Repo ที่กำลังมาแรง (14 วัน):\n${radar}\n\n` : ''
@@ -139,6 +139,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     provenance: findings.items.length > 0 ? 'web' : 'api',
     sources,
     incomplete: stopReason === 'max_tokens',
+    usage, model,
     meta: { theme, repos, items: findings.items.length, stopReason },
   };
 }

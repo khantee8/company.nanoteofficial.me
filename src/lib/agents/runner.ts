@@ -103,7 +103,9 @@ export async function buildContext(dept: DeptId, repo: RedisRepo): Promise<Agent
         };
       }),
     );
-    companySnapshot = { statuses, digest, outputs };
+    // v1.8 — ~40d of cost-ledger entries for the Operations budget monitor.
+    const usage = await repo.getUsageSince(Date.now() - 40 * 86_400_000);
+    companySnapshot = { statuses, digest, outputs, usage };
   }
 
   return {
@@ -186,6 +188,10 @@ export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRun
       repo.pushKb({ id, slug, dept, date, ts, category, theme,
         tags, status: 'draft', summary: result.summary, highlight, highlightEn, flags, flagsEn, artifacts,
         sources, provenance, related, markdown, markdownEn, incomplete }),
+      // v1.8 — record token usage to the cost ledger (skip non-LLM runs lacking usage/model).
+      ...(result.usage && result.model
+        ? [repo.recordUsage({ dept, model: result.model, input: result.usage.input, output: result.usage.output, ts: Date.parse(ts) })]
+        : []),
     ]);
 
     const warn = incomplete ? '\n⚠️ รายงานอาจไม่สมบูรณ์ — ตรวจก่อนเผยแพร่' : '';
