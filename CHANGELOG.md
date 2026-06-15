@@ -3,6 +3,30 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] — 2026-06-15
+
+**Operations cost & budget monitor (v1.7 Phase 2).**
+
+### Added
+- Per-run token usage is captured into an append-only Redis ledger
+  (`usage:ledger`) by the runner; new pure `src/lib/cost.ts` (per-model pricing)
+  and `src/lib/agents/usage.ts` (MTD + rolling-7-day-burn aggregation, projection).
+- Operations renders a per-agent **cost bars** chart and a **cost & budget**
+  table (provenance `'api'`): MTD spend, tokens, 7-day burn; plus budget %, days
+  left and projected month-end when a budget is set.
+
+### Changed
+- `completeRaw()` now surfaces the `model` used; all six dept modules carry
+  `usage` + `model` on their run result. `health.ts` exports `worst()` for
+  company-level severity composition.
+- When `MONTHLY_BUDGET_USD` is set, budget status feeds the v1.7 severity system:
+  🟡 at ≥80% MTD, 🔴 at ≥100% or projected month-end overrun — routed into the
+  Ops summary + `## Flags` + the `🔴 OPS ALERT` Telegram. Unset/`0` ⇒ display-only.
+
+### Env
+- New optional **`MONTHLY_BUDGET_USD`** — monthly Claude-spend budget in USD.
+  Unset or `≤ 0` ⇒ tracking-only (no budget alerts).
+
 ## [1.7.0] — 2026-06-14
 
 **Operations internal monitor.** Operations now watches the company's own agents,
@@ -462,6 +486,7 @@ deploy alerts.
   rendering (floor, walls, windows, furniture, lighting), five-department
   sidebar, scrolling terminal feed, branded favicon, and SEO metadata.
 
+[1.8.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.8.0
 [1.7.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.7.0
 [1.6.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.6.0
 [1.5.2]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.5.2
