@@ -45,6 +45,15 @@ export interface FeedEvent {
   ts: string;
 }
 
+/** v1.8 — one LLM run's token usage, appended to the cost ledger. */
+export interface UsageEntry {
+  dept: DeptId;
+  model: string;
+  input: number;
+  output: number;
+  ts: number; // epoch ms
+}
+
 export interface AgentRunResult {
   markdown: string;
   summary: string;
@@ -66,6 +75,10 @@ export interface AgentRunResult {
   related?: string[];
   /** v1.4.5 — true when the model hit max_tokens and the report was cut off. */
   incomplete?: boolean;
+  /** v1.8 — token usage + the model used, recorded to the cost ledger by the
+   *  runner. Set by LLM dept modules; absent for non-LLM runs (then not recorded). */
+  usage?: { input: number; output: number };
+  model?: string;
   /** v1.7 — a critical operations alert the runner sends as a distinct Telegram
    *  message, in addition to the routine run notify. */
   alert?: { severity: 'critical'; text: string };
@@ -128,5 +141,7 @@ export interface AgentContext {
     digest: DigestEntry[];
     relatedEntryIds?: string[];
     outputs?: AgentOutputHealth[];
+    /** v1.8 — recent cost-ledger entries; filled for the ops monitor only. */
+    usage?: UsageEntry[];
   };
 }
