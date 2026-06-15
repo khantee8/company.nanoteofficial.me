@@ -6,6 +6,7 @@ import { costOf } from '@/lib/cost';
 export interface DeptUsage { dept: DeptId; tokens: number; costUsd: number }
 
 export interface UsageAggregate {
+  /** MTD only — per-dept breakdown for the current calendar month. */
   perDept: DeptUsage[];
   mtdUsd: number;
   mtdTokens: number;
@@ -13,6 +14,7 @@ export interface UsageAggregate {
   projectedMonthEndUsd: number;
   daysLeftInMonth: number;
   budgetUsd: number | null;
+  /** raw % (mtdUsd/budgetUsd*100), not rounded or capped; null when display-only. */
   pctUsed: number | null;
 }
 
@@ -58,6 +60,7 @@ export function aggregateUsage(
   const perDept = [...perDeptMap.values()].sort((a, b) => b.costUsd - a.costUsd);
   const last7dBurnUsdPerDay = last7dUsd / 7;
   const daysLeftInMonth = daysInMonthUtc(now) - new Date(now).getUTCDate();
+  // daily-granularity projection: assumes today's run isn't yet double-counted in mtd+burn
   const projectedMonthEndUsd = mtdUsd + last7dBurnUsdPerDay * daysLeftInMonth;
   const pctUsed = budgetUsd ? (mtdUsd / budgetUsd) * 100 : null;
 
