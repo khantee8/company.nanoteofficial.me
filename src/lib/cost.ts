@@ -10,8 +10,13 @@
 // Using verified values above.
 export interface ModelPrice { input: number; output: number }
 
+// One shared const for Haiku so the dated id and the undated alias resolve to
+// the same object (and DEFAULT_MODEL_PRICE === PRICING['claude-haiku-4-5-20251001']).
+const HAIKU_PRICE: ModelPrice = { input: 1, output: 5 };
+
 export const PRICING: Record<string, ModelPrice> = {
-  'claude-haiku-4-5-20251001': { input: 1, output: 5 },
+  'claude-haiku-4-5-20251001': HAIKU_PRICE,
+  'claude-haiku-4-5': HAIKU_PRICE,
   'claude-sonnet-4-6': { input: 3, output: 15 },
   'claude-opus-4-8': { input: 5, output: 25 },
 };

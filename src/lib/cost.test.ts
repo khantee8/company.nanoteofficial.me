@@ -1,10 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { costOf, isKnownModel, PRICING } from './cost';
+import { costOf, isKnownModel, PRICING, DEFAULT_MODEL_PRICE } from './cost';
 
 describe('costOf', () => {
   it('prices a known model from input/output tokens', () => {
-    const c = costOf('claude-haiku-4-5-20251001', { input: 1_000_000, output: 1_000_000 });
-    expect(c).toBeCloseTo(PRICING['claude-haiku-4-5-20251001'].input + PRICING['claude-haiku-4-5-20251001'].output, 6);
+    expect(costOf('claude-haiku-4-5-20251001', { input: 1_000_000, output: 1_000_000 })).toBe(
+      PRICING['claude-haiku-4-5-20251001'].input + PRICING['claude-haiku-4-5-20251001'].output,
+    );
+  });
+
+  it('pins the fallback to the dated Haiku price', () => {
+    expect(DEFAULT_MODEL_PRICE).toBe(PRICING['claude-haiku-4-5-20251001']);
   });
 
   it('prices Sonnet higher than Haiku for the same tokens', () => {
