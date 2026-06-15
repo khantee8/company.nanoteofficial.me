@@ -3,6 +3,272 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] — 2026-06-14
+
+**Operations internal monitor.** Operations now watches the company's own agents,
+not just CI/CD.
+
+### Added
+- New pure module `src/lib/agents/health.ts` — `assessCompanyHealth()`,
+  `overallSeverity()`, `criticalAlerts()`, `formatHealth()`, and
+  `EXPECTED_CADENCE_HOURS` (mirrors the per-agent schedule in `vercel.json`).
+- The Operations run emits a deterministic **`agent health` scorecard** + an
+  **`agent issues` table** alongside its existing deployment-health output,
+  flagging each agent's run-health: error / stale-vs-cadence / truncated / empty
+  / open flags.
+
+### Changed
+- Operations leads its summary with the **worst severity** found and routes
+  detected issues into `## Flags`, so they propagate into the CEO weekly digest.
+- A critical finding now sends a distinct **`🔴 OPS ALERT`** Telegram message,
+  separate from the normal run notice.
+
+(spec/plan: `docs/superpowers/{specs,plans}/2026-06-14-v17-ops-internal-monitor*`)
+
+## [1.6.0] — 2026-06-13
+
+**Thai-fund MCP + Finance via MCP connector.**
+
+### Added
+- **`thai-funds-mcp`** — a dedicated remote MCP server (separate
+  `khantee8/thai-funds-mcp` repo + Vercel project, live at
+  `thaifundmcp.nanoteofficial.me`) wrapping the Thai SEC Open Data API plus
+  market + FX tools (**7 tools**, each returning `sourceUrl` + `asOf` for
+  citations).
+- `claude.ts` `completeRaw()` gained an `mcpServers` arg that routes through the
+  beta Messages API (`betas: ['mcp-client-2025-11-20']`, `mcp_servers` +
+  `mcp_toolset`), preserving the streamed `pause_turn` resume + 429/5xx retry;
+  web_search and the MCP connector can be combined in one request.
+
+### Changed
+- **Finance is now a hybrid** (runs on Sonnet): `web_search` for fund names / %
+  returns / master fund / hedging (the SEC API exposes none of these), and the
+  `thai-funds-mcp` tools for authoritative cited SEC numbers (TER, NAV+AUM, risk
+  spectrum, volatility). Degrades to web-only if the env vars are unset.
+  Provenance stays `'web'`; `parseFinanceFindings`/`financeArtifacts`/the draft
+  gate are unchanged. Its market tool uses **Yahoo Finance** (stooq is
+  datacenter-blocked).
+
+### Env
+- New `THAI_FUNDS_MCP_URL` + `THAI_FUNDS_MCP_TOKEN` (Finance's MCP server URL +
+  bearer token). The `thai-funds-mcp` repo itself needs `SEC_API_KEY` +
+  `MCP_AUTH_TOKEN` (= `THAI_FUNDS_MCP_TOKEN`).
+
+(spec: `docs/superpowers/specs/2026-06-13-v16-thai-funds-mcp-design.md`)
+
+## [1.5.2] — 2026-06-13
+
+**PDF analyst deliverable (chart embedding).**
+
+### Changed
+- The per-agent PDF export (`AgentDetail.tsx`) grew from title→narrative→footer
+  into a full deliverable: **title → verdict → flags → charts → narrative →
+  sources → footer**. Body-population was extracted into a pure, jsdom-testable
+  `buildPdfDoc(d, args)` (`AgentDetail.pdf.test.tsx`).
+- Charts are embedded by **cloning the live on-screen `.agent-art` nodes**
+  (`importNode`, a real node copy — no `innerHTML`), so every chart kind (SVG +
+  HTML) is captured and future kinds auto-track; they render as dark panels with
+  `print-color-adjust: exact`. Verdict/flags/sources are built `textContent`-only
+  in the active language; source links are scheme-validated (`safeHref`).
+
+(spec: `docs/superpowers/specs/2026-06-13-v152-pdf-chart-embedding-design.md`)
+
+## [1.5.1] — 2026-06-13
+
+**Bilingual highlight + flags.**
+
+### Added
+- The model now emits a **bilingual `## Highlight` and `## Flags`** in the head
+  (Thai `<!-- ===EN=== -->` English); `parseHighlight`/`parseFlags` gained a
+  `lang` param that splits on the delimiter (fallback to Thai). `DigestEntry`/
+  `KbEntry` gained optional `highlightEn`/`flagsEn` (backfilled from the Thai
+  fields in `normalizeKbEntry`).
+
+### Changed
+- `ExecDashboard`/`AgentDetail` pass the active `lang` to the parsers, so the
+  dashboard verdict + flags switch with the toggle. `summary` stays Thai
+  (code-built status string).
+
+(spec: `docs/superpowers/specs/2026-06-13-v151-bilingual-highlight-flags-design.md`)
+
+## [1.5.0] — 2026-06-12
+
+**Analyst-report rollout + findings-first contract.**
+
+### Changed
+- **Findings-first head:** all six agents now OPEN with the machine-readable head
+  (` ```json findings ` → `## Highlight` → `## Flags` → `---`) before the
+  narrative, so a `max_tokens` cut can't destroy the chart/KB data or the verdict.
+  `personas.ts` merged `FINDINGS_CONTRACT`+`OUTPUT_FOOTER` into
+  `OUTPUT_HEAD_CONTRACT`; `bilingual.ts` `normalizeReportOrder()` (called once in
+  `runner.ts`) reassembles to the legacy narrative-first storage shape, so
+  dashboards/exports/`/api/kb`/pre-v1.5 entries are untouched.
+- **Analyst templates:** the five non-finance briefs gained an appended
+  "โครงสร้างรายงานฉบับวิเคราะห์" section (verdict box → comparison table →
+  per-item analysis → recommendations → risks → sources), with full dual TH/EN
+  reports at `maxTokens: 8000` (Finance keeps its v1.4.5 mode).
+
+### Added
+- **Chat personas:** Telegram `/ask` + focus follow-ups use new scaffolding-free
+  `CHAT_PERSONAS` so chat answers don't lead with a JSON block.
+
+(spec: `docs/superpowers/specs/2026-06-12-v150-analyst-rollout-design.md`)
+
+## [1.4.11] — 2026-06-12
+
+### Fixed
+- Operations' deployment scorecard was all-`UNKNOWN`: the projects live under a
+  Vercel **team**, and `/v6/deployments` without `teamId` queries the empty
+  personal scope. `vercelApi.ts` now resolves the token's team id once
+  (`resolveTeamId`, cached per lambda, null-safe for personal tokens) and scopes
+  the query (`deploymentsUrl`, unit-tested).
+
+## [1.4.10] — 2026-06-12
+
+### Fixed
+- Haiku is far more verbose than Sonnet, so the old 1200–1800 `maxTokens` budgets
+  silently truncated reports at `max_tokens` — emptying the highlight and
+  dropping citations (written last). The five non-finance dept modules now mirror
+  Finance: `completeRaw()`, `maxTokens: 4000`,
+  `incomplete: stopReason === 'max_tokens'`, `stopReason` in `meta`, with per-dept
+  truncation tests.
+
+## [1.4.9] — 2026-06-12
+
+### Fixed
+- `web_search_20260209` ships dynamic filtering (requires programmatic tool
+  calling — unsupported on Haiku), so every web-research run 400'd. The tool
+  declaration in `claude.ts` now sets `allowed_callers: ['direct']` (this wrapper
+  only ever calls it directly anyway).
+
+## [1.4.8] — 2026-06-12
+
+### Fixed
+- A run hard-killed by the Vercel 300s function timeout never reaches the
+  runner's catch, leaving `running` stuck in Redis forever. `redis.ts`
+  `normalizeStatus()` now reads any `running` older than `STALE_RUNNING_MS`
+  (15 min) as `error: "run interrupted…"` — self-healing on read, no write needed.
+
+## [1.4.7] — 2026-06-09
+
+**Finance research-failure visibility + `pause_turn` resumption.**
+
+### Fixed
+- A Finance run that completed (`end_turn`) but produced **zero citation-backed
+  funds** (usually `web_search` rate-limited mid-run) was stored looking clean.
+  `finance.ts` now flags it `incomplete` (`max_tokens || noCitedFunds`) with an
+  explicit Thai summary, so it stays gated as `draft` and Telegram warns;
+  `runner.ts`'s warning generalized to "รายงานอาจไม่สมบูรณ์".
+- `completeRaw()` previously returned a `pause_turn` partial as if done. It now
+  resumes the turn (re-sends the assistant content verbatim), bounded by
+  `MAX_PAUSE_RESUMES = 4`, concatenating text + summing usage (extracted
+  `streamOnce()` keeps the per-request 429/5xx retry).
+
+## [1.4.6] — 2026-06-09
+
+### Fixed
+- The on-screen `Markdown.tsx` renderer rendered markdown tables as raw `|` pipe
+  text, making the v1.4.5 Finance comparison table unreadable. It now parses pipe
+  tables into a real `<table>` (header + `|---|` divider detection,
+  horizontal-scroll wrapper) and renders inline `**bold**` as `<strong>` — still
+  no `dangerouslySetInnerHTML`. `Markdown.test.tsx` guards it.
+
+## [1.4.5] — 2026-06-09
+
+**Finance analyst-grade report.**
+
+### Added
+- `claude.ts` `completeRaw()` — a streamed completion (`messages.stream()` →
+  `finalMessage()`) surfacing `stop_reason` + `usage`; `complete()` now wraps it.
+  Streaming avoids HTTP timeouts on the large `max_tokens` an analyst report needs.
+- An `incomplete` flag carried end-to-end on `AgentRunResult`/`AgentOutput`/the KB
+  entry; `runner.ts` persists it and the Telegram notice warns on a `max_tokens`
+  cut (the run still archives as `draft`).
+- `financeArtifacts()` gained an **AUM bars** chart + a **tax-type donut**.
+
+### Changed
+- The Finance agent now produces a complete, sectioned, cited Thai mutual-fund
+  analyst report (~2,000–2,800 words) + a short English summary, via a
+  Finance-only `FINANCE_BILINGUAL_RULE` in `personas.ts` and a sectioned analyst
+  template authored into `.agents/Finance Agent.md`.
+- `AgentDetail.tsx` `exportPdf` now walks the markdown into structured HTML
+  (`textContent` only) with a cover + footer instead of a `<pre>` dump.
+
+(spec: `docs/superpowers/specs/2026-06-05-v15-finance-analyst-report-design.md`)
+
+## [1.4.3] — 2026-06-05
+
+**Reading-optimized UI/UX.**
+
+### Changed
+- A readability pass across every text surface (office animation untouched).
+  Global body font moved from `'Courier New'` to **Inter** (`next/font`); the
+  office shell is re-scoped to mono to keep the retro terminal theme.
+- Fixed a "loses content" height miscalc — `.exec`/`.dash` hardcoded
+  `calc(100vh - 44px)` and ignored the 41px agent sub-nav; both now
+  `flex:1; min-height:0` with `100dvh` wrappers.
+- Agent narrative (`Markdown.tsx`) lifted to 15px/1.7 with a 72ch reading
+  measure; KPI labels/tags and office sidebar text lifted toward AA contrast.
+
+(plan: `docs/superpowers/plans/2026-06-05-v143-readability-uiux.md`)
+
+## [1.4.2] — 2026-06-04
+
+**`/doc` user guide.**
+
+### Added
+- A built-in operator guide at `/doc` (GitHub-Docs theme): static MD in
+  `content/doc/{en,th}/<slug>.md` with a `content/doc/nav.ts` manifest.
+  `src/lib/doc.ts` reads them (en-fallback); `next.config.ts`
+  `outputFileTracingIncludes` ships `content/doc/**`. Routes: layout + overview +
+  SSG `[slug]` (`dynamicParams:false`). `DocMarkdown` is a second safe renderer
+  (URL-validated links). `/doc` added to the NavBar.
+
+(spec: `docs/superpowers/specs/2026-06-04-v142-doc-user-guide-design.md`)
+
+## [1.4.1] — 2026-06-04
+
+**TH/EN bilingual.**
+
+### Added
+- One language toggle (`src/lib/i18n/`) switches the whole UI: typed `messages.ts`
+  dict (key-parity tested), `LangProvider`/`useLang` (cookie-backed, English-first,
+  client-side so `/dashboard`'s static prerender survives), `LangToggle` in the
+  NavBar, and render-time chart-title localization (`chartTitles.ts`).
+
+### Changed
+- **Agent reports are dual-generated**: `BILINGUAL_RULE` makes the model write
+  Thai, a `<!-- ===EN=== -->` delimiter, then English; `splitBilingual()`
+  reconstructs `{ th, en }`; the runner stores `markdown` (TH) + `markdownEn` (EN).
+  The detail view renders narrative-only per language. NavBar version is now read
+  from `package.json`.
+
+(spec: `docs/superpowers/specs/2026-06-04-v141-bilingual-design.md`)
+
+## [1.4.0] — 2026-06-04
+
+**Real-value web-research agents.**
+
+### Changed
+- The six agents stop emitting thin mockup runs and produce real, cited
+  deliverables. Each `complete()` runs with `webSearch: true` and must return a
+  fenced ` ```json findings ` block; `parse<Dept>Findings()` validates it and
+  drops any malformed/uncited entry.
+- Artifacts now carry a **provenance** tag: `'api'` (deterministic from a real
+  API) or `'web'` (researched with mandatory `Citation`s); `withProvenance()`
+  makes `'web'` without sources a compile error. The invariant flipped from
+  "deterministic-only" to **"never uncited."**
+- Finance became a Thai mutual-fund analyst (CoinGecko retired). The KB write is
+  now a knowledge graph (stable `slug`, `theme`, `sources`, `related` ids; the CEO
+  weekly synthesis cross-links). Agents run on a mixed cadence (`vercel.json`).
+
+### Added
+- Telegram on-demand deep-dive: `/ask <dept> <q>` runs one-shot web research and
+  opens a 15-min focus session (Redis `setFocus`/`getFocus`) so plain-text
+  follow-ups thread without a command.
+
+(spec: `docs/superpowers/specs/2026-06-04-v14-real-value-agents-design.md`)
+
 ## [1.3.1] — 2026-06-03
 
 **Smart Agents & Optimal Dashboard (the rest).** Completes v1.3: the last two
@@ -196,6 +462,22 @@ deploy alerts.
   rendering (floor, walls, windows, furniture, lighting), five-department
   sidebar, scrolling terminal feed, branded favicon, and SEO metadata.
 
+[1.7.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.7.0
+[1.6.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.6.0
+[1.5.2]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.5.2
+[1.5.1]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.5.1
+[1.5.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.5.0
+[1.4.11]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.11
+[1.4.10]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.10
+[1.4.9]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.9
+[1.4.8]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.8
+[1.4.7]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.7
+[1.4.6]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.6
+[1.4.5]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.5
+[1.4.3]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.3
+[1.4.2]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.2
+[1.4.1]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.1
+[1.4.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.4.0
 [1.3.1]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.3.1
 [1.3.0]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.3.0
 [1.2.1]: https://github.com/khantee8/company.nanoteofficial.me/releases/tag/v1.2.1
