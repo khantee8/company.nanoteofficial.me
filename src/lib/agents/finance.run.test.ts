@@ -24,7 +24,7 @@ const ctx = {
 
 describe('finance.run with MCP', () => {
   it('calls completeRaw on Sonnet, with mcpServers AND web_search (hybrid)', async () => {
-    completeRaw.mockResolvedValueOnce({ text: FINDINGS, stopReason: 'end_turn', usage: { input: 1, output: 1 } });
+    completeRaw.mockResolvedValueOnce({ text: FINDINGS, stopReason: 'end_turn', usage: { input: 1, output: 1 }, model: 'claude-sonnet-4-6' });
     const res = await run(ctx);
     const opts = completeRaw.mock.calls[0][0];
     expect(opts.model).toBe('claude-sonnet-4-6');
@@ -37,7 +37,7 @@ describe('finance.run with MCP', () => {
   it('still runs (no MCP wiring) when env unset', async () => {
     delete process.env.THAI_FUNDS_MCP_URL;
     delete process.env.THAI_FUNDS_MCP_TOKEN;
-    completeRaw.mockResolvedValueOnce({ text: FINDINGS, stopReason: 'end_turn', usage: { input: 1, output: 1 } });
+    completeRaw.mockResolvedValueOnce({ text: FINDINGS, stopReason: 'end_turn', usage: { input: 1, output: 1 }, model: 'claude-sonnet-4-6' });
     const res = await run(ctx);
     const opts = completeRaw.mock.calls[0][0];
     expect(opts.mcpServers).toBeUndefined();
@@ -47,7 +47,7 @@ describe('finance.run with MCP', () => {
   it('omits the token when only the URL env is set', async () => {
     process.env.THAI_FUNDS_MCP_URL = 'https://tf/api/mcp';
     delete process.env.THAI_FUNDS_MCP_TOKEN;
-    completeRaw.mockResolvedValueOnce({ text: FINDINGS, stopReason: 'end_turn', usage: { input: 1, output: 1 } });
+    completeRaw.mockResolvedValueOnce({ text: FINDINGS, stopReason: 'end_turn', usage: { input: 1, output: 1 }, model: 'claude-sonnet-4-6' });
     await run(ctx);
     expect(completeRaw.mock.calls[0][0].mcpServers).toEqual([{ url: 'https://tf/api/mcp', name: 'thai-funds' }]);
   });
