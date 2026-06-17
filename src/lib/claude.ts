@@ -3,6 +3,11 @@ import Anthropic from '@anthropic-ai/sdk';
 // Haiku by default to keep agent-run spend low; set CLAUDE_MODEL in Vercel to override
 const MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 
+// Output budget for web_search report agents (cyb/mkt/rnd): web_search + the
+// bilingual head (findings + TH/EN highlight/flags) share this, so 8000 clipped
+// the narrative (mkt/rnd were left as just a preamble). Ceiling — billed on use.
+export const WEB_REPORT_MAX_TOKENS = 16000;
+
 let _client: Anthropic | null = null;
 function client(): Anthropic {
   if (!_client) _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

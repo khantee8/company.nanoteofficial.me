@@ -9,7 +9,10 @@ const { completeRawMock } = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock('@/lib/claude', () => ({ completeRaw: completeRawMock }));
+vi.mock('@/lib/claude', async (orig) => ({
+  ...(await orig<typeof import('@/lib/claude')>()),
+  completeRaw: completeRawMock,
+}));
 vi.mock('@/lib/sources/threatintel', () => ({
   fetchKev: vi.fn(async () => [
     { cveId: 'CVE-9', vendorProject: 'Acme', product: 'Widget', vulnerabilityName: 'RCE', dateAdded: '2026-06-01', shortDescription: 'x' },
@@ -19,6 +22,7 @@ vi.mock('@/lib/sources/threatintel', () => ({
 }));
 
 import { run } from './cyberx';
+import { WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
 import type { AgentContext } from './types';
 
 const emptyCtx: AgentContext = { ownHistory: [], companyDigest: [], todayPeers: [] };
@@ -30,7 +34,7 @@ describe('cyberx.run', () => {
     await run(emptyCtx);
     // No model override — CyberX tracks the company default like the other agents.
     expect(completeRawMock).toHaveBeenCalledWith(
-      expect.objectContaining({ maxTokens: 8000, webSearch: true }),
+      expect.objectContaining({ maxTokens: WEB_REPORT_MAX_TOKENS, webSearch: true }),
     );
     const firstCallArgs = completeRawMock.mock.calls[0] as unknown[];
     expect(firstCallArgs[0]).not.toHaveProperty('model');

@@ -1,4 +1,4 @@
-import { completeRaw } from '@/lib/claude';
+import { completeRaw, WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { fetchTrending, type TrendingRepo } from '@/lib/sources/githubTrending';
@@ -122,7 +122,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     }ค้นหา repo/paper/release จริงในโฟกัสนี้ สรุปว่าอะไรน่ารับมาใช้และเพราะอะไร อ้างอิงแหล่ง+วันที่ เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 5,
-    maxTokens: 8000,
+    maxTokens: WEB_REPORT_MAX_TOKENS,
   });
 
   const findings = parseRndFindings(markdown) ?? { theme, items: [] };

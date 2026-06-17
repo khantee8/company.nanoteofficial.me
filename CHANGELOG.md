@@ -3,6 +3,29 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] — 2026-06-17
+
+**Report-quality fix — eliminate narrative truncation on web-search agents.**
+
+The Ops internal monitor flagged CyberX/Marketing/R&D as 🟡 "report truncated
+(max_tokens)". Root cause: with `webSearch: true`, the 8000-token output budget
+is shared by the model's interleaved text, tool-use blocks, and the mandatory
+bilingual head (findings JSON + TH/EN `## Highlight`/`## Flags`) — leaving little
+or nothing for the narrative (Marketing/R&D stored only a preamble).
+
+### Changed
+- Raised the output budget for the three web-search report agents
+  (CyberX/Marketing/R&D) from 8000 → 16000 via a shared
+  `WEB_REPORT_MAX_TOKENS` constant in `claude.ts`. `maxTokens` is a ceiling
+  billed only on tokens actually generated, so cost impact is marginal (these
+  run on Haiku; MTD spend is ~$0.18). Finance stays at 8000 — its issue is the
+  300s timeout, where more tokens would only add risk.
+
+### Fixed
+- Finance `maxSearches` 6 → 4 (shipped in `bd1ec51`): the heaviest run
+  (Sonnet + web_search + thai-funds MCP) was timing out past 300s when
+  web_search hit Anthropic rate limits.
+
 ## [1.8.0] — 2026-06-15
 
 **Operations cost & budget monitor (v1.7 Phase 2).**
