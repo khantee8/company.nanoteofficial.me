@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { NavBar } from '@/components/NavBar';
-import { AdminClient } from '@/components/AdminClient';
+import { AdminConsole } from '@/components/admin/AdminConsole';
 import { AdminLogin } from '@/components/AdminLogin';
 import { ADMIN_COOKIE, verifySession } from '@/lib/auth';
 
@@ -19,7 +19,7 @@ export default async function AdminPage() {
   return (
     <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <NavBar />
-      {authed ? <AdminClient /> : <AdminLogin />}
+      {authed ? <AdminConsole /> : <AdminLogin />}
     </div>
   );
 }
