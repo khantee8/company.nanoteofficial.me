@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { pushLibrarySync } from './librarySync';
 
-const repo = { pushSyncLog: vi.fn(async () => {}) } as any;
+const repo = { pushSyncLog: vi.fn(async () => {}) } as unknown as import('./redis').RedisRepo;
 afterEach(() => { vi.restoreAllMocks(); delete process.env.LIBRARY_SYNC_URL; delete process.env.LIBRARY_SYNC_SECRET; });
 
 describe('pushLibrarySync', () => {

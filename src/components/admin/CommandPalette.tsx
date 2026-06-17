@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { filterPalette } from '@/lib/adminPalette';
 import type { PaletteIndexItem } from '@/lib/adminPalette';
 
 export interface PaletteItem {
@@ -23,30 +22,31 @@ interface Props {
 export function CommandPalette({ open, onClose, items }: Props) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
+  const [prevOpen, setPrevOpen] = useState(open);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Build filtered list from items using filterPalette on the label
+  // Reset transient state on the open→true transition. React-recommended
+  // "store info from previous render" pattern — setState during render (NOT a
+  // ref, NOT an effect), so it re-renders before paint with no cascade.
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) { setQuery(''); setSelected(0); }
+  }
+
+  // Build filtered list from items using direct case-insensitive label match
   const filtered: PaletteItem[] = query.trim()
-    ? items.filter((i) => {
-        const fakeIndexItem: PaletteIndexItem = { id: i.id, label: i.label, kind: i.kind === 'section' || i.kind === 'action' ? 'agent' : i.kind };
-        return filterPalette([fakeIndexItem], query).length > 0;
-      })
+    ? items.filter((i) => i.label.toLowerCase().includes(query.trim().toLowerCase()))
     : items;
 
-  // Reset state when opening
+  // Clamp the highlighted index to the filtered list during render.
+  const safeSelected = Math.min(selected, Math.max(0, filtered.length - 1));
+
+  // Focus input when palette opens — effect only touches DOM, no setState.
   useEffect(() => {
     if (open) {
-      setQuery('');
-      setSelected(0);
-      // Focus input on next tick so the element is mounted
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [open]);
-
-  // Clamp selected when filtered list changes
-  useEffect(() => {
-    setSelected((s) => Math.min(s, Math.max(0, filtered.length - 1)));
-  }, [filtered.length]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -65,7 +65,7 @@ export function CommandPalette({ open, onClose, items }: Props) {
     }
     if (e.key === 'Enter') {
       e.preventDefault();
-      const item = filtered[selected];
+      const item = filtered[safeSelected];
       if (item) {
         item.run();
         onClose();
@@ -94,11 +94,11 @@ export function CommandPalette({ open, onClose, items }: Props) {
           {filtered.map((item, idx) => (
             <button
               key={item.id}
-              style={itemStyle(idx === selected, item.kind)}
+              style={itemStyle(idx === safeSelected)}
               onMouseEnter={() => setSelected(idx)}
               onClick={() => { item.run(); onClose(); }}
               role="option"
-              aria-selected={idx === selected}
+              aria-selected={idx === safeSelected}
             >
               <span style={kindBadgeStyle(item.kind)}>{kindLabel(item.kind)}</span>
               <span style={labelStyle}>{item.label}</span>
@@ -173,7 +173,7 @@ const emptyStyle: React.CSSProperties = {
   fontSize: 13,
 };
 
-function itemStyle(active: boolean, _kind: PaletteItem['kind']): React.CSSProperties {
+function itemStyle(active: boolean): React.CSSProperties {
   return {
     display: 'flex',
     alignItems: 'center',
