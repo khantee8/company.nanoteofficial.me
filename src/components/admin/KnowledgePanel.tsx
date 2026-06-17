@@ -17,7 +17,7 @@ const STATUS_META: Record<KbEntry['status'], { label: string; color: string }> =
 
 const deptMeta = (id: DeptId) => DEPARTMENTS.find((d) => d.id === id);
 
-export function KnowledgePanel() {
+export function KnowledgePanel({ focusId }: { focusId?: string | null }) {
   const router = useRouter();
   const [entries, setEntries] = useState<KbEntry[]>([]);
   const [filter, setFilter] = useState<StatusFilter>('all');
@@ -25,6 +25,16 @@ export function KnowledgePanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState('');
+  const [prevFocus, setPrevFocus] = useState(focusId);
+
+  // Open the entry the ⌘K palette jumped to (clear the status filter so it's
+  // visible). setState-during-render on the focusId change — React-recommended,
+  // not a setState-in-effect.
+  if (focusId && focusId !== prevFocus) {
+    setPrevFocus(focusId);
+    setSelectedId(focusId);
+    setFilter('all');
+  }
 
   const load = useCallback(async (status: StatusFilter) => {
     try {

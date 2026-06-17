@@ -26,8 +26,26 @@ const SECTION_KEYS: Record<string, AdminSection> = {
 export function AdminConsole() {
   const [section, setSection] = useState<AdminSection>('overview');
   const [selectedDept, setSelectedDept] = useState<DeptId | null>(null);
+  const [selectedKbId, setSelectedKbId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
+  const [kbIndex, setKbIndex] = useState<{ id: string; slug: string; summary: string }[]>([]);
+
+  // KB list for the ⌘K palette (ids/slugs/summaries only — curation lives in KnowledgePanel).
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const j = (await fetch('/api/admin/kb', { cache: 'no-store' }).then((r) => r.json())) as {
+          entries?: { id: string; slug: string; summary: string }[];
+        };
+        if (alive) setKbIndex((j.entries ?? []).map((e) => ({ id: e.id, slug: e.slug, summary: e.summary })));
+      } catch {
+        /* keep empty */
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
 
 
   // One dashboard fetch shared by all panels (Overview now, Agents/Activity later).
@@ -89,8 +107,8 @@ export function AdminConsole() {
       run: () => { setSection('agents'); setSelectedDept(d.id); },
     }));
 
-    // Index items (agent nav) from pure lib
-    const indexItems = buildPaletteIndex(DEPARTMENTS, /* kb= */[]);
+    // Index items (agent nav + KB briefs) from the pure lib
+    const indexItems = buildPaletteIndex(DEPARTMENTS, kbIndex);
     const agentNavItems: PaletteItem[] = indexItems
       .filter((i) => i.kind === 'agent')
       .map((i) => ({
@@ -104,8 +122,20 @@ export function AdminConsole() {
         },
       }));
 
-    return [...sections, ...agentNavItems, ...agentActions];
-  }, []);
+    const kbNavItems: PaletteItem[] = indexItems
+      .filter((i) => i.kind === 'kb')
+      .map((i) => ({
+        id: i.id,
+        label: i.label,
+        kind: 'kb' as const,
+        run: () => {
+          setSelectedKbId(i.id.replace('kb:', ''));
+          setSection('knowledge');
+        },
+      }));
+
+    return [...sections, ...agentNavItems, ...kbNavItems, ...agentActions];
+  }, [kbIndex]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -144,7 +174,7 @@ export function AdminConsole() {
             onRan={() => void refresh()}
           />
         )}
-        {section === 'knowledge' && <KnowledgePanel />}
+        {section === 'knowledge' && <KnowledgePanel focusId={selectedKbId} />}
         {section === 'activity'  && <ActivityPanel />}
         <CommandPalette
           open={paletteOpen}

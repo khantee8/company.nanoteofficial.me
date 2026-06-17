@@ -4,6 +4,7 @@ import { AGENTS, isDeptId } from '@/lib/agents';
 import { runAgent } from '@/lib/agents/runner';
 import { getRepo } from '@/lib/redis';
 import { sendMessage } from '@/lib/telegram';
+import { isKnownModel } from '@/lib/cost';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -17,10 +18,23 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = (await req.json().catch(() => ({}))) as { overrides?: { maxSearches?: number; model?: string } };
+    // Validate operator overrides at the trust boundary: reject unknown models
+    // (avoids a wasted/errored run from a typo) and clamp maxSearches to a sane range.
+    const overrides = body.overrides;
+    if (overrides) {
+      if (overrides.model !== undefined && !isKnownModel(overrides.model)) {
+        return new NextResponse('unknown model', { status: 400 });
+      }
+      if (overrides.maxSearches !== undefined) {
+        if (!Number.isInteger(overrides.maxSearches) || overrides.maxSearches < 1 || overrides.maxSearches > 10) {
+          return new NextResponse('maxSearches must be an integer 1-10', { status: 400 });
+        }
+      }
+    }
     const result = await runAgent(
       { dept, run: AGENTS[dept] },
       { repo: getRepo(), notify: (t) => sendMessage(t) },
-      body.overrides,
+      overrides,
     );
     return NextResponse.json({ ok: true, dept, summary: result.summary });
   } catch (err) {
