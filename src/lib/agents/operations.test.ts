@@ -9,7 +9,7 @@ const { completeRawMock } = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock('@/lib/claude', () => ({ completeRaw: completeRawMock }));
+vi.mock('@/lib/claude', () => ({ completeRaw: completeRawMock, applyOverrides: (opts: unknown) => opts }));
 vi.mock('@/lib/sources/vercelApi', () => ({
   fetchDeployments: vi.fn(async () => []),
   formatDeployments: vi.fn(() => []),

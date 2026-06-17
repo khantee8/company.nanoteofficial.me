@@ -1,4 +1,4 @@
-import { completeRaw, WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
+import { completeRaw, applyOverrides, WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { fetchKev, fetchSecurityNews, formatThreatIntel, type KevEntry } from '@/lib/sources/threatintel';
@@ -88,13 +88,13 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const [kev, news] = await Promise.all([fetchKev(), fetchSecurityNews()]);
   const lines = formatThreatIntel(kev, news);
   const context = formatContext(ctx);
-  const { text: markdown, stopReason, usage, model } = await completeRaw({
+  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
     system: PERSONAS.cyb,
     prompt: `${context ? context + '\n\n---\n\n' : ''}Today's threat feed:\n${lines.join('\n')}\n\nวิเคราะห์ภัยคุกคามจริงในรอบ 24-48 ชม.ที่เกี่ยวกับสแตกของบริษัท ค้นเว็บหา advisory/รายละเอียดเพิ่มเติม อ้างอิงแหล่ง+วันที่ เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 5,
     maxTokens: WEB_REPORT_MAX_TOKENS,
-  });
+  }, ctx));
   const findings = parseCyberxFindings(markdown) ?? { items: [] };
   const artifacts = [...cyberxArtifacts(kev), ...cyberxAdvisoryArtifacts(findings)];
   const sources = findings.items.map((x) => x.citation);

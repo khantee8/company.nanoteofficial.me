@@ -1,4 +1,4 @@
-import { completeRaw, WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
+import { completeRaw, applyOverrides, WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { fetchTrending, type TrendingRepo } from '@/lib/sources/githubTrending';
@@ -115,7 +115,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     .join('\n');
 
   const context = formatContext(ctx);
-  const { text: markdown, stopReason, usage, model } = await completeRaw({
+  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
     system: PERSONAS.rnd,
     prompt: `${context ? context + '\n\n---\n\n' : ''}โฟกัสประจำรอบวันนี้: **${label}** (theme: ${theme}).\n${
       radar ? `Repo ที่กำลังมาแรง (14 วัน):\n${radar}\n\n` : ''
@@ -123,7 +123,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     webSearch: true,
     maxSearches: 5,
     maxTokens: WEB_REPORT_MAX_TOKENS,
-  });
+  }, ctx));
 
   const findings = parseRndFindings(markdown) ?? { theme, items: [] };
   const artifacts = [...rndArtifacts(repos), ...rndResearchArtifacts(findings)];

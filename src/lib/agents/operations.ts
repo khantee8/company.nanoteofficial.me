@@ -1,4 +1,4 @@
-import { completeRaw } from '@/lib/claude';
+import { completeRaw, applyOverrides } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { fetchDeployments, formatDeployments, type DeployState } from '@/lib/sources/vercelApi';
@@ -167,13 +167,13 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     : (budget?.detail ?? `budget ok — $${agg.mtdUsd.toFixed(2)} / $${agg.budgetUsd.toFixed(2)}`);
 
   const context = formatContext(ctx);
-  const { text: markdown, stopReason, usage, model } = await completeRaw({
+  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
     system: PERSONAS.ops,
     prompt: `${context ? context + '\n\n---\n\n' : ''}CI/CD snapshot.\n\nDeployments:\n${deployLines.join('\n') || 'none'}\n\nRepo activity:\n${activityLines.join('\n') || 'none'}\n\nAgent run-health (internal monitoring):\n${healthLines || 'no snapshot'}\n\nงบประมาณ Claude API (internal):\n${budgetLine}\n\nสรุปสุขภาพ deploy/CI และสุขภาพการทำงานของเอเจนต์อื่น แล้วชี้ "สิ่งเดียวที่ควรแก้วันนี้" วิเคราะห์เอเจนต์ที่มีปัญหา (error/stale/truncated/empty) พร้อมสาเหตุและวิธีแก้ และใส่ประเด็นเหล่านี้ในส่วน ## Flags เพื่อส่งต่อ CEO (รวมถึงงบประมาณถ้าใกล้หรือเกินลิมิต) ถ้าต้องอ้างอิงภายนอก (status page/changelog) ให้ค้นเว็บและแนบแหล่ง เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 3,
     maxTokens: 8000,
-  });
+  }, ctx));
 
   const findings = parseOperationsFindings(markdown) ?? { fixToday: '', notes: [] };
   const artifacts = [

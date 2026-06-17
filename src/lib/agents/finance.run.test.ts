@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/lib/claude', () => ({ completeRaw: vi.fn() }));
+vi.mock('@/lib/claude', () => ({ completeRaw: vi.fn(), applyOverrides: (opts: unknown) => opts }));
 
 import { run } from './finance';
 import * as claudeLib from '@/lib/claude';

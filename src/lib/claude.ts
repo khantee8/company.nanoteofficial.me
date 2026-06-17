@@ -132,3 +132,16 @@ export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
 export async function complete(opts: CompleteOpts): Promise<string> {
   return (await completeRaw(opts)).text;
 }
+
+/** v1.10 — overlay operator run-with-options onto a completeRaw opts object. */
+export function applyOverrides<T extends { maxSearches?: number; model?: string }>(
+  opts: T, ctx: { overrides?: { maxSearches?: number; model?: string } },
+): T {
+  const o = ctx.overrides;
+  if (!o) return opts;
+  return {
+    ...opts,
+    ...(o.maxSearches !== undefined ? { maxSearches: o.maxSearches } : {}),
+    ...(o.model !== undefined ? { model: o.model } : {}),
+  };
+}

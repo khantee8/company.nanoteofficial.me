@@ -16,9 +16,11 @@ export async function POST(req: NextRequest) {
   if (!dept || !isDeptId(dept)) return new NextResponse('bad dept', { status: 400 });
 
   try {
+    const body = (await req.json().catch(() => ({}))) as { overrides?: { maxSearches?: number; model?: string } };
     const result = await runAgent(
       { dept, run: AGENTS[dept] },
       { repo: getRepo(), notify: (t) => sendMessage(t) },
+      body.overrides,
     );
     return NextResponse.json({ ok: true, dept, summary: result.summary });
   } catch (err) {

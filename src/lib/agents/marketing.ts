@@ -1,4 +1,4 @@
-import { completeRaw, WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
+import { completeRaw, applyOverrides, WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
 import { PERSONAS, PROJECTS_BLURB } from './personas';
 import { formatContext } from './runner';
 import { fetchHN, type HNItem } from '@/lib/sources/hackernews';
@@ -119,13 +119,13 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     ...devto.map((d) => `${d.title} (${d.reactions}♥ ${d.comments}💬)`),
   ].slice(0, 6);
   const context = formatContext(ctx);
-  const { text: markdown, stopReason, usage, model } = await completeRaw({
+  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
     system: PERSONAS.mkt,
     prompt: `${context ? context + '\n\n---\n\n' : ''}${PROJECTS_BLURB}\n\nกำลังเทรนด์จริงในวงการตอนนี้ (engagement จริง):\n${trending.join('\n') || 'n/a'}\n\nวิเคราะห์สัญญาณดีมานด์จริง ค้นเว็บเพิ่มเติมพร้อมอ้างอิงแหล่ง แล้วเสนอแผนคอนเทนต์ที่ผูกกับเทรนด์ ระบุ "## X post" / "## LinkedIn post" / "## Blog idea" และเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 4,
     maxTokens: WEB_REPORT_MAX_TOKENS,
-  });
+  }, ctx));
   const findings = parseMarketingFindings(markdown) ?? { theme: 'dev-demand', signals: [], plan: [] };
   const artifacts = [...marketingArtifacts(data), ...marketingSignalArtifacts(findings), ...marketingPlanArtifacts(findings)];
   const sources = findings.signals.map((s) => s.citation);

@@ -1,5 +1,5 @@
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
-import type { AgentRunResult, AgentContext, AgentOutputHealth } from './types';
+import type { AgentRunResult, AgentContext, AgentOutputHealth, RunOverrides } from './types';
 import { CATEGORY_BY_DEPT } from './artifacts';
 import { EN_DELIMITER, normalizeReportOrder, splitBilingual } from './bilingual';
 import type { RedisRepo } from '@/lib/redis';
@@ -47,7 +47,7 @@ export function parseFlags(markdown: string, lang: Lang = 'th'): string[] {
     .slice(0, 5);
 }
 
-export async function buildContext(dept: DeptId, repo: RedisRepo): Promise<AgentContext> {
+export async function buildContext(dept: DeptId, repo: RedisRepo, overrides?: RunOverrides): Promise<AgentContext> {
   const today = todayDate();
   const myIndex = DEPT_ORDER.indexOf(dept);
 
@@ -113,6 +113,7 @@ export async function buildContext(dept: DeptId, repo: RedisRepo): Promise<Agent
     companyDigest,
     todayPeers: todayPeers.filter((p): p is NonNullable<typeof p> => p !== null),
     companySnapshot,
+    overrides,
   };
 }
 
@@ -146,14 +147,14 @@ export function formatContext(ctx: AgentContext): string {
   return parts.join('\n\n');
 }
 
-export async function runAgent(agent: Agent, deps: RunnerDeps): Promise<AgentRunResult> {
+export async function runAgent(agent: Agent, deps: RunnerDeps, overrides?: RunOverrides): Promise<AgentRunResult> {
   const { dept } = agent;
   const { repo, notify } = deps;
   const now = () => new Date().toISOString();
 
   await repo.setStatus({ dept, state: 'running', lastRun: now() });
   try {
-    const ctx = await buildContext(dept, repo);
+    const ctx = await buildContext(dept, repo, overrides);
     const result = await agent.run(ctx);
     const ts = now();
     // Dual-generated narrative → two clean per-language documents (both carry the

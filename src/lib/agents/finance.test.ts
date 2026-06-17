@@ -4,6 +4,7 @@ import { themeForToday, financeArtifacts } from './finance';
 const completeRaw = vi.fn();
 vi.mock('@/lib/claude', () => ({
   completeRaw: (...args: unknown[]) => completeRaw(...args),
+  applyOverrides: (opts: unknown) => opts,
 }));
 
 const ctx = {

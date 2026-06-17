@@ -9,7 +9,7 @@ const { completeRawMock } = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock('@/lib/claude', () => ({ completeRaw: completeRawMock }));
+vi.mock('@/lib/claude', () => ({ completeRaw: completeRawMock, applyOverrides: (opts: unknown) => opts }));
 
 import { run } from './ceo';
 import type { AgentContext } from './types';

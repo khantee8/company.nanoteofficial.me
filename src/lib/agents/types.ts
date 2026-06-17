@@ -130,6 +130,9 @@ export interface KbEntry {
   incomplete?: boolean;
 }
 
+/** v1.10 — operator run-with-options overrides (run-now from /admin). */
+export interface RunOverrides { maxSearches?: number; model?: string }
+
 export interface AgentContext {
   ownHistory: HistoryEntry[];
   companyDigest: DigestEntry[];
@@ -144,4 +147,6 @@ export interface AgentContext {
     /** v1.8 — recent cost-ledger entries; filled for the ops monitor only. */
     usage?: UsageEntry[];
   };
+  /** v1.10 — operator run-with-options overrides (run-now from /admin). */
+  overrides?: RunOverrides;
 }

@@ -1,4 +1,4 @@
-import { completeRaw } from '@/lib/claude';
+import { completeRaw, applyOverrides, type CompleteOpts } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
@@ -84,11 +84,11 @@ export function ceoTags(snapshot: CompanySnapshot): string[] {
 
 export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const context = formatContext(ctx);
-  const { text: markdown, stopReason, usage, model } = await completeRaw({
+  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides<CompleteOpts>({
     system: PERSONAS.ceo,
     prompt: `${context ? context + '\n\n---\n\n' : ''}สังเคราะห์บทสรุปผู้บริหารจากผลงานของทุกแผนก: "## Summary" (3-4 ประโยค เชื่อมโยงกิจกรรมล่าสุดของบริษัท) และ "## Decisions" (2-3 ข้อ ลงมือได้จริง อ้างถึงผลงานของแผนกที่เจาะจง) เปิดรายงานด้วยบล็อก \`\`\`json findings (decisions/risks/priorities) ตามสคีมาในบทบาทของคุณ`,
     maxTokens: 8000,
-  });
+  }, ctx));
   const snapshot = ctx.companySnapshot ?? { statuses: [], digest: [] };
   const findings = parseCeoFindings(markdown) ?? { decisions: [], risks: [], priorities: [] };
   return {
