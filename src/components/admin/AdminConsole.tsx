@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminNav } from './AdminNav';
 import { CommandPalette } from './CommandPalette';
 import type { PaletteItem } from './CommandPalette';
+import { OverviewPanel } from './OverviewPanel';
 import { DEPARTMENTS } from '@/lib/data/departments';
 import { buildPaletteIndex } from '@/lib/adminPalette';
 import type { DeptId } from '@/lib/data/departments';
+import type { DashboardData } from '@/lib/dashboard';
 import pkg from '../../../package.json';
 
 export type AdminSection = 'overview' | 'agents' | 'knowledge' | 'activity';
@@ -22,10 +24,47 @@ export function AdminConsole() {
   const [section, setSection] = useState<AdminSection>('overview');
   const [selectedDept, setSelectedDept] = useState<DeptId | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [data, setData] = useState<DashboardData | null>(null);
 
-  // Suppress unused-variable lint — these will be consumed by child panels in Tasks 6-9
+  // Suppress unused-variable lint — consumed by AgentsPanel in Task 7
   void selectedDept;
   void setSelectedDept;
+
+  // One dashboard fetch shared by all panels (Overview now, Agents/Activity later).
+  // refresh() is for manual re-fetch (e.g. after a run); mount fetch is inlined
+  // as an async IIFE so setState lands after await, not directly in the effect.
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch('/api/dashboard', { cache: 'no-store' });
+      setData((await res.json()) as DashboardData);
+    } catch {
+      /* keep last */
+    }
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/dashboard', { cache: 'no-store' });
+        const json = (await res.json()) as DashboardData;
+        if (alive) setData(json);
+      } catch {
+        /* keep last */
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+  void refresh; // consumed by AgentsPanel/onRan in Task 7
+
+  // Company health for the nav dot: any error → down, any truncated/idle → warn.
+  const health = useMemo((): 'ok' | 'warn' | 'down' => {
+    const agents = data?.agents ?? [];
+    if (agents.length === 0) return 'ok';
+    if (agents.some((a) => a.status?.state === 'error')) return 'down';
+    if (agents.some((a) => a.output?.incomplete || (a.status?.state ?? 'idle') === 'idle')) return 'warn';
+    return 'ok';
+  }, [data]);
 
   // Build the static palette item list (section nav + agent actions)
   const paletteItems = useMemo((): PaletteItem[] => {
@@ -93,11 +132,11 @@ export function AdminConsole() {
       <AdminNav
         section={section}
         onSection={setSection}
-        health="ok"
+        health={health}
         version={pkg.version}
       />
       <main style={mainStyle}>
-        {section === 'overview'  && <section style={placeholderStyle}>overview panel — coming in Task 6</section>}
+        {section === 'overview'  && <OverviewPanel data={data} />}
         {section === 'agents'    && <section style={placeholderStyle}>agents panel — coming in Task 7</section>}
         {section === 'knowledge' && <section style={placeholderStyle}>knowledge panel — coming in Task 8</section>}
         {section === 'activity'  && <section style={placeholderStyle}>activity panel — coming in Task 9</section>}
