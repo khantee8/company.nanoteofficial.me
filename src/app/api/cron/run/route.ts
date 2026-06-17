@@ -17,6 +17,9 @@ export async function GET(req: NextRequest) {
   if (!authorized(req)) return new NextResponse('unauthorized', { status: 401 });
   const dept = req.nextUrl.searchParams.get('dept');
   if (!dept || !isDeptId(dept)) return new NextResponse('bad dept', { status: 400 });
+  if (await getRepo().isAgentDisabled(dept)) {
+    return NextResponse.json({ ok: true, dept, skipped: 'disabled' });
+  }
 
   try {
     const result = await runAgent(

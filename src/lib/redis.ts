@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
 import type { DeptId } from '@/lib/data/departments';
+import { DEPARTMENTS } from '@/lib/data/departments';
 import type { AgentStatus, AgentOutput, FeedEvent, HistoryEntry, DigestEntry, KbEntry, UsageEntry } from './agents/types';
 import { CATEGORY_BY_DEPT } from './agents/artifacts';
 import { focusKey } from './telegram';
@@ -153,6 +154,19 @@ export function makeRedisRepo(client: RedisClientLike) {
     async getUsageSince(sinceTs: number): Promise<UsageEntry[]> {
       const all = await client.lrange<UsageEntry>(USAGE_KEY, 0, USAGE_CAP - 1);
       return all.filter((e) => e && typeof e.ts === 'number' && e.ts >= sinceTs);
+    },
+    async setAgentDisabled(dept: DeptId, disabled: boolean) {
+      if (disabled) await client.set(`agent:disabled:${dept}`, '1');
+      else await client.del(`agent:disabled:${dept}`);
+    },
+    async isAgentDisabled(dept: DeptId): Promise<boolean> {
+      return (await client.get<string>(`agent:disabled:${dept}`)) === '1';
+    },
+    async getDisabledDepts(): Promise<DeptId[]> {
+      const flags = await Promise.all(
+        DEPARTMENTS.map(async (d) => ((await client.get<string>(`agent:disabled:${d.id}`)) === '1' ? d.id : null)),
+      );
+      return flags.filter((d): d is DeptId => d !== null);
     },
     async pushKb(entry: KbEntry) {
       await client.set(kbKey(entry.id), entry);
