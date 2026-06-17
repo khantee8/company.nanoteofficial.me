@@ -6,6 +6,7 @@ import { CommandPalette } from './CommandPalette';
 import type { PaletteItem } from './CommandPalette';
 import { OverviewPanel } from './OverviewPanel';
 import { AgentsPanel } from './AgentsPanel';
+import { KnowledgePanel } from './KnowledgePanel';
 import { DEPARTMENTS } from '@/lib/data/departments';
 import { buildPaletteIndex } from '@/lib/adminPalette';
 import type { DeptId } from '@/lib/data/departments';
@@ -142,7 +143,7 @@ export function AdminConsole() {
             onRan={() => void refresh()}
           />
         )}
-        {section === 'knowledge' && <section style={placeholderStyle}>knowledge panel — coming in Task 8</section>}
+        {section === 'knowledge' && <KnowledgePanel />}
         {section === 'activity'  && <section style={placeholderStyle}>activity panel — coming in Task 9</section>}
         <CommandPalette
           open={paletteOpen}
