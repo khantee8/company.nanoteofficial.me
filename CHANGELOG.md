@@ -3,6 +3,43 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.10.0] — 2026-06-17
+
+**`/admin` orchestrator console — manage each agent like a service.**
+
+The `/admin` page is rebuilt from a single scrolling dashboard into an
+orchestration console: a left nav with four sections (Overview / Agents /
+Knowledge / Activity), a ⌘K command palette, and a per-agent inspector. KB
+curation now publishes straight to the Library.
+
+### Added
+- **Console shell** (`AdminConsole` + `AdminNav`) — left-nav layout, `⌘1`–`⌘4`
+  section switching, `⌘K` command palette (`CommandPalette` + pure
+  `adminPalette.ts` index, agents + briefs + actions). Replaces `AdminClient`.
+- **Overview panel** — health/cost cockpit (healthy/warn/down tiles, cost MTD
+  from the Ops `cost & budget` artifact, last-activity, per-agent rows); reuses
+  `/api/dashboard`.
+- **Agents panel + inspector** — per-agent telemetry, latest-report view
+  (MD/PDF/CSV export), **Run now**, **Run with options** (`maxSearches` +
+  `model` overrides), and an **enable/disable scheduled runs** toggle.
+- **Knowledge panel** — KB curation (publish/archive/restore/pin/delete) with a
+  **safe review-read pane** (`Markdown` + `ArtifactRenderer`). Publishing fires
+  the instant Library sync push.
+- **Activity panel** — run feed (`/api/feed`) + Library sync log; nav footer
+  shows the last sync result.
+- **Enable/disable scheduled runs** — Redis flag (`agent:disabled:<dept>`)
+  honored by the cron route; `PATCH`/`GET /api/admin/agent`.
+- **Run-with-options** — optional `overrides` (`{ maxSearches?, model? }`) on
+  `AgentContext`, applied via `applyOverrides()` and threaded through `runAgent`.
+- **Instant publish→Library sync** — `pushLibrarySync()` (fail-soft, no-op when
+  unset) posts to the Library's `/api/sync` on publish; capped sync log in Redis
+  (`library:synclog`). New env: `LIBRARY_SYNC_URL`, `LIBRARY_SYNC_SECRET`.
+  `GET /api/admin/synclog`.
+
+### Removed
+- `AdminClient.tsx` and `KbManager.tsx` — functionality migrated into the
+  console panels; shared export helpers now live in `components/admin/exporters.ts`.
+
 ## [1.9.0] — 2026-06-17
 
 **Report-quality fix — eliminate narrative truncation on web-search agents.**
