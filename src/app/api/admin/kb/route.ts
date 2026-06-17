@@ -68,8 +68,8 @@ export async function PATCH(req: NextRequest) {
     const entry = await getRepo().updateKbEntry(body.id, patch);
     if (!entry) return new NextResponse('not found', { status: 404 });
     if (patch.status === 'published') {
-      // fire-and-forget; pushLibrarySync is itself fail-soft
-      void (await import('@/lib/librarySync')).pushLibrarySync(entry.slug, getRepo());
+      // await fail-soft Library sync push so it runs on serverless
+      await (await import('@/lib/librarySync')).pushLibrarySync(entry.slug, getRepo());
     }
     return NextResponse.json({ ok: true, entry });
   } catch (err) {
