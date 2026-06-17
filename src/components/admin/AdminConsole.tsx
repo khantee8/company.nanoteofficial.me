@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AdminNav } from './AdminNav';
+import { CommandPalette } from './CommandPalette';
+import type { PaletteItem } from './CommandPalette';
+import { DEPARTMENTS } from '@/lib/data/departments';
+import { buildPaletteIndex } from '@/lib/adminPalette';
 import type { DeptId } from '@/lib/data/departments';
 import pkg from '../../../package.json';
 
@@ -19,9 +23,51 @@ export function AdminConsole() {
   const [selectedDept, setSelectedDept] = useState<DeptId | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
-  // Suppress unused-variable lint — these will be consumed by child panels in Tasks 5-9
+  // Suppress unused-variable lint — these will be consumed by child panels in Tasks 6-9
   void selectedDept;
   void setSelectedDept;
+
+  // Build the static palette item list (section nav + agent actions)
+  const paletteItems = useMemo((): PaletteItem[] => {
+    const sections: PaletteItem[] = (
+      [
+        { id: 'overview',  label: 'Go to Overview' },
+        { id: 'agents',    label: 'Go to Agents' },
+        { id: 'knowledge', label: 'Go to Knowledge' },
+        { id: 'activity',  label: 'Go to Activity' },
+      ] as { id: AdminSection; label: string }[]
+    ).map((s) => ({
+      id: `section:${s.id}`,
+      label: s.label,
+      kind: 'section' as const,
+      run: () => setSection(s.id),
+    }));
+
+    const agentActions: PaletteItem[] = DEPARTMENTS.map((d) => ({
+      id: `action:run:${d.id}`,
+      label: `Run ${d.name}`,
+      kind: 'action' as const,
+      // Placeholder — Task 7 will wire the actual run trigger
+      run: () => { setSection('agents'); setSelectedDept(d.id); },
+    }));
+
+    // Index items (agent nav) from pure lib
+    const indexItems = buildPaletteIndex(DEPARTMENTS, /* kb= */[]);
+    const agentNavItems: PaletteItem[] = indexItems
+      .filter((i) => i.kind === 'agent')
+      .map((i) => ({
+        id: i.id,
+        label: i.label,
+        kind: 'agent' as const,
+        run: () => {
+          const deptId = i.id.replace('agent:', '') as DeptId;
+          setSelectedDept(deptId);
+          setSection('agents');
+        },
+      }));
+
+    return [...sections, ...agentNavItems, ...agentActions];
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -55,14 +101,11 @@ export function AdminConsole() {
         {section === 'agents'    && <section style={placeholderStyle}>agents panel — coming in Task 7</section>}
         {section === 'knowledge' && <section style={placeholderStyle}>knowledge panel — coming in Task 8</section>}
         {section === 'activity'  && <section style={placeholderStyle}>activity panel — coming in Task 9</section>}
-        {/* palette open state is wired here; the overlay component arrives in Task 5 */}
-        {paletteOpen && (
-          <div style={paletteBackdropStyle} onClick={() => setPaletteOpen(false)}>
-            <div style={paletteStubStyle} onClick={(e) => e.stopPropagation()}>
-              <span style={{ color: '#6e7681', fontSize: 12 }}>Command palette — coming in Task 5</span>
-            </div>
-          </div>
-        )}
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          items={paletteItems}
+        />
       </main>
     </div>
   );
@@ -93,21 +136,3 @@ const placeholderStyle: React.CSSProperties = {
   fontStyle: 'italic',
 };
 
-const paletteBackdropStyle: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  background: 'rgba(0,0,0,0.6)',
-  display: 'flex',
-  alignItems: 'flex-start',
-  justifyContent: 'center',
-  paddingTop: 80,
-  zIndex: 50,
-};
-
-const paletteStubStyle: React.CSSProperties = {
-  background: '#161b22',
-  border: '1px solid #30363d',
-  borderRadius: 8,
-  padding: '16px 20px',
-  minWidth: 360,
-};
