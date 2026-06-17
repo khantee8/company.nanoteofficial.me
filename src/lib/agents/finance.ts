@@ -88,7 +88,10 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nหากองทุนรวมไทยจริง 3-5 กองในธีมนี้ โดยใช้สองแหล่งร่วมกัน:\n1) web_search — หาชื่อกองเต็ม บลจ. กองแม่/underlying ผลตอบแทนย้อนหลัง 1 ปี การป้องกันค่าเงิน และประเภทภาษี (SSF/RMF/ThaiESG)\n2) เครื่องมือ thai-funds-mcp (ข้อมูล ก.ล.ต. ที่อ้างอิงได้) — ใช้ตรวจสอบ/ยืนยันตัวเลขทางการ: thai_fund_fees (TER), thai_fund_nav (NAV+AUM), thai_fund_risk (ระดับความเสี่ยง+ความผันผวน), list_thai_funds (ค้นด้วยรหัสคลาส), และ market_index/fx_rate เป็นบริบท\nให้ความสำคัญกับตัวเลขจาก ก.ล.ต. (MCP) เมื่อมีให้ใช้ และอ้างอิง sourceUrl + วันที่ (asOf) ของทุกตัวเลขเสมอ — ห้ามแต่งตัวเลข\nเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมา แล้วเขียนรายงานตามโครงสร้างในบทบาท`,
     model: FINANCE_MODEL,
     webSearch: true,
-    maxSearches: 6,
+    // ponytail: 4 not 6 — Finance (Sonnet + web×N + MCP) is the heaviest run and
+    // timed out past 300s when web_search hit Anthropic rate limits; 4 queries
+    // is what actually got through before throttling. Raise if reports thin out.
+    maxSearches: 4,
     mcpServers,
     maxTokens: 8000,
   });
