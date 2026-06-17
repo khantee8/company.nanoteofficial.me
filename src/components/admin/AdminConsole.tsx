@@ -5,6 +5,7 @@ import { AdminNav } from './AdminNav';
 import { CommandPalette } from './CommandPalette';
 import type { PaletteItem } from './CommandPalette';
 import { OverviewPanel } from './OverviewPanel';
+import { AgentsPanel } from './AgentsPanel';
 import { DEPARTMENTS } from '@/lib/data/departments';
 import { buildPaletteIndex } from '@/lib/adminPalette';
 import type { DeptId } from '@/lib/data/departments';
@@ -26,9 +27,6 @@ export function AdminConsole() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
 
-  // Suppress unused-variable lint — consumed by AgentsPanel in Task 7
-  void selectedDept;
-  void setSelectedDept;
 
   // One dashboard fetch shared by all panels (Overview now, Agents/Activity later).
   // refresh() is for manual re-fetch (e.g. after a run); mount fetch is inlined
@@ -55,7 +53,6 @@ export function AdminConsole() {
     })();
     return () => { alive = false; };
   }, []);
-  void refresh; // consumed by AgentsPanel/onRan in Task 7
 
   // Company health for the nav dot: any error → down, any truncated/idle → warn.
   const health = useMemo((): 'ok' | 'warn' | 'down' => {
@@ -137,7 +134,14 @@ export function AdminConsole() {
       />
       <main style={mainStyle}>
         {section === 'overview'  && <OverviewPanel data={data} />}
-        {section === 'agents'    && <section style={placeholderStyle}>agents panel — coming in Task 7</section>}
+        {section === 'agents'    && (
+          <AgentsPanel
+            data={data}
+            selectedDept={selectedDept}
+            onSelect={setSelectedDept}
+            onRan={() => void refresh()}
+          />
+        )}
         {section === 'knowledge' && <section style={placeholderStyle}>knowledge panel — coming in Task 8</section>}
         {section === 'activity'  && <section style={placeholderStyle}>activity panel — coming in Task 9</section>}
         <CommandPalette
