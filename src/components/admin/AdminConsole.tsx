@@ -7,6 +7,7 @@ import type { PaletteItem } from './CommandPalette';
 import { OverviewPanel } from './OverviewPanel';
 import { AgentsPanel } from './AgentsPanel';
 import { KnowledgePanel } from './KnowledgePanel';
+import { ActivityPanel } from './ActivityPanel';
 import { DEPARTMENTS } from '@/lib/data/departments';
 import { buildPaletteIndex } from '@/lib/adminPalette';
 import type { DeptId } from '@/lib/data/departments';
@@ -144,7 +145,7 @@ export function AdminConsole() {
           />
         )}
         {section === 'knowledge' && <KnowledgePanel />}
-        {section === 'activity'  && <section style={placeholderStyle}>activity panel — coming in Task 9</section>}
+        {section === 'activity'  && <ActivityPanel />}
         <CommandPalette
           open={paletteOpen}
           onClose={() => setPaletteOpen(false)}
@@ -173,10 +174,4 @@ const mainStyle: React.CSSProperties = {
   position: 'relative',
 };
 
-const placeholderStyle: React.CSSProperties = {
-  padding: 24,
-  color: '#6e7681',
-  fontSize: 13,
-  fontStyle: 'italic',
-};
 
