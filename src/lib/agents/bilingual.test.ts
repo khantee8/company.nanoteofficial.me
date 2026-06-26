@@ -87,6 +87,23 @@ describe('normalizeReportOrder', () => {
     expect(out).toContain('```json findings');
   });
 
+  it('drops a web-search preamble before the head and keeps the TH narrative', () => {
+    // web_search agents often emit "I'll search…" before the json findings head;
+    // the head is then NOT at position 0. Regression: this used to bail the guard,
+    // leaving the head ahead of the TH narrative so splitBilingual stored only the
+    // preamble as `th` (markdown) while the full body landed in `en` (markdownEn).
+    const preamble = "I'll analyze today's signals. Let me search for context.";
+    const raw = `${preamble}\n\n${HEAD}\n\nรายงานไทย\n\n${EN_DELIMITER}\n\nEnglish report`;
+    const out = normalizeReportOrder(raw);
+    expect(out.startsWith('รายงานไทย')).toBe(true);
+    expect(out).not.toContain(preamble);
+    const { th, en } = splitBilingual(out);
+    expect(th).toContain('รายงานไทย');
+    expect(th).toContain('## Highlight');
+    expect(th).not.toBe(preamble);
+    expect(en).toContain('English report');
+  });
+
   it('passes through when the --- separator is missing (never throws)', () => {
     const raw = '```json findings\n{}\n```\n\n## Highlight\nx\n\n## Flags\nNone.';
     expect(normalizeReportOrder(raw)).toBe(raw);

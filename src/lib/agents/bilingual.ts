@@ -68,12 +68,18 @@ const HEAD_SEP_RE = /\n---[ \t]*(\n|$)/;
 
 export function normalizeReportOrder(raw: string): string {
   const text = (raw ?? '').replace(/\r\n/g, '\n').trim();
-  if (!text.startsWith('```json findings')) return text;
+  // The head should START the report, but web_search agents sometimes emit an
+  // "I'll search…" preamble first, so the findings block isn't at position 0.
+  // Locate it wherever it is and drop anything before it (the preamble is noise,
+  // never part of the report). A plain startsWith guard here would leave the head
+  // ahead of the narrative and splitBilingual would store only the preamble.
+  const headStart = text.search(/```json\s+findings/);
+  if (headStart === -1) return text;
   const flagsIdx = text.search(/\n##\s+Flags/i);
   if (flagsIdx === -1) return text;
   const sep = text.slice(flagsIdx).match(HEAD_SEP_RE);
   if (!sep || sep.index === undefined) return text;
-  const head = text.slice(0, flagsIdx + sep.index).trim();
+  const head = text.slice(headStart, flagsIdx + sep.index).trim();
   const body = text.slice(flagsIdx + sep.index + sep[0].length).trim();
   if (!body) return text;
   return `${body}\n\n${head}`;
