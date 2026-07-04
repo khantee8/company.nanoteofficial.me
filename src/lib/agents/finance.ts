@@ -83,16 +83,19 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const mcpServers = mcpUrl
     ? [{ url: mcpUrl, name: 'thai-funds', ...(mcpToken ? { token: mcpToken } : {}) }]
     : undefined;
+  // ponytail: MCP-only when the connector is configured — web_search kept
+  // timing Finance out past the 300s cap even at maxSearches 2 (errored
+  // 2026-07-03; no clean run since 6/05), so it now only backstops
+  // environments without the MCP server. Cost: no master-fund/1y-return color
+  // from the web; the SEC numbers via MCP remain the authoritative core.
+  const sourceBrief = mcpServers
+    ? `ใช้เครื่องมือ thai-funds-mcp (ข้อมูล ก.ล.ต. ที่อ้างอิงได้) เป็นแหล่งข้อมูลหลักเพียงแหล่งเดียว: list_thai_funds (ค้นด้วยรหัสคลาส), thai_fund_fees (TER), thai_fund_nav (NAV+AUM), thai_fund_risk (ระดับความเสี่ยง+ความผันผวน), thai_fund_asset_allocation และ market_index/fx_rate เป็นบริบท\nข้อมูลใดไม่มีใน MCP (เช่น กองแม่/ผลตอบแทนย้อนหลัง) ให้ระบุว่า "ไม่มีข้อมูลทางการ" — ห้ามเดา`
+    : `ใช้ web_search หาชื่อกองเต็ม บลจ. กองแม่/underlying ผลตอบแทนย้อนหลัง 1 ปี การป้องกันค่าเงิน และประเภทภาษี (SSF/RMF/ThaiESG)`;
   const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
     system: PERSONAS.fin,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nหากองทุนรวมไทยจริง 3-5 กองในธีมนี้ โดยใช้สองแหล่งร่วมกัน:\n1) web_search — หาชื่อกองเต็ม บลจ. กองแม่/underlying ผลตอบแทนย้อนหลัง 1 ปี การป้องกันค่าเงิน และประเภทภาษี (SSF/RMF/ThaiESG)\n2) เครื่องมือ thai-funds-mcp (ข้อมูล ก.ล.ต. ที่อ้างอิงได้) — ใช้ตรวจสอบ/ยืนยันตัวเลขทางการ: thai_fund_fees (TER), thai_fund_nav (NAV+AUM), thai_fund_risk (ระดับความเสี่ยง+ความผันผวน), list_thai_funds (ค้นด้วยรหัสคลาส), และ market_index/fx_rate เป็นบริบท\nให้ความสำคัญกับตัวเลขจาก ก.ล.ต. (MCP) เมื่อมีให้ใช้ และอ้างอิง sourceUrl + วันที่ (asOf) ของทุกตัวเลขเสมอ — ห้ามแต่งตัวเลข\nเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมา แล้วเขียนรายงานตามโครงสร้างในบทบาท`,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nหากองทุนรวมไทยจริง 3-5 กองในธีมนี้\n${sourceBrief}\nอ้างอิง sourceUrl + วันที่ (asOf) ของทุกตัวเลขเสมอ — ห้ามแต่งตัวเลข\nเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมา แล้วเขียนรายงานตามโครงสร้างในบทบาท`,
     model: FINANCE_MODEL,
-    webSearch: true,
-    // ponytail: 2 not 4 — Finance (Sonnet + web×N + MCP) is the heaviest run.
-    // maxSearches 4 still timed out past the 300s cap when web_search hit
-    // Anthropic rate limits and retries stalled (no successful run 6/05→6/24),
-    // so cut to 2; the thai-funds-mcp tools still supply the authoritative SEC
-    // numbers. Raise only if reports thin out AND runs stay under 300s.
+    webSearch: !mcpServers,
     maxSearches: 2,
     mcpServers,
     maxTokens: 8000,

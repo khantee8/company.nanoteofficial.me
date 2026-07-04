@@ -60,6 +60,43 @@ describe('run — truncation flag', () => {
   });
 });
 
+describe('run — research source selection (v1.10.1)', () => {
+  const CLEAN_RUN = {
+    text: '```json findings\n{"theme":"x","funds":[]}\n```',
+    stopReason: 'end_turn',
+    usage: { input: 10, output: 1000 },
+    model: 'claude-sonnet-4-6',
+  };
+  beforeEach(() => {
+    completeRaw.mockReset();
+    completeRaw.mockResolvedValue(CLEAN_RUN);
+    vi.unstubAllEnvs();
+  });
+
+  it('runs MCP-only (no web_search) when the thai-funds MCP server is configured', async () => {
+    vi.stubEnv('THAI_FUNDS_MCP_URL', 'https://mcp.example/api/mcp');
+    const { run } = await import('./finance');
+    await run(ctx);
+    expect(completeRaw).toHaveBeenCalledWith(
+      expect.objectContaining({
+        webSearch: false,
+        mcpServers: [expect.objectContaining({ url: 'https://mcp.example/api/mcp' })],
+      }),
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it('falls back to web_search when no MCP server is configured', async () => {
+    vi.stubEnv('THAI_FUNDS_MCP_URL', '');
+    const { run } = await import('./finance');
+    await run(ctx);
+    expect(completeRaw).toHaveBeenCalledWith(
+      expect.objectContaining({ webSearch: true, mcpServers: undefined }),
+    );
+    vi.unstubAllEnvs();
+  });
+});
+
 describe('financeArtifacts', () => {
   const FX = { theme: 'thai-tax-funds', funds: [
     { name: 'A', amc: 'X', ter: 0.5, aum: 1000, masterFund: 'M', return1y: 8, hedged: true,  taxType: 'ssf'  as const, citation: { url: 'https://a', title: 'A', date: '2026-06-01' } },

@@ -3,6 +3,24 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.10.1] — 2026-07-04
+
+**Agent reliability patch — R&D findings recovered, Finance unblocked.**
+
+### Fixed
+- **R&D findings silently discarded** — since ~6/25 every R&D run reported
+  "0 focus items" despite producing fully-cited findings, because the model
+  drifted from the ` ```json findings ` fence to plain ` ```json ` and wrapped
+  the payload in a top-level `{ findings: … }` key. `extractFindingsBlock()`
+  now tolerates both drifts (strict fence still preferred; unwrap is safe —
+  no dept schema has its own `findings` field). Verified against the actual
+  2026-07-02 prod report: 5/5 findings recovered. Benefits all departments.
+- **Finance timeouts → MCP-only** — the 6/26 `maxSearches` 4→2 cut didn't
+  hold (run errored 2026-07-03; no clean run since 6/05). `web_search` is now
+  disabled whenever the thai-funds MCP server is configured and only backstops
+  environments without it. Trade-off: no master-fund/1y-return color from the
+  web; SEC numbers via MCP remain the authoritative core.
+
 ## [1.10.0] — 2026-06-17
 
 **`/admin` orchestrator console — manage each agent like a service.**

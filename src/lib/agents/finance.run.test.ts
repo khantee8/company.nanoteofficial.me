@@ -23,12 +23,12 @@ const ctx = {
 } as never;
 
 describe('finance.run with MCP', () => {
-  it('calls completeRaw on Sonnet, with mcpServers AND web_search (hybrid)', async () => {
+  it('calls completeRaw on Sonnet, MCP-only (v1.10.1 — web_search timed out past the 300s cap)', async () => {
     completeRaw.mockResolvedValueOnce({ text: FINDINGS, stopReason: 'end_turn', usage: { input: 1, output: 1 }, model: 'claude-sonnet-4-6' });
     const res = await run(ctx);
     const opts = completeRaw.mock.calls[0][0];
     expect(opts.model).toBe('claude-sonnet-4-6');
-    expect(opts.webSearch).toBe(true); // hybrid: web_search for names/returns + MCP for SEC numbers
+    expect(opts.webSearch).toBe(false); // MCP-only: web_search only backstops env without the MCP server
     expect(opts.mcpServers).toEqual([{ url: 'https://tf/api/mcp', name: 'thai-funds', token: 'tok' }]);
     expect(res.provenance).toBe('web');
     expect((res.artifacts ?? []).length).toBeGreaterThan(0);
