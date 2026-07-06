@@ -11,7 +11,19 @@ export interface CompanySnapshot {
   digest: DigestEntry[];
 }
 
-export interface CeoFindings { decisions: string[]; risks: string[]; priorities: string[] }
+// Board schemas — fixed key sets; every cell validated to string[] (strArray),
+// so a drifting model can blank a cell but never break the render.
+const SWOT_KEYS = ['strengths', 'weaknesses', 'opportunities', 'threats'] as const;
+const CANVAS_KEYS = ['keyPartners', 'keyActivities', 'keyResources', 'valuePropositions',
+  'customerRelationships', 'channels', 'customerSegments', 'costStructure', 'revenueStreams'] as const;
+const FORCES_KEYS = ['rivalry', 'newEntrants', 'substitutes', 'buyerPower', 'supplierPower'] as const;
+
+export interface CeoBoards {
+  swot?: Record<(typeof SWOT_KEYS)[number], string[]>;
+  canvas?: Record<(typeof CANVAS_KEYS)[number], string[]>;
+  forces?: Record<(typeof FORCES_KEYS)[number], string[]>;
+}
+export interface CeoFindings { decisions: string[]; risks: string[]; priorities: string[]; boards?: CeoBoards }
 
 const STATE_TO_TILE: Record<AgentState, 'ok' | 'warn' | 'down'> = {
   done: 'ok', error: 'down', idle: 'warn', running: 'warn',
@@ -20,10 +32,21 @@ const STATE_TO_TILE: Record<AgentState, 'ok' | 'warn' | 'down'> = {
 const strArray = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 
+function board<K extends string>(raw: unknown, keys: readonly K[]): Record<K, string[]> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  return Object.fromEntries(keys.map((k) => [k, strArray(r[k])])) as Record<K, string[]>;
+}
+
 export function parseCeoFindings(markdown: string): CeoFindings | null {
   const raw = extractFindingsBlock<Partial<CeoFindings>>(markdown);
   if (!raw) return null;
-  return { decisions: strArray(raw.decisions), risks: strArray(raw.risks), priorities: strArray(raw.priorities) };
+  const b = raw.boards as Record<string, unknown> | undefined;
+  const boards: CeoBoards | undefined = b && typeof b === 'object'
+    ? { swot: board(b.swot, SWOT_KEYS), canvas: board(b.canvas, CANVAS_KEYS), forces: board(b.forces, FORCES_KEYS) }
+    : undefined;
+  return { decisions: strArray(raw.decisions), risks: strArray(raw.risks),
+           priorities: strArray(raw.priorities), boards };
 }
 
 function parseDecisions(md: string): { text: string; done: boolean }[] {
@@ -82,11 +105,48 @@ export function ceoTags(snapshot: CompanySnapshot): string[] {
   );
 }
 
+const CELL_LABELS: Record<string, string> = {
+  strengths: 'Strengths', weaknesses: 'Weaknesses', opportunities: 'Opportunities', threats: 'Threats',
+  keyPartners: 'Key Partners', keyActivities: 'Key Activities', keyResources: 'Key Resources',
+  valuePropositions: 'Value Propositions', customerRelationships: 'Customer Relationships',
+  channels: 'Channels', customerSegments: 'Customer Segments', costStructure: 'Cost Structure',
+  revenueStreams: 'Revenue Streams',
+  rivalry: 'Competitive Rivalry', newEntrants: 'New Entrants', substitutes: 'Substitutes',
+  buyerPower: 'Buyer Power', supplierPower: 'Supplier Power',
+};
+
+function matrixOf(title: string, layout: 'swot' | 'canvas' | 'forces',
+                  cells: Record<string, string[]> | undefined): Artifact | null {
+  if (!cells || Object.values(cells).every((v) => v.length === 0)) return null;
+  return withProvenance({ kind: 'matrix', title, layout,
+    cells: Object.entries(cells).map(([k, items]) => ({ label: CELL_LABELS[k] ?? k, items })) }, 'api');
+}
+
+/** v1.11 CEOX strategy boards — built deterministically from VALIDATED findings. */
+export function ceoBoardArtifacts(boards: CeoBoards): Artifact[] {
+  return [
+    matrixOf('SWOT analysis', 'swot', boards.swot),
+    matrixOf('business model canvas', 'canvas', boards.canvas),
+    matrixOf('five forces', 'forces', boards.forces),
+  ].filter((a): a is Artifact => a !== null);
+}
+
+export interface CeoKpis { runsOk7d: number; runsTotal7d: number; kbPublished: number; costMtdUsd: number }
+
+/** v1.11 KPI scorecard — fully deterministic, no LLM input. */
+export function ceoKpiArtifact(k: CeoKpis): Artifact {
+  return withProvenance({ kind: 'scorecard', title: 'company KPIs', tiles: [
+    { label: `runs 7d ${k.runsOk7d}/${k.runsTotal7d}`, state: k.runsOk7d === k.runsTotal7d ? 'ok' : k.runsOk7d > 0 ? 'warn' : 'down' },
+    { label: `KB published ${k.kbPublished}`, state: k.kbPublished > 0 ? 'ok' : 'warn' },
+    { label: `cost MTD $${k.costMtdUsd.toFixed(2)}`, state: 'ok' },
+  ] }, 'api');
+}
+
 export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const context = formatContext(ctx);
   const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides<CompleteOpts>({
     system: PERSONAS.ceo,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}สังเคราะห์บทสรุปผู้บริหารจากผลงานของทุกแผนก: "## Summary" (3-4 ประโยค เชื่อมโยงกิจกรรมล่าสุดของบริษัท) และ "## Decisions" (2-3 ข้อ ลงมือได้จริง อ้างถึงผลงานของแผนกที่เจาะจง) เปิดรายงานด้วยบล็อก \`\`\`json findings (decisions/risks/priorities) ตามสคีมาในบทบาทของคุณ`,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}สังเคราะห์บทสรุปผู้บริหารจากผลงานของทุกแผนก: "## Summary" (3-4 ประโยค เชื่อมโยงกิจกรรมล่าสุดของบริษัท) และ "## Decisions" (2-3 ข้อ ลงมือได้จริง อ้างถึงผลงานของแผนกที่เจาะจง) เปิดรายงานด้วยบล็อก \`\`\`json findings (decisions/risks/priorities/boards ตามสคีมาในบทบาทของคุณ — boards ประกอบด้วย swot, canvas, forces)`,
     maxTokens: 8000,
   }, ctx));
   const snapshot = ctx.companySnapshot ?? { statuses: [], digest: [] };
@@ -95,7 +155,11 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     markdown,
     summary: 'company synthesis + decisions',
     feedMsg: 'standup complete 📋',
-    artifacts: ceoArtifacts(snapshot, markdown, findings),
+    artifacts: [
+      ...ceoArtifacts(snapshot, markdown, findings),
+      ...ceoBoardArtifacts(findings.boards ?? {}),
+      ...(ctx.companySnapshot?.kpis ? [ceoKpiArtifact(ctx.companySnapshot.kpis)] : []),
+    ],
     tags: ceoTags(snapshot),
     theme: 'weekly-synthesis',
     provenance: 'api',

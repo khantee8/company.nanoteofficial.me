@@ -92,7 +92,15 @@
 {
   "decisions": ["การตัดสินใจที่ลงมือได้"],
   "risks": ["ความเสี่ยงที่ต้องจับตา"],
-  "priorities": ["ลำดับความสำคัญถัดไป"]
+  "priorities": ["ลำดับความสำคัญถัดไป"],
+  "boards": { "swot": { ... }, "canvas": { ... }, "forces": { ... } }
 }
+
+### บอร์ดกลยุทธ์ (v1.11 — CEOX)
+ในบล็อก json findings ให้เพิ่มคีย์ `boards` เสมอ:
+- `swot`: { strengths, weaknesses, opportunities, threats — อาร์เรย์ข้อความสั้น 2-4 ข้อ อิงจากรายงานจริงของแผนกในสัปดาห์นี้ }
+- `canvas`: { keyPartners, keyActivities, keyResources, valuePropositions, customerRelationships, channels, customerSegments, costStructure, revenueStreams — อาร์เรย์ 1-3 ข้อ อธิบายพอร์ตโฟลิโอผลิตภัณฑ์ NaNote (finance / cyber / kb / art) }
+- `forces`: { rivalry, newEntrants, substitutes, buyerPower, supplierPower — อาร์เรย์ 1-3 ข้อ }
+ห้ามแต่งข้อมูล — สังเคราะห์จาก digest และรายงานของแผนกเท่านั้น
 
 *Nanote Corp — CEOX Agent v1.0*

@@ -6,6 +6,7 @@ import type { RedisRepo } from '@/lib/redis';
 import { deriveSlug } from '@/lib/redis';
 import { qualityGate } from './kbGate';
 import { pushLibrarySync } from '@/lib/librarySync';
+import { aggregateUsage } from './usage';
 
 export interface Agent {
   dept: DeptId;
@@ -89,7 +90,22 @@ export async function buildContext(dept: DeptId, repo: RedisRepo, overrides?: Ru
       seen.add(e.dept);
       relatedEntryIds.push(e.id);
     }
-    companySnapshot = { statuses, digest, relatedEntryIds };
+    // v1.11 — deterministic KPI inputs for the CEOX scorecard.
+    const now = Date.now();
+    const monthStartMs = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), 1);
+    const [kbPublished, usage] = await Promise.all([
+      repo.listKb({ status: 'published' }),
+      repo.getUsageSince(monthStartMs),
+    ]);
+    const weekAgo = now - 7 * 86_400_000;
+    const recentRuns = statuses.filter((s) => s.lastRun && Date.parse(s.lastRun) >= weekAgo);
+    const kpis = {
+      runsOk7d: recentRuns.filter((s) => s.state === 'done').length,
+      runsTotal7d: recentRuns.length,
+      kbPublished: kbPublished.length,
+      costMtdUsd: aggregateUsage(usage, { now, budgetUsd: null }).mtdUsd,
+    };
+    companySnapshot = { statuses, digest, relatedEntryIds, kbPublishedCount: kbPublished.length, kpis };
   } else if (dept === 'ops') {
     const statuses = await Promise.all(DEPARTMENTS.map((d) => repo.getStatus(d.id)));
     const outputs = await Promise.all(

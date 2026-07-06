@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ceoArtifacts, ceoTags, type CompanySnapshot } from './ceo';
+import { ceoArtifacts, ceoTags, ceoBoardArtifacts, ceoKpiArtifact, type CompanySnapshot } from './ceo';
 
 const snapshot: CompanySnapshot = {
   statuses: [
@@ -69,5 +69,25 @@ describe('ceoArtifacts', () => {
 describe('ceoTags', () => {
   it('tags the flagged departments', () => {
     expect(ceoTags(snapshot)).toEqual(['ops', 'cyb']);
+  });
+});
+
+describe('ceoBoardArtifacts', () => {
+  it('builds matrix boards from findings, api provenance', () => {
+    const arts = ceoBoardArtifacts({
+      swot: { strengths: ['s'], weaknesses: [], opportunities: [], threats: [] },
+      forces: { rivalry: ['r'], newEntrants: [], substitutes: [], buyerPower: [], supplierPower: [] },
+    });
+    expect(arts).toHaveLength(2); // swot + forces (no canvas provided)
+    expect(arts[0]).toMatchObject({ kind: 'matrix', layout: 'swot', provenance: 'api' });
+    expect(arts[0]).toMatchObject({ cells: expect.arrayContaining([{ label: 'Strengths', items: ['s'] }]) });
+  });
+});
+
+describe('ceoKpiArtifact', () => {
+  it('builds a deterministic scorecard', () => {
+    const a = ceoKpiArtifact({ runsOk7d: 6, runsTotal7d: 7, kbPublished: 12, costMtdUsd: 0.42 });
+    expect(a).toMatchObject({ kind: 'scorecard', title: 'company KPIs' });
+    expect((a as { tiles: unknown[] }).tiles).toHaveLength(3);
   });
 });

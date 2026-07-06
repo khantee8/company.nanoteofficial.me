@@ -22,6 +22,29 @@ describe('parseCeoFindings', () => {
   it('returns null when no block', () => {
     expect(parseCeoFindings('nope')).toBeNull();
   });
+
+  it('parses valid boards and drops malformed cells', () => {
+    const md = '```json findings\n' + JSON.stringify({
+      decisions: ['d1'], risks: [], priorities: [],
+      boards: {
+        swot: { strengths: ['s'], weaknesses: ['w'], opportunities: ['o'], threats: ['t'] },
+        canvas: { keyPartners: ['p'], keyActivities: ['a'], keyResources: ['r'], valuePropositions: ['v'],
+                  customerRelationships: ['c'], channels: ['ch'], customerSegments: ['cs'],
+                  costStructure: ['co'], revenueStreams: ['rev'] },
+        forces: { rivalry: ['r'], newEntrants: ['n'], substitutes: 'NOT-AN-ARRAY',
+                  buyerPower: ['b'], supplierPower: ['s'] },
+      },
+    }) + '\n```';
+    const f = parseCeoFindings(md)!;
+    expect(f.boards?.swot?.strengths).toEqual(['s']);
+    expect(f.boards?.canvas?.revenueStreams).toEqual(['rev']);
+    expect(f.boards?.forces?.substitutes).toEqual([]); // malformed → []
+  });
+
+  it('boards absent → boards undefined (report still valid)', () => {
+    const md = '```json findings\n{"decisions":[],"risks":[],"priorities":[]}\n```';
+    expect(parseCeoFindings(md)!.boards).toBeUndefined();
+  });
 });
 
 describe('ceoArtifacts', () => {
