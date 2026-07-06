@@ -14,6 +14,7 @@ const samples: Artifact[] = [
   { kind: 'heatmap', title: '7d', cells: [{ label: 'd1', level: 2 }, { label: 'd2', level: 0 }] },
   { kind: 'tags', title: 'trends', tags: ['agents', 'rag'] },
   { kind: 'checklist', title: 'decisions', items: [{ text: 'ship', done: true }, { text: 'patch', done: false }] },
+  { kind: 'matrix', title: 'SWOT', layout: 'swot', cells: [{ label: 'Strengths', items: ['cited agents'] }, { label: 'Weaknesses', items: ['single operator'] }] },
 ];
 
 describe('ArtifactRenderer', () => {
@@ -35,6 +36,7 @@ describe('ArtifactRenderer', () => {
       { kind: 'heatmap', title: 't', cells: [] },
       { kind: 'tags', title: 't', tags: [] },
       { kind: 'checklist', title: 't', items: [] },
+      { kind: 'matrix', title: 't', layout: 'swot', cells: [] },
     ];
     for (const a of empties) {
       const html = renderToStaticMarkup(<ArtifactRenderer artifact={a} />);
@@ -59,5 +61,26 @@ describe('ArtifactRenderer', () => {
     const a = withProvenance({ kind: 'table', title: 't', columns: ['a'], rows: [['x']] }, 'web', [{ url: 'https://e.com', title: 'S', date: '2026-06-01' }]);
     const html = renderToStaticMarkup(<ArtifactRenderer artifact={a} />);
     expect(html).toContain('web · cited');
+  });
+
+  it('renders a matrix board with its cells', () => {
+    const a: Artifact = {
+      kind: 'matrix', title: 'SWOT', layout: 'swot',
+      cells: [
+        { label: 'Strengths', items: ['cited agents'] },
+        { label: 'Weaknesses', items: ['single operator'] },
+        { label: 'Opportunities', items: ['KB products'] },
+        { label: 'Threats', items: ['API cost'] },
+      ],
+    };
+    const html = renderToStaticMarkup(<ArtifactRenderer artifact={a} />);
+    expect(html).toContain('Strengths');
+    expect(html).toContain('cited agents');
+  });
+
+  it('matrix renders an empty state without crashing', () => {
+    const a: Artifact = { kind: 'matrix', title: 'SWOT', layout: 'swot', cells: [] };
+    const html = renderToStaticMarkup(<ArtifactRenderer artifact={a} />);
+    expect(html).toContain('no data');
   });
 });

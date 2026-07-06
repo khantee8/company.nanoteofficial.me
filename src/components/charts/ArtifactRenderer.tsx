@@ -11,6 +11,7 @@ import { Scorecard } from './Scorecard';
 import { Heatmap } from './Heatmap';
 import { TagCloud } from './TagCloud';
 import { Checklist } from './Checklist';
+import { MatrixBoard } from './MatrixBoard';
 
 function renderChart(artifact: Artifact, compact?: boolean) {
   switch (artifact.kind) {
@@ -24,6 +25,7 @@ function renderChart(artifact: Artifact, compact?: boolean) {
     case 'heatmap':       return <Heatmap a={artifact} compact={compact} />;
     case 'tags':          return <TagCloud a={artifact} compact={compact} />;
     case 'checklist':     return <Checklist a={artifact} compact={compact} />;
+    case 'matrix':        return <MatrixBoard a={artifact} compact={compact} />;
   }
 }
 

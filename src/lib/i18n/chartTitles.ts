@@ -34,6 +34,11 @@ const TH: Record<string, string> = {
   'open flags by dept': 'ประเด็นค้างตามแผนก',
   '7-day activity': 'กิจกรรม 7 วัน',
   "today's decisions": 'การตัดสินใจวันนี้',
+  // CEOX strategy boards
+  'SWOT analysis': 'การวิเคราะห์ SWOT',
+  'business model canvas': 'แคนวาสโมเดลธุรกิจ',
+  'five forces': 'แรงกดดันทั้งห้า (Five Forces)',
+  'company KPIs': 'ตัวชี้วัดบริษัท',
 };
 
 export function chartTitle(lang: Lang, title: string): string {

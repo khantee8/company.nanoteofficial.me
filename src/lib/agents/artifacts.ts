@@ -35,6 +35,8 @@ export type Artifact = ArtifactMeta & (
   | { kind: 'heatmap'; title: string; cells: { label: string; level: number }[] }
   | { kind: 'tags'; title: string; tags: string[] }
   | { kind: 'checklist'; title: string; items: { text: string; done: boolean }[] }
+  | { kind: 'matrix'; title: string; layout: 'swot' | 'canvas' | 'forces';
+      cells: { label: string; items: string[] }[] }
 );
 
 /** Stamp an artifact with its data provenance. `api` = built from a real API
