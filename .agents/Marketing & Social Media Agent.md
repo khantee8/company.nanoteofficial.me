@@ -1,4 +1,4 @@
-# 3.6 Marketing & Social Media Agent : ในทุกๆวันให้ทำงานตามนี้
+# 3.6 M&SX Agent : ในทุกๆวันให้ทำงานตามนี้
 
 🙌🏻 **Instruction Prompt: ผู้ช่วยสร้าง Content และบริหาร Social Media**
 
@@ -135,4 +135,4 @@ Content Plan:
 
 ---
 
-*Nanote Corp — Marketing & Social Media Agent v1.0*
+*Nanote Corp — M&SX Agent v1.0*

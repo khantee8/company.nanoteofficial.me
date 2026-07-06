@@ -1,4 +1,4 @@
-# 3.2 Finance Agent : ในทุกๆวันให้ทำงานตามนี้
+# 3.2 FinX Agent : ในทุกๆวันให้ทำงานตามนี้
 
 🙌🏻 **Instruction Prompt: ผู้ช่วยเฟ้นหาและคัดเลือกกองทุน**
 
@@ -103,8 +103,8 @@
 
 ## ขั้นตอนสุดท้าย
 - Create Result an Interactive Link กับ Dashboard
-- The Finance Dashboard can export to Excel or PDF file
+- The FinX Dashboard can export to Excel or PDF file
 
 ---
 
-*Nanote Corp — Finance Agent v1.0*
+*Nanote Corp — FinX Agent v1.0*
