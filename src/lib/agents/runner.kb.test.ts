@@ -18,7 +18,7 @@ function memClient(): RedisClientLike {
 }
 
 describe('runAgent enriched KB write', () => {
-  it('persists slug/theme/provenance/sources on the kb entry as a draft', async () => {
+  it('persists slug/theme/provenance/sources on the kb entry, auto-published via the quality gate', async () => {
     const repo = makeRedisRepo(memClient());
     const captured: KbEntry[] = [];
     const orig = repo.pushKb.bind(repo);
@@ -40,7 +40,9 @@ describe('runAgent enriched KB write', () => {
     expect(e.provenance).toBe('web');
     expect(e.slug).toMatch(/^fin-us-index-sp500-/);
     expect(e.sources[0].url).toBe('https://e.com');
-    expect(e.status).toBe('draft');
+    // v1.11 — fin is a frontend dept; a cited, complete run clears the quality
+    // gate and auto-publishes rather than landing as a draft.
+    expect(e.status).toBe('published');
   });
 
   it('defaults provenance to api and theme undefined when result omits them', async () => {
@@ -48,12 +50,14 @@ describe('runAgent enriched KB write', () => {
     const captured: KbEntry[] = [];
     const orig = repo.pushKb.bind(repo);
     repo.pushKb = async (e) => { captured.push(e); return orig(e); };
+    // v1.11 — ops is a backend dept and no longer writes to the KB at all;
+    // use mkt (frontend) to exercise the enrichment defaults instead.
     await runAgent(
-      { dept: 'ops', run: async () => ({ markdown: '# r\n## Highlight\nx\n## Flags\nNone.', summary: 's', feedMsg: 'f', artifacts: [], tags: [] }) },
+      { dept: 'mkt', run: async () => ({ markdown: '# r\n## Highlight\nx\n## Flags\nNone.', summary: 's', feedMsg: 'f', artifacts: [], tags: [] }) },
       { repo, notify: async () => {} },
     );
     expect(captured[0].provenance).toBe('api');
-    expect(captured[0].slug).toMatch(/^ops-/);
+    expect(captured[0].slug).toMatch(/^mkt-/);
     expect(captured[0].theme).toBeUndefined();
     expect(captured[0].sources).toEqual([]);
     expect(captured[0].related).toEqual([]);

@@ -1,9 +1,11 @@
-import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
-import type { AgentRunResult, AgentContext, AgentOutputHealth, RunOverrides } from './types';
+import { DEPARTMENTS, isFrontendDept, type DeptId } from '@/lib/data/departments';
+import type { AgentRunResult, AgentContext, AgentOutputHealth, RunOverrides, KbEntry } from './types';
 import { CATEGORY_BY_DEPT } from './artifacts';
 import { EN_DELIMITER, normalizeReportOrder, splitBilingual } from './bilingual';
 import type { RedisRepo } from '@/lib/redis';
 import { deriveSlug } from '@/lib/redis';
+import { qualityGate } from './kbGate';
+import { pushLibrarySync } from '@/lib/librarySync';
 
 export interface Agent {
   dept: DeptId;
@@ -178,25 +180,36 @@ export async function runAgent(agent: Agent, deps: RunnerDeps, overrides?: RunOv
     const incomplete = result.incomplete ?? false;
     const slug = deriveSlug({ dept, date, theme, category });
 
+    // v1.11 role seam — backend depts (CEOX/OperX) are /admin-only: no KB.
+    // Frontend depts auto-publish through the quality gate; a failed gate is a
+    // normal draft the Admin Knowledge panel promotes manually.
+    const frontend = isFrontendDept(dept);
+    const kbStatus: KbEntry['status'] = frontend && qualityGate(result) ? 'published' : 'draft';
+
     await Promise.all([
       repo.setOutput({ dept, markdown, markdownEn, summary: result.summary, ts, category, tags, artifacts, meta: result.meta, incomplete }),
       repo.pushEvent({ dept, msg: result.feedMsg, ts }),
       repo.setStatus({ dept, state: 'done', lastRun: ts, summary: result.summary }),
       repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown }),
       repo.pushDigest({ dept, date, summary: result.summary, highlight, highlightEn, flags, flagsEn }),
-      // Archive into the knowledge base as a DRAFT — the Admin KB Manager
-      // reviews and publishes before it surfaces on the public /api/kb feed.
-      repo.pushKb({ id, slug, dept, date, ts, category, theme,
-        tags, status: 'draft', summary: result.summary, highlight, highlightEn, flags, flagsEn, artifacts,
-        sources, provenance, related, markdown, markdownEn, incomplete }),
+      ...(frontend
+        ? [repo.pushKb({ id, slug, dept, date, ts, category, theme,
+            tags, status: kbStatus, summary: result.summary, highlight, highlightEn, flags, flagsEn, artifacts,
+            sources, provenance, related, markdown, markdownEn, incomplete })]
+        : []),
       // v1.8 — record token usage to the cost ledger (skip non-LLM runs lacking usage/model).
       ...(result.usage && result.model
         ? [repo.recordUsage({ dept, model: result.model, input: result.usage.input, output: result.usage.output, ts: Date.parse(ts) })]
         : []),
     ]);
 
+    if (frontend && kbStatus === 'published') await pushLibrarySync(slug, repo);
+
     const warn = incomplete ? '\n⚠️ รายงานอาจไม่สมบูรณ์ — ตรวจก่อนเผยแพร่' : '';
-    await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}\n\n${markdown.slice(0, 800)}`);
+    const kbNote = !frontend ? ''
+      : kbStatus === 'published' ? `\n📚 published → KB (${slug})`
+      : '\n📝 draft — review in /admin';
+    await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}${kbNote}\n\n${markdown.slice(0, 800)}`);
     if (result.alert) await notify(result.alert.text);
     return result;
   } catch (err) {

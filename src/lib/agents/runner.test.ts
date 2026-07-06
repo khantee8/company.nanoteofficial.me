@@ -17,8 +17,10 @@ function fakeRepo() {
     getDigest: vi.fn(async () => []),
     pushKb: vi.fn(async () => {}),
     getKb: vi.fn(async () => []),
+    listKb: vi.fn(async () => []),
     recordUsage: vi.fn(async () => {}),
     getUsageSince: vi.fn(async () => []),
+    pushSyncLog: vi.fn(async () => {}),
   } as unknown as RedisRepo;
 }
 
@@ -130,6 +132,35 @@ describe('runAgent', () => {
     await runAgent({ dept: 'ops', run }, { repo, notify });
 
     expect(notify).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('runAgent — v1.11 role branch', () => {
+  const citedResult = (over: Partial<AgentRunResult> = {}): AgentRunResult => ({
+    markdown: '# x\n\n## Highlight\nH.\n\n## Flags\n- f',
+    summary: 's', feedMsg: 'm',
+    sources: [{ url: 'https://a', title: 'A', date: '2026-07-01' }],
+    ...over,
+  });
+
+  it('backend dept (ceo) never writes KB', async () => {
+    const repo = fakeRepo();
+    await runAgent({ dept: 'ceo', run: async () => citedResult() }, { repo, notify: vi.fn(async () => {}) });
+    expect(repo.pushKb).not.toHaveBeenCalled();
+    expect(repo.setOutput).toHaveBeenCalled(); // /admin still gets the report
+  });
+
+  it('frontend dept publishing: clean cited run → status published', async () => {
+    const repo = fakeRepo();
+    await runAgent({ dept: 'cyb', run: async () => citedResult() }, { repo, notify: vi.fn(async () => {}) });
+    expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ status: 'published' }));
+  });
+
+  it('frontend dept gate fail (incomplete) → status draft, no Library sync', async () => {
+    const repo = fakeRepo();
+    await runAgent({ dept: 'cyb', run: async () => citedResult({ incomplete: true }) }, { repo, notify: vi.fn(async () => {}) });
+    expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft' }));
+    expect(repo.pushSyncLog).not.toHaveBeenCalled();
   });
 });
 
