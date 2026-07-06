@@ -166,10 +166,14 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     ? `tracking only — MTD $${agg.mtdUsd.toFixed(2)}, burn $${agg.last7dBurnUsdPerDay.toFixed(2)}/day (no budget set)`
     : (budget?.detail ?? `budget ok — $${agg.mtdUsd.toFixed(2)} / $${agg.budgetUsd.toFixed(2)}`);
 
+  const sweepLines = (ctx.companySnapshot?.sweeps ?? [])
+    .map((s) => `${new Date(s.ts).toISOString().slice(0, 10)} ${s.dept}: ${s.ok ? 'auto-recovered' : 'RETRY FAILED'} — ${s.detail}`)
+    .join('\n');
+
   const context = formatContext(ctx);
   const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
     system: PERSONAS.ops,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}CI/CD snapshot.\n\nDeployments:\n${deployLines.join('\n') || 'none'}\n\nRepo activity:\n${activityLines.join('\n') || 'none'}\n\nAgent run-health (internal monitoring):\n${healthLines || 'no snapshot'}\n\nงบประมาณ Claude API (internal):\n${budgetLine}\n\nสรุปสุขภาพ deploy/CI และสุขภาพการทำงานของเอเจนต์อื่น แล้วชี้ "สิ่งเดียวที่ควรแก้วันนี้" วิเคราะห์เอเจนต์ที่มีปัญหา (error/stale/truncated/empty) พร้อมสาเหตุและวิธีแก้ และใส่ประเด็นเหล่านี้ในส่วน ## Flags เพื่อส่งต่อ CEO (รวมถึงงบประมาณถ้าใกล้หรือเกินลิมิต) ถ้าต้องอ้างอิงภายนอก (status page/changelog) ให้ค้นเว็บและแนบแหล่ง เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}CI/CD snapshot.\n\nDeployments:\n${deployLines.join('\n') || 'none'}\n\nRepo activity:\n${activityLines.join('\n') || 'none'}\n\nAgent run-health (internal monitoring):\n${healthLines || 'no snapshot'}\n\nSelf-heal sweep log (watchdog auto-retries):\n${sweepLines || 'no sweeps'}\n\nงบประมาณ Claude API (internal):\n${budgetLine}\n\nสรุปสุขภาพ deploy/CI และสุขภาพการทำงานของเอเจนต์อื่น แล้วชี้ "สิ่งเดียวที่ควรแก้วันนี้" วิเคราะห์เอเจนต์ที่มีปัญหา (error/stale/truncated/empty) พร้อมสาเหตุและวิธีแก้ และใส่ประเด็นเหล่านี้ในส่วน ## Flags เพื่อส่งต่อ CEO (รวมถึงงบประมาณถ้าใกล้หรือเกินลิมิต) สรุปผลการซ่อมอัตโนมัติ (self-heal) ในรายงานด้วย — อะไรพังแล้วระบบซ่อมเองสำเร็จ อะไรซ่อมไม่สำเร็จและต้องการคน ถ้าต้องอ้างอิงภายนอก (status page/changelog) ให้ค้นเว็บและแนบแหล่ง เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 3,
     maxTokens: 8000,

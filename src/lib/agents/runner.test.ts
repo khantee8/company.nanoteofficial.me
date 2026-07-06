@@ -20,6 +20,7 @@ function fakeRepo() {
     listKb: vi.fn(async () => []),
     recordUsage: vi.fn(async () => {}),
     getUsageSince: vi.fn(async () => []),
+    getSweepLog: vi.fn(async () => []),
     pushSyncLog: vi.fn(async () => {}),
   } as unknown as RedisRepo;
 }
@@ -248,6 +249,7 @@ describe('buildContext run order', () => {
           : null,
       ),
       getUsageSince: vi.fn(async () => []),
+      getSweepLog: vi.fn(async () => []),
     } as unknown as RedisRepo;
 
     const ctx = await buildContext('ops', repo);
@@ -274,6 +276,7 @@ describe('buildContext ops snapshot', () => {
               artifacts: [{ kind: 'tags', title: 't', tags: ['a'] }] },
       ),
       getUsageSince: vi.fn(async () => []),
+      getSweepLog: vi.fn(async () => []),
     } as unknown as RedisRepo;
 
     const ctx = await buildContext('ops', repo);

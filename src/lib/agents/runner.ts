@@ -122,8 +122,12 @@ export async function buildContext(dept: DeptId, repo: RedisRepo, overrides?: Ru
       }),
     );
     // v1.8 — ~40d of cost-ledger entries for the Operations budget monitor.
-    const usage = await repo.getUsageSince(Date.now() - 40 * 86_400_000);
-    companySnapshot = { statuses, digest, outputs, usage };
+    // v1.11 — recent watchdog sweep outcomes for the self-heal narrative.
+    const [usage, sweeps] = await Promise.all([
+      repo.getUsageSince(Date.now() - 40 * 86_400_000),
+      repo.getSweepLog(),
+    ]);
+    companySnapshot = { statuses, digest, outputs, usage, sweeps: sweeps.slice(0, 10) };
   }
 
   return {

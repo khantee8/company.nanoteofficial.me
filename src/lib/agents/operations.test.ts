@@ -104,6 +104,21 @@ describe('operations.run — internal monitoring', () => {
   });
 });
 
+describe('operations.run — self-heal sweep log', () => {
+  beforeEach(() => completeRawMock.mockClear());
+
+  it('feeds the sweep log into the prompt', async () => {
+    const ctx: AgentContext = {
+      ownHistory: [], companyDigest: [], todayPeers: [],
+      companySnapshot: { statuses: [], digest: [], sweeps: [{ dept: 'fin', ok: false, detail: 'timeout', ts: 1 }] },
+    };
+    await run(ctx);
+    expect(completeRawMock).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: expect.stringContaining('RETRY FAILED') }),
+    );
+  });
+});
+
 describe('operations.run — budget monitoring', () => {
   afterEach(() => { vi.unstubAllEnvs(); completeRawMock.mockClear(); });
 

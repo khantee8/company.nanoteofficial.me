@@ -150,6 +150,8 @@ export interface AgentContext {
     kbPublishedCount?: number;
     /** v1.11 — deterministic KPI inputs for the CEOX scorecard (ceo runs only). */
     kpis?: { runsOk7d: number; runsTotal7d: number; kbPublished: number; costMtdUsd: number };
+    /** v1.11 — recent watchdog sweep outcomes; filled for the ops monitor only. */
+    sweeps?: Array<{ dept: DeptId; ok: boolean; detail: string; ts: number }>;
   };
   /** v1.10 — operator run-with-options overrides (run-now from /admin). */
   overrides?: RunOverrides;
