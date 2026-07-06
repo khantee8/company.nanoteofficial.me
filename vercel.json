@@ -5,6 +5,7 @@
     { "path": "/api/cron/run?dept=fin", "schedule": "0 11 * * 1,3,5" },
     { "path": "/api/cron/run?dept=rnd", "schedule": "0 12 * * 2,4" },
     { "path": "/api/cron/run?dept=mkt", "schedule": "0 13 * * 1,4" },
-    { "path": "/api/cron/run?dept=ceo", "schedule": "0 15 * * 0" }
+    { "path": "/api/cron/run?dept=ceo", "schedule": "0 15 * * 0" },
+    { "path": "/api/cron/run?sweep=1", "schedule": "0 16 * * *" }
   ]
 }
