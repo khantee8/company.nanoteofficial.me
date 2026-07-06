@@ -7,7 +7,7 @@ function fakeClient() {
   const list = new Map<string, unknown[]>();
   return {
     store, list,
-    set: vi.fn(async (k: string, v: unknown) => { store.set(k, v); }),
+    set: vi.fn(async (k: string, v: unknown, _options?: unknown) => { store.set(k, v); }),
     get: vi.fn(async (k: string) => store.get(k) ?? null),
     lpush: vi.fn(async (k: string, v: unknown) => { const a = list.get(k) ?? []; a.unshift(v); list.set(k, a); return a.length; }),
     ltrim: vi.fn(async (k: string, start: number, stop: number) => { const a = list.get(k) ?? []; list.set(k, a.slice(start, stop + 1)); }),
@@ -74,5 +74,19 @@ describe('redis repo', () => {
     const recent = await repo.getFeed(10);
     expect(recent.length).toBe(10);
     expect(recent[0].msg).toBe('m54');
+  });
+
+  it('marks and reads the per-day retry flag', async () => {
+    expect(await repo.wasRetriedToday('fin', '2026-07-05')).toBe(false);
+    await repo.markRetried('fin', '2026-07-05');
+    expect(await repo.wasRetriedToday('fin', '2026-07-05')).toBe(true);
+    expect(await repo.wasRetriedToday('fin', '2026-07-06')).toBe(false); // next day resets
+  });
+
+  it('sweep log is capped LIFO', async () => {
+    await repo.pushSweepLog({ dept: 'fin', ok: false, detail: 'timeout', ts: 1 });
+    await repo.pushSweepLog({ dept: 'rnd', ok: true, detail: 'recovered', ts: 2 });
+    const log = await repo.getSweepLog();
+    expect(log[0]).toMatchObject({ dept: 'rnd', ok: true });
   });
 });

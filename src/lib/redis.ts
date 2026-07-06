@@ -7,12 +7,16 @@ import { focusKey } from './telegram';
 import type { FocusSession } from './telegram';
 import type { SyncLogEntry } from './librarySync';
 
+export interface SweepLogEntry { dept: DeptId; ok: boolean; detail: string; ts: number }
+
 const FEED_KEY = 'feed:events';
 const FEED_CAP = 50;
 const USAGE_KEY = 'usage:ledger';
 const USAGE_CAP = 1000; // ~months of runs at the current cadence; window-filtered on read
 const SYNCLOG_KEY = 'library:synclog';
 const SYNCLOG_CAP = 20;
+const SWEEPLOG_KEY = 'ops:sweeplog';
+const SWEEPLOG_CAP = 50;
 const HISTORY_CAP = 7;
 const DIGEST_KEY = 'company:digest';
 const DIGEST_CAP = 25;
@@ -24,6 +28,7 @@ const KB_INDEX = 'kb:index';
 const KB_LEGACY = 'kb:entries';
 const KB_CAP = 300;
 const kbKey = (id: string) => `kb:entry:${id}`;
+const retriedKey = (dept: DeptId, date: string) => `agent:retried:${dept}:${date}`;
 
 export interface KbQuery {
   status?: KbEntry['status'];
@@ -95,7 +100,7 @@ function matchesKbQuery(e: KbEntry, q: KbQuery): boolean {
 }
 
 export interface RedisClientLike {
-  set(key: string, value: unknown): Promise<unknown>;
+  set(key: string, value: unknown, options?: unknown): Promise<unknown>;
   get<T = unknown>(key: string): Promise<T | null>;
   del(...keys: string[]): Promise<unknown>;
   mget<T = unknown>(keys: string[]): Promise<(T | null)[]>;
@@ -232,6 +237,19 @@ export function makeRedisRepo(client: RedisClientLike) {
     },
     async getSyncLog(): Promise<SyncLogEntry[]> {
       return await client.lrange<SyncLogEntry>(SYNCLOG_KEY, 0, SYNCLOG_CAP - 1);
+    },
+    async markRetried(dept: DeptId, date: string) {
+      await client.set(retriedKey(dept, date), '1', { ex: 172800 }); // self-expires after 2 days
+    },
+    async wasRetriedToday(dept: DeptId, date: string): Promise<boolean> {
+      return (await client.get<string>(retriedKey(dept, date))) === '1';
+    },
+    async pushSweepLog(e: SweepLogEntry) {
+      await client.lpush(SWEEPLOG_KEY, e);
+      await client.ltrim(SWEEPLOG_KEY, 0, SWEEPLOG_CAP - 1);
+    },
+    async getSweepLog(): Promise<SweepLogEntry[]> {
+      return await client.lrange<SweepLogEntry>(SWEEPLOG_KEY, 0, SWEEPLOG_CAP - 1);
     },
   };
   return repo;
