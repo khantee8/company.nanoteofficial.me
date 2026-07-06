@@ -24,7 +24,7 @@ export function buildKbGraph(entries: KbEntry[]): KbGraph {
   const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
   for (const e of entries) {
-    for (const to of e.related) {
+    for (const to of new Set(e.related)) {
       if (!ids.has(to) || to === e.id) continue;
       edges.push({ from: e.id, to, type: 'builds_on', weight: 1 });
       linked.add(pairKey(e.id, to));

@@ -40,4 +40,14 @@ describe('buildKbGraph', () => {
   it('empty KB → empty graph', () => {
     expect(buildKbGraph([])).toEqual({ nodes: [], edges: [] });
   });
+
+  it('duplicate related ids → exactly ONE builds_on edge', () => {
+    const g = buildKbGraph([entry('a', { related: ['b', 'b'] }), entry('b')]);
+    expect(g.edges).toEqual([{ from: 'a', to: 'b', type: 'builds_on', weight: 1 }]);
+  });
+
+  it('same theme AND shared tags (no related link) → only a same_theme edge', () => {
+    const g = buildKbGraph([entry('a', { theme: 't', tags: ['x'] }), entry('b', { theme: 't', tags: ['x'] })]);
+    expect(g.edges).toEqual([{ from: 'a', to: 'b', type: 'same_theme', weight: 1 }]);
+  });
 });
