@@ -5,6 +5,7 @@ import {
   MEZZANINE_ELEVATION,
   RAISED_DEPTS,
   isRaised,
+  isFrontendDept,
   type DeptId,
 } from './departments';
 import { ROOM_W } from '@/lib/iso/engine';
@@ -16,10 +17,21 @@ describe('department layout', () => {
     expect(DEPARTMENTS[1].id).toBe('fin');
   });
 
-  it('renames marketing and R&D to their real roles', () => {
-    const byId = Object.fromEntries(DEPARTMENTS.map((d) => [d.id, d]));
-    expect(byId.mkt.name).toBe('Marketing & Social Media');
-    expect(byId.rnd.name).toBe('AI R&D');
+  it('carries the v1.11 display names', () => {
+    const nameOf = Object.fromEntries(DEPARTMENTS.map((d) => [d.id, d.name]));
+    expect(nameOf).toEqual({
+      ceo: 'CEOX', fin: 'FinX', cyb: 'CyberX', mkt: 'M&SX', rnd: 'AIX', ops: 'OperX',
+    });
+  });
+
+  it('CEOX and OperX are backend; the four research depts are frontend', () => {
+    const roleOf = Object.fromEntries(DEPARTMENTS.map((d) => [d.id, d.role]));
+    expect(roleOf).toEqual({
+      ceo: 'backend', ops: 'backend',
+      fin: 'frontend', cyb: 'frontend', mkt: 'frontend', rnd: 'frontend',
+    });
+    expect(isFrontendDept('fin')).toBe(true);
+    expect(isFrontendDept('ceo')).toBe(false);
   });
 
   it('raises only the CEO and Finance onto the 2nd-floor mezzanine', () => {

@@ -20,9 +20,9 @@ function fakeChartsEl(k: number): HTMLDivElement {
 describe('buildPdfDoc', () => {
   it('renders the title as <h1>', () => {
     const d = freshDoc();
-    buildPdfDoc(d, { title: 'Finance', narrative: '' });
+    buildPdfDoc(d, { title: 'FinX', narrative: '' });
     const h1 = d.querySelector('h1');
-    expect(h1?.textContent).toBe('Finance');
+    expect(h1?.textContent).toBe('FinX');
   });
 
   it('renders the verdict box when highlight is present, omits it otherwise', () => {

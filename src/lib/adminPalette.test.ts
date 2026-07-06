@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { buildPaletteIndex, filterPalette } from './adminPalette';
 
-const depts = [{ id: 'fin' as const, name: 'Finance' }, { id: 'cyb' as const, name: 'CyberX' }];
+const depts = [{ id: 'fin' as const, name: 'FinX' }, { id: 'cyb' as const, name: 'CyberX' }];
 const kb = [{ id: 'fin:1', slug: 'fin-funds', summary: 'Thai funds brief' }];
 
 describe('palette index', () => {
   it('builds agent + kb entries', () => {
     const idx = buildPaletteIndex(depts, kb);
-    expect(idx.find((i) => i.kind === 'agent' && i.label.includes('Finance'))).toBeTruthy();
+    expect(idx.find((i) => i.kind === 'agent' && i.label.includes('FinX'))).toBeTruthy();
     expect(idx.find((i) => i.kind === 'kb' && i.label.includes('Thai funds'))).toBeTruthy();
   });
   it('filters case-insensitively by label', () => {

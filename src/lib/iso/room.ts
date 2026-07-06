@@ -14,9 +14,9 @@ function zoneColor(x: number, y: number): string {
   // Ground floor — department work bands (y 5–8.6) then common area (front).
   if (y >= 5 && y < 9) {
     if (x < 6) return '#0a160f';        // CyberX (green)
-    if (x < 12) return '#180e16';       // Marketing & Social (pink)
-    if (x < 18) return '#0a1522';       // AI R&D (cyan)
-    return '#180e08';                   // Operations (orange)
+    if (x < 12) return '#180e16';       // M&SX (pink)
+    if (x < 18) return '#0a1522';       // AIX (cyan)
+    return '#180e08';                   // OperX (orange)
   }
   if (y >= 9) return '#0f0f1e';         // common / facilities
   return '#0d0d1c';                     // under-mezzanine floor (mostly hidden)
@@ -39,9 +39,9 @@ export function drawFloorAndWalls(engine: IsoEngine) {
   }
   // Ground-floor zone rugs
   rug(engine, 0.4, 5.2, 5.3, 3.2, 'rgba(57,255,157,0.06)');   // CyberX
-  rug(engine, 6.5, 5.2, 5.2, 3.2, 'rgba(255,107,157,0.06)');  // Marketing & Social
-  rug(engine, 12.3, 5.2, 5.3, 3.2, 'rgba(0,207,255,0.06)');   // AI R&D
-  rug(engine, 18.4, 5.2, 5.1, 3.2, 'rgba(255,154,60,0.06)');  // Operations
+  rug(engine, 6.5, 5.2, 5.2, 3.2, 'rgba(255,107,157,0.06)');  // M&SX
+  rug(engine, 12.3, 5.2, 5.3, 3.2, 'rgba(0,207,255,0.06)');   // AIX
+  rug(engine, 18.4, 5.2, 5.1, 3.2, 'rgba(255,154,60,0.06)');  // OperX
 
   // Back wall (behind the mezzanine)
   for (let x = 0; x < ROOM_W; x++) {
@@ -65,9 +65,9 @@ export function drawFloorAndWalls(engine: IsoEngine) {
 export function drawMezzanine(engine: IsoEngine, ctx: CanvasRenderingContext2D) {
   // Deck slab (top surface + front/right risers)
   engine.box(0, 0, 0, ROOM_W, MEZZ_FRONT_Y, E, '#16162e', '#0b0b1c', '#090914');
-  // Deck surface sheen + zone split (CEO left, Finance right)
-  rug(engine, 0.3, 0.3, 11.0, MEZZ_FRONT_Y - 0.6, 'rgba(255,221,87,0.05)', E);   // CEO
-  rug(engine, 12.4, 0.3, 11.1, MEZZ_FRONT_Y - 0.6, 'rgba(127,140,255,0.06)', E); // Finance
+  // Deck surface sheen + zone split (CEOX left, FinX right)
+  rug(engine, 0.3, 0.3, 11.0, MEZZ_FRONT_Y - 0.6, 'rgba(255,221,87,0.05)', E);   // CEOX
+  rug(engine, 12.4, 0.3, 11.1, MEZZ_FRONT_Y - 0.6, 'rgba(127,140,255,0.06)', E); // FinX
   // Center divider line between the two executive offices
   const d0 = engine.g(11.7, 0.3, E), d1 = engine.g(11.7, MEZZ_FRONT_Y - 0.4, E);
   ctx.strokeStyle = 'rgba(120,120,180,0.18)'; ctx.lineWidth = 1;
@@ -129,8 +129,8 @@ export function drawZoneLabels(engine: IsoEngine, ctx: CanvasRenderingContext2D)
   ctx.fillText('— 2ND FLOOR · EXECUTIVE —', banner.x, banner.y);
   ctx.font = 'bold 7px Courier New';
   const raised: { t: string; gx: number; gy: number; c: string }[] = [
-    { t: 'CEO OFFICE', gx: 5.5,  gy: 1.6, c: 'rgba(255,221,87,0.42)' },
-    { t: 'FINANCE',    gx: 18.0, gy: 1.6, c: 'rgba(140,150,255,0.42)' },
+    { t: 'CEOX', gx: 5.5,  gy: 1.6, c: 'rgba(255,221,87,0.42)' },
+    { t: 'FinX', gx: 18.0, gy: 1.6, c: 'rgba(140,150,255,0.42)' },
   ];
   raised.forEach(l => {
     const p = engine.g(l.gx, l.gy, E + 1);
@@ -139,10 +139,10 @@ export function drawZoneLabels(engine: IsoEngine, ctx: CanvasRenderingContext2D)
   });
   // Ground floor labels
   const ground: { t: string; gx: number; gy: number; c: string }[] = [
-    { t: 'CYBERX',     gx: 3.0,  gy: 5.6, c: 'rgba(57,255,157,0.38)' },
-    { t: 'SOCIAL',     gx: 9.0,  gy: 5.6, c: 'rgba(255,107,157,0.36)' },
-    { t: 'AI R&D',     gx: 15.0, gy: 5.6, c: 'rgba(0,207,255,0.36)' },
-    { t: 'OPERATIONS', gx: 21.0, gy: 5.6, c: 'rgba(255,160,60,0.36)' },
+    { t: 'CYBERX', gx: 3.0,  gy: 5.6, c: 'rgba(57,255,157,0.38)' },
+    { t: 'M&SX',   gx: 9.0,  gy: 5.6, c: 'rgba(255,107,157,0.36)' },
+    { t: 'AIX',    gx: 15.0, gy: 5.6, c: 'rgba(0,207,255,0.36)' },
+    { t: 'OPERX',  gx: 21.0, gy: 5.6, c: 'rgba(255,160,60,0.36)' },
     { t: 'CAFE',       gx: 4.0,  gy: 9.4, c: 'rgba(210,170,110,0.30)' },
     { t: 'SNACK BAR',  gx: 8.4,  gy: 9.4, c: 'rgba(220,190,120,0.28)' },
     { t: 'BREAK ROOM', gx: 13.5, gy: 9.4, c: 'rgba(200,150,200,0.26)' },

@@ -5,7 +5,7 @@ import { ExecDashboard } from '@/components/ExecDashboard';
 
 export const metadata: Metadata = {
   title: 'Executive Dashboard',
-  description: 'A live, data-driven executive view of NaNote Corp — six AI agents (CEO, Finance, CyberX, Marketing & Social Media, AI R&D, Operations) producing real daily intelligence.',
+  description: 'A live, data-driven executive view of NaNote Corp — six AI agents (CEOX, FinX, CyberX, M&SX, AIX, OperX) producing real daily intelligence.',
 };
 
 export default function DashboardPage() {

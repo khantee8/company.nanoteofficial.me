@@ -9,6 +9,11 @@ export const RAISED_DEPTS: DeptId[] = ['ceo', 'fin'];
 
 export const isRaised = (id: DeptId): boolean => RAISED_DEPTS.includes(id);
 
+/** v1.11 role seam — frontend depts research & publish to the KB; backend depts
+ *  (CEOX strategy, OperX ops) surface only in /admin and never write KB. */
+export const isFrontendDept = (id: DeptId): boolean =>
+  DEPARTMENTS.find((d) => d.id === id)?.role === 'frontend';
+
 export interface Department {
   id: DeptId;
   name: string;
@@ -19,17 +24,19 @@ export interface Department {
   /** Vertical offset in px — non-zero for 2nd-floor (mezzanine) departments. */
   elevation: number;
   task: string;
+  /** v1.11 — backend = internal ops (no KB); frontend = research → published KB. */
+  role: 'frontend' | 'backend';
 }
 
-// Layout: CEO + Finance sit on a raised mezzanine across the back (2nd floor);
-// CyberX, Marketing & Social, AI R&D and Operations work on the ground floor.
+// Layout: CEOX + FinX sit on a raised mezzanine across the back (2nd floor);
+// CyberX, M&SX, AIX and OperX work on the ground floor.
 export const DEPARTMENTS: Department[] = [
-  { id: 'ceo', name: 'NaNote CEO',             shortName: 'NaNote', color: '#ffdd57', homeX: 5.5,  homeY: 2.4, elevation: MEZZANINE_ELEVATION, task: '● directing team' },
-  { id: 'fin', name: 'Finance',                shortName: 'FIN',    color: '#7f8cff', homeX: 18.0, homeY: 2.4, elevation: MEZZANINE_ELEVATION, task: '● analyzing markets' },
-  { id: 'cyb', name: 'CyberX',                 shortName: 'CYB',    color: '#39ff9d', homeX: 3.0,  homeY: 6.6, elevation: 0, task: '● scanning threats' },
-  { id: 'mkt', name: 'Marketing & Social Media', shortName: 'SOCIAL', color: '#ff6b9d', homeX: 9.0,  homeY: 6.6, elevation: 0, task: '● drafting content' },
-  { id: 'rnd', name: 'AI R&D',                 shortName: 'R&D',    color: '#00cfff', homeX: 15.0, homeY: 6.6, elevation: 0, task: '● scanning research' },
-  { id: 'ops', name: 'Operations',             shortName: 'OPS',    color: '#ff9a3c', homeX: 21.0, homeY: 6.6, elevation: 0, task: '● monitoring systems' },
+  { id: 'ceo', name: 'CEOX',   shortName: 'CEOX', color: '#ffdd57', homeX: 5.5,  homeY: 2.4, elevation: MEZZANINE_ELEVATION, task: '● directing team',    role: 'backend' },
+  { id: 'fin', name: 'FinX',   shortName: 'FinX', color: '#7f8cff', homeX: 18.0, homeY: 2.4, elevation: MEZZANINE_ELEVATION, task: '● analyzing markets', role: 'frontend' },
+  { id: 'cyb', name: 'CyberX', shortName: 'CYB',  color: '#39ff9d', homeX: 3.0,  homeY: 6.6, elevation: 0, task: '● scanning threats',  role: 'frontend' },
+  { id: 'mkt', name: 'M&SX',   shortName: 'M&SX', color: '#ff6b9d', homeX: 9.0,  homeY: 6.6, elevation: 0, task: '● drafting content',  role: 'frontend' },
+  { id: 'rnd', name: 'AIX',    shortName: 'AIX',  color: '#00cfff', homeX: 15.0, homeY: 6.6, elevation: 0, task: '● scanning research', role: 'frontend' },
+  { id: 'ops', name: 'OperX',  shortName: 'OperX', color: '#ff9a3c', homeX: 21.0, homeY: 6.6, elevation: 0, task: '● monitoring systems', role: 'backend' },
 ];
 
 export const DEPT_ZONE_BOUNDS: Record<DeptId, { x0: number; y0: number; x1: number; y1: number; gx: number; gy: number }> = {

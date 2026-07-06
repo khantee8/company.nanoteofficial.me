@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     default: "NaNote Corp — AI Company Simulator",
     template: "%s · NaNote Corp",
   },
-  description: "Live isometric pixel-art office showing 6 AI agents — CEO, Finance, CyberX, Marketing & Social Media, AI R&D, Operations — working together 24/7.",
+  description: "Live isometric pixel-art office showing 6 AI agents — CEOX, FinX, CyberX, M&SX, AIX, OperX — working together 24/7.",
   keywords: ["AI agents", "Claude", "pixel art", "office simulator", "NaNote"],
   authors: [{ name: "NaNote" }],
   openGraph: {
