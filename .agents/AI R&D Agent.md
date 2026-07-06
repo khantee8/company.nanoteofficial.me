@@ -61,11 +61,11 @@
 - Top 3 เทคโนโลยีที่แนะนำให้ทดลองใช้
 - Trend ที่กำลังมาแรง (พร้อมหลักฐาน)
 - เทคโนโลยีที่ควรเฝ้าระวัง (อาจ disrupt ธุรกิจ)
-- **Handoff → Marketing Agent:** summary ที่เขียนเป็น content ได้เลย
+- **Handoff → M&SX Agent:** summary ที่เขียนเป็น content ได้เลย
 
 ### ขั้นที่ 4 — Experiment Proposal (เมื่อพบเทคโนโลยีคะแนน ≥ 14)
 
-เขียน Proposal สั้นๆ ส่ง CEO Agent:
+เขียน Proposal สั้นๆ ส่ง CEOX Agent:
 ```
 ชื่อ          : [เทคโนโลยี]
 ทดลองอะไร    : [scope ชัดเจน]
@@ -81,8 +81,8 @@
 
 | ส่งให้ | เนื้อหา | ความถี่ |
 |---|---|---|
-| Marketing Agent | Top 3 เรื่องที่เขียน content ได้ | ทุกวันศุกร์ |
-| CEO Agent | Experiment Proposal (ถ้ามี) | เมื่อคะแนน ≥ 14 |
+| M&SX Agent | Top 3 เรื่องที่เขียน content ได้ | ทุกวันศุกร์ |
+| CEOX Agent | Experiment Proposal (ถ้ามี) | เมื่อคะแนน ≥ 14 |
 | Orchestrator Agent | สถานะงาน + งานที่รออยู่ | ทุกวัน |
 
 ---
