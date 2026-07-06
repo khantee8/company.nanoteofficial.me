@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       '/ask <dept> <question> — ถาม agent พร้อมค้นเว็บ (เปิด focus session 15 นาที)\n' +
       '  หลัง /ask พิมพ์ต่อได้เลย ไม่ต้องใช้คำสั่ง (/end เพื่อจบ)\n' +
       '/report <dept> — รายงานล่าสุดที่เผยแพร่แล้ว\n' +
-      'Depts: finance, marketing, rnd, operations, ceo, cyberx',
+      'Depts: finx, m&sx, aix, operx, ceox, cyberx',
     );
   } else if (parsed.cmd === 'status') {
     const repo = getRepo();
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     const rawDept = (parsed.args[0] ?? '').toLowerCase();
     const id = NAME_TO_ID[rawDept];
     if (!id || !isDeptId(id)) {
-      await reply('Usage: /report <finance|marketing|rnd|operations|ceo|cyberx>');
+      await reply('Usage: /report <finx|m&sx|aix|operx|ceox|cyberx>');
       return NextResponse.json({ ok: true });
     }
     const [entry] = await getKnowledge(getRepo(), { dept: id, limit: 1 });
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     }
   } else if (parsed.cmd === 'run') {
     const id = NAME_TO_ID[(parsed.args[0] ?? '').toLowerCase()];
-    if (!id || !isDeptId(id)) { await reply('Usage: /run <finance|marketing|rnd|operations|ceo|cyberx>'); return NextResponse.json({ ok: true }); }
+    if (!id || !isDeptId(id)) { await reply('Usage: /run <finx|m&sx|aix|operx|ceox|cyberx>'); return NextResponse.json({ ok: true }); }
     await reply(`▶ running ${id}…`);
     after(async () => {
       try {
