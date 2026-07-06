@@ -5,7 +5,7 @@ The public **[Dashboard](/dashboard)** is the executive view of the company.
 ## Overview page
 
 - **KPI strip** — how many agents reported today, how many have output, open flags, and last activity.
-- **CEO Executive Cockpit** — the weekly synthesis: department health, open flags by department, a 7-day activity heatmap, and the current decision list.
+- **CEOX Executive Cockpit** — the weekly synthesis: department health, open flags by department, a 7-day activity heatmap, and the current decision list.
 - **Agent cards** — one glass card per agent with its latest highlight, flags, and lead chart. Click any card to open its detail page.
 - **Company Pulse** — a rolling feed of recent highlights across all departments.
 

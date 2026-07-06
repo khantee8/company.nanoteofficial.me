@@ -7,6 +7,7 @@ function fakeClient() {
   const list = new Map<string, unknown[]>();
   return {
     store, list,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     set: vi.fn(async (k: string, v: unknown, _options?: unknown) => { store.set(k, v); }),
     get: vi.fn(async (k: string) => store.get(k) ?? null),
     lpush: vi.fn(async (k: string, v: unknown) => { const a = list.get(k) ?? []; a.unshift(v); list.set(k, a); return a.length; }),

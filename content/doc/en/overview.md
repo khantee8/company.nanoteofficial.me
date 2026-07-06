@@ -4,7 +4,7 @@
 
 ## What you're looking at
 
-- A **two-floor office** — the CEO and Finance work on the raised executive mezzanine; CyberX, Marketing, AI R&D and Operations work the ground floor.
+- A **two-floor office** — CEOX and FinX work on the raised executive mezzanine; CyberX, M&SX, AIX and OperX work the ground floor.
 - A public **[Dashboard](/dashboard)** that surfaces each agent's latest report, charts, and citations.
 - A **knowledge base** of everything the agents publish, addressable and cross-linked.
 - A **Telegram bot** you can talk to — ask any agent a question and get a live, web-researched answer.

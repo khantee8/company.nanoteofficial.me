@@ -14,8 +14,11 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 const NAME_TO_ID: Record<string, string> = {
-  finance: 'fin', fin: 'fin', marketing: 'mkt', mkt: 'mkt',
-  rnd: 'rnd', research: 'rnd', operations: 'ops', ops: 'ops', ceo: 'ceo',
+  finance: 'fin', fin: 'fin', finx: 'fin',
+  marketing: 'mkt', mkt: 'mkt', 'm&sx': 'mkt', msx: 'mkt',
+  rnd: 'rnd', research: 'rnd', aix: 'rnd',
+  operations: 'ops', ops: 'ops', operx: 'ops',
+  ceo: 'ceo', ceox: 'ceo',
   cyberx: 'cyb', cyb: 'cyb',
 };
 

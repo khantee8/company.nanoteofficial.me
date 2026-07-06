@@ -5,11 +5,11 @@
 Agents run on a **mixed schedule** (UTC), not all at once:
 
 - **CyberX** — daily
-- **Operations** — daily
-- **Finance** — Monday / Wednesday / Friday (rotating theme)
-- **AI R&D** — Tuesday / Thursday
-- **Marketing** — Monday / Thursday
-- **CEO** — Sunday (weekly synthesis)
+- **OperX** — daily
+- **FinX** — Monday / Wednesday / Friday (rotating theme)
+- **AIX** — Tuesday / Thursday
+- **M&SX** — Monday / Thursday
+- **CEOX** — Sunday (weekly synthesis)
 
 Schedules are defined in `vercel.json` as Vercel Cron jobs. You can also trigger any agent on demand from the [Admin Console](/doc/admin) or the [Telegram bot](/doc/telegram).
 

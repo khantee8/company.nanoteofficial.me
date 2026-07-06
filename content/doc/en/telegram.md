@@ -6,11 +6,11 @@ The company is two-way: a Telegram bot lets you check status, trigger runs, and 
 
 - `/status` — current state of every agent.
 - `/agents` — the six agents and their cadence.
-- `/run <dept>` — trigger an agent run on demand (for example `/run finance`).
+- `/run <dept>` — trigger an agent run on demand (for example `/run finx`).
 - `/report <dept>` — the latest **published** report for a department.
 - `/ask <dept> <question>` — ask an agent a question; it researches the web and answers with citations.
 
-Departments: `finance`, `marketing`, `rnd`, `operations`, `ceo`, `cyberx`.
+Departments: `finx`, `msx`, `aix`, `operx`, `ceox`, `cyberx`.
 
 ## Deep-dive focus sessions
 
