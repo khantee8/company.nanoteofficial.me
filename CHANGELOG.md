@@ -3,6 +3,29 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.11.0] — 2026-07-06
+
+**"The Company Change Agent" — backend/frontend agent roles + knowledge graph.**
+
+### Added
+- **Role seam** — depts carry `role: 'frontend' | 'backend'`. Backend (CEOX,
+  OperX) never write KB; frontend (FinX, CyberX, M&SX, AIX) auto-publish +
+  instant Library sync when the pure `qualityGate()` passes (clean run +
+  cited findings), else draft for /admin review.
+- **CEOX strategy cockpit** — SWOT / Business Model Canvas / Five Forces as a
+  new `matrix` artifact kind (one `MatrixBoard` renderer) + a deterministic
+  KPI scorecard, all through the validated-findings pipeline.
+- **OperX self-heal** — `/api/cron/run?sweep=1` (16:00 UTC) retries at most
+  one failed frontend dept per day with safe overrides (1 search, Haiku);
+  instant Telegram alert when a retry fails; OperX narrates the sweep log.
+- **Knowledge graph** — `GET /api/kb/graph`: published-only nodes + typed
+  edges (`builds_on`, `same_theme`, `shares_tag`), derived on read.
+
+### Changed
+- Display renames: NaNote CEO→CEOX, Finance→FinX, Marketing & Social
+  Media→M&SX, AI R&D→AIX, Operations→OperX (CyberX unchanged). Internal dept
+  IDs, Redis keys, cron URLs, dashboard routes untouched.
+
 ## [1.10.1] — 2026-07-04
 
 **Agent reliability patch — R&D findings recovered, Finance unblocked.**
