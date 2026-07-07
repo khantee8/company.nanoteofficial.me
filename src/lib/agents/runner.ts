@@ -201,7 +201,7 @@ export async function runAgent(agent: Agent, deps: RunnerDeps, overrides?: RunOv
     const incomplete = result.incomplete ?? false;
     const slug = deriveSlug({ dept, date, theme, category });
 
-    // v1.11 role seam — backend depts (CEOX/OperX) are /admin-only: no KB.
+    // v1.11 role seam — backend depts (CEOX/OperX) write no KB entry.
     // Frontend depts auto-publish through the quality gate; a failed gate is a
     // normal draft the Admin Knowledge panel promotes manually.
     const frontend = isFrontendDept(dept);
