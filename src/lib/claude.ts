@@ -73,13 +73,10 @@ async function streamOnce(
   throw lastErr;
 }
 
-/** Streamed completion that surfaces stop_reason + usage. Streaming avoids
- *  HTTP timeouts on the large max_tokens an analyst report needs, and
- *  `pause_turn` is resumed so long web_search loops aren't cut off mid-research. */
-export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
+/** v1.12 — the request shape shared by the sync stream path and batch submission. */
+export function buildRequestShape(opts: CompleteOpts): { params: Record<string, unknown>; useMcp: boolean } {
   const { system, prompt, model = MODEL, maxTokens = 1500, webSearch = false, maxSearches = 5, mcpServers } = opts;
   const useMcp = !!mcpServers && mcpServers.length > 0;
-
   // web_search and the MCP connector can be combined (hybrid): the tools array
   // carries an mcp_toolset per server AND/OR the web_search tool. The presence of
   // mcp_servers forces the beta Messages path (useMcp). web_search_20260209 keeps
@@ -88,12 +85,26 @@ export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
     ...(useMcp ? mcpServers!.map((s) => ({ type: 'mcp_toolset', mcp_server_name: s.name })) : []),
     ...(webSearch ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches, allowed_callers: ['direct'] }] : []),
   ];
-
   const mcp_servers = useMcp
     ? mcpServers!.map((s) => ({ type: 'url', url: s.url, name: s.name, ...(s.token ? { authorization_token: s.token } : {}) }))
     : undefined;
+  return {
+    useMcp,
+    params: {
+      model, max_tokens: maxTokens, system,
+      messages: [{ role: 'user', content: prompt }] as Anthropic.Messages.MessageParam[],
+      ...(tools.length ? { tools } : {}),
+      ...(mcp_servers ? { mcp_servers } : {}),
+    },
+  };
+}
 
-  const messages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: prompt }];
+/** Streamed completion that surfaces stop_reason + usage. Streaming avoids
+ *  HTTP timeouts on the large max_tokens an analyst report needs, and
+ *  `pause_turn` is resumed so long web_search loops aren't cut off mid-research. */
+export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
+  const shape = buildRequestShape(opts);
+  const messages = shape.params.messages as Anthropic.Messages.MessageParam[];
   const texts: string[] = [];
   let stopReason: string | null = null;
   let input = 0;
@@ -103,15 +114,8 @@ export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
   // stop_reason 'pause_turn'; resume by re-sending the assistant content verbatim.
   for (let resume = 0; resume <= MAX_PAUSE_RESUMES; resume++) {
     const msg = await streamOnce(
-      {
-        model,
-        max_tokens: maxTokens,
-        system,
-        messages,
-        ...(tools.length ? { tools } : {}),
-        ...(mcp_servers ? { mcp_servers } : {}),
-      } as unknown as Anthropic.Messages.MessageStreamParams,
-      useMcp,
+      shape.params as unknown as Anthropic.Messages.MessageStreamParams,
+      shape.useMcp,
     );
     texts.push(textOf(msg));
     input += msg.usage.input_tokens;
@@ -126,8 +130,37 @@ export async function completeRaw(opts: CompleteOpts): Promise<CompleteResult> {
     text: texts.filter(Boolean).join('\n').trim(),
     stopReason,
     usage: { input, output },
-    model,
+    model: shape.params.model as string,
   };
+}
+
+export function completionFromMessage(msg: Anthropic.Messages.Message): CompleteResult {
+  return { text: textOf(msg), stopReason: msg.stop_reason, usage: { input: msg.usage.input_tokens, output: msg.usage.output_tokens }, model: msg.model };
+}
+
+/** Submit a one-request agent batch. MCP shapes go through the beta batches
+ *  surface with the connector beta header. Returns the batch id. */
+export async function createAgentBatch(customId: string, shape: { params: Record<string, unknown>; useMcp: boolean }): Promise<string> {
+  const requests = [{ custom_id: customId, params: shape.params }] as never;
+  const batch = shape.useMcp
+    ? await client().beta.messages.batches.create({ requests, betas: [MCP_BETA] } as never)
+    : await client().messages.batches.create({ requests });
+  return (batch as { id: string }).id;
+}
+
+export type BatchItemResult =
+  | { type: 'succeeded'; message: Anthropic.Messages.Message }
+  | { type: 'errored' | 'expired' | 'canceled'; error?: string };
+
+export async function getAgentBatch(batchId: string): Promise<{ status: 'in_progress' } | { status: 'ended'; result: BatchItemResult }> {
+  const b = await client().messages.batches.retrieve(batchId);
+  if (b.processing_status !== 'ended') return { status: 'in_progress' };
+  for await (const item of await client().messages.batches.results(batchId)) {
+    const r = item.result as { type: string; message?: unknown; error?: { message?: string } };
+    if (r.type === 'succeeded') return { status: 'ended', result: { type: 'succeeded', message: r.message as Anthropic.Messages.Message } };
+    return { status: 'ended', result: { type: r.type as 'errored', error: r.error?.message } };
+  }
+  return { status: 'ended', result: { type: 'errored', error: 'empty batch results' } };
 }
 
 export async function complete(opts: CompleteOpts): Promise<string> {
