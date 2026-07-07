@@ -7,19 +7,29 @@ import { runAgent } from '@/lib/agents/runner';
 import { getRepo } from '@/lib/redis';
 import { complete } from '@/lib/claude';
 import { CHAT_PERSONAS } from '@/lib/agents/personas';
-import { DEPARTMENTS } from '@/lib/data/departments';
+import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
 import { getKnowledge } from '@/lib/kb';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const NAME_TO_ID: Record<string, string> = {
-  finance: 'fin', fin: 'fin', finx: 'fin',
-  marketing: 'mkt', mkt: 'mkt', 'm&sx': 'mkt', msx: 'mkt',
-  rnd: 'rnd', research: 'rnd', aix: 'rnd',
-  operations: 'ops', ops: 'ops', operx: 'ops',
-  ceo: 'ceo', ceox: 'ceo',
-  cyberx: 'cyb', cyb: 'cyb',
+// F4 — dept name lists derive from the DEPARTMENTS registry so a display-name
+// change never leaves the bot's strings stale. /run and /ask accept every
+// dept; /report lists only frontend depts (backend depts never publish KB).
+const ALL_NAMES = DEPARTMENTS.map((d) => d.name.toLowerCase()).join('|');
+const REPORT_NAMES = DEPARTMENTS.filter((d) => d.role === 'frontend')
+  .map((d) => d.name.toLowerCase()).join('|');
+
+/** Legacy aliases (old display names + shorthands) kept working alongside the
+ *  registry-derived canonical names. */
+const LEGACY_ALIASES: Record<string, DeptId> = {
+  finance: 'fin', marketing: 'mkt', msx: 'mkt', research: 'rnd', operations: 'ops',
+};
+
+const NAME_TO_ID: Record<string, DeptId> = {
+  ...LEGACY_ALIASES,
+  // Canonical: the dept id itself + the current lowercased display name.
+  ...Object.fromEntries(DEPARTMENTS.flatMap((d) => [[d.id, d.id], [d.name.toLowerCase(), d.id]])),
 };
 
 const CADENCE: Record<string, string> = {
@@ -79,8 +89,8 @@ export async function POST(req: NextRequest) {
       '/run <dept> — สั่ง run agent\n' +
       '/ask <dept> <question> — ถาม agent พร้อมค้นเว็บ (เปิด focus session 15 นาที)\n' +
       '  หลัง /ask พิมพ์ต่อได้เลย ไม่ต้องใช้คำสั่ง (/end เพื่อจบ)\n' +
-      '/report <dept> — รายงานล่าสุดที่เผยแพร่แล้ว\n' +
-      'Depts: finx, m&sx, aix, operx, ceox, cyberx',
+      `/report <dept> — รายงานล่าสุดที่เผยแพร่แล้ว (เฉพาะ ${REPORT_NAMES.replaceAll('|', ', ')})\n` +
+      `Depts: ${ALL_NAMES.replaceAll('|', ', ')}`,
     );
   } else if (parsed.cmd === 'status') {
     const repo = getRepo();
@@ -98,7 +108,7 @@ export async function POST(req: NextRequest) {
     const rawDept = (parsed.args[0] ?? '').toLowerCase();
     const id = NAME_TO_ID[rawDept];
     if (!id || !isDeptId(id)) {
-      await reply('Usage: /report <finx|m&sx|aix|operx|ceox|cyberx>');
+      await reply(`Usage: /report <${REPORT_NAMES}>`);
       return NextResponse.json({ ok: true });
     }
     const [entry] = await getKnowledge(getRepo(), { dept: id, limit: 1 });
@@ -109,7 +119,7 @@ export async function POST(req: NextRequest) {
     }
   } else if (parsed.cmd === 'run') {
     const id = NAME_TO_ID[(parsed.args[0] ?? '').toLowerCase()];
-    if (!id || !isDeptId(id)) { await reply('Usage: /run <finx|m&sx|aix|operx|ceox|cyberx>'); return NextResponse.json({ ok: true }); }
+    if (!id || !isDeptId(id)) { await reply(`Usage: /run <${ALL_NAMES}>`); return NextResponse.json({ ok: true }); }
     await reply(`▶ running ${id}…`);
     after(async () => {
       try {

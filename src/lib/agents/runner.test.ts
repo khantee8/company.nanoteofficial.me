@@ -163,6 +163,36 @@ describe('runAgent — v1.11 role branch', () => {
     expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft' }));
     expect(repo.pushSyncLog).not.toHaveBeenCalled();
   });
+
+  // F1 — cross-agent KB links: an unlinked frontend run wires `related` to the
+  // same-day entries of departments earlier in DEPT_ORDER (cyb runs before mkt).
+  it('frontend run with empty related links same-day earlier-dept KB entries', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const repo = fakeRepo();
+    (repo.listKb as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 'cyb:today', dept: 'cyb', date: today, status: 'published' },      // earlier in DEPT_ORDER → linked
+      { id: 'ops:today', dept: 'ops', date: today, status: 'draft' },          // later in DEPT_ORDER → skipped
+      { id: 'cyb:old', dept: 'cyb', date: '2020-01-01', status: 'published' }, // not today → skipped
+    ]);
+    await runAgent({ dept: 'mkt', run: async () => citedResult() }, { repo, notify: vi.fn(async () => {}) });
+    expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ related: ['cyb:today'] }));
+  });
+
+  it('frontend run with explicit related leaves it untouched (no listKb fetch)', async () => {
+    const repo = fakeRepo();
+    await runAgent(
+      { dept: 'mkt', run: async () => citedResult({ related: ['fin:explicit'] }) },
+      { repo, notify: vi.fn(async () => {}) },
+    );
+    expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ related: ['fin:explicit'] }));
+    expect(repo.listKb).not.toHaveBeenCalled();
+  });
+
+  it('backend dept run (ops) never fetches listKb for related links', async () => {
+    const repo = fakeRepo();
+    await runAgent({ dept: 'ops', run: async () => citedResult() }, { repo, notify: vi.fn(async () => {}) });
+    expect(repo.listKb).not.toHaveBeenCalled();
+  });
 });
 
 describe('parseHighlight', () => {

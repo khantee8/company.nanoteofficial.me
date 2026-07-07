@@ -20,7 +20,7 @@ export interface UsageAggregate {
 
 const DAY_MS = 86_400_000;
 
-function startOfMonthUtc(now: number): number {
+export function startOfMonthUtc(now: number): number {
   const d = new Date(now);
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
 }

@@ -6,7 +6,7 @@ import type { RedisRepo } from '@/lib/redis';
 import { deriveSlug } from '@/lib/redis';
 import { qualityGate } from './kbGate';
 import { pushLibrarySync } from '@/lib/librarySync';
-import { aggregateUsage } from './usage';
+import { aggregateUsage, startOfMonthUtc } from './usage';
 
 export interface Agent {
   dept: DeptId;
@@ -20,7 +20,7 @@ export interface RunnerDeps {
 
 const DEPT_ORDER: DeptId[] = ['cyb', 'fin', 'rnd', 'mkt', 'ops', 'ceo'];
 
-function todayDate(): string {
+export function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
@@ -81,31 +81,33 @@ export async function buildContext(dept: DeptId, repo: RedisRepo, overrides?: Ru
   // extra status reads.
   let companySnapshot: AgentContext['companySnapshot'];
   if (dept === 'ceo') {
-    const statuses = await Promise.all(DEPARTMENTS.map((d) => repo.getStatus(d.id)));
-    const recent = await repo.listKb({ limit: 24 });
+    // v1.11 — deterministic KPI inputs for the CEOX scorecard. statuses/listKb/
+    // usage are independent reads — fan them out in one Promise.all, and reuse
+    // the single unfiltered listKb() for both the related-ids graph pass and
+    // the published count (was two separate listKb calls).
+    const now = Date.now();
+    const [statuses, allKb, usage] = await Promise.all([
+      Promise.all(DEPARTMENTS.map((d) => repo.getStatus(d.id))),
+      repo.listKb(),
+      repo.getUsageSince(startOfMonthUtc(now)),
+    ]);
     const seen = new Set<DeptId>();
     const relatedEntryIds: string[] = [];
-    for (const e of recent) {
+    for (const e of allKb) {
       if (e.dept === 'ceo' || seen.has(e.dept)) continue;
       seen.add(e.dept);
       relatedEntryIds.push(e.id);
     }
-    // v1.11 — deterministic KPI inputs for the CEOX scorecard.
-    const now = Date.now();
-    const monthStartMs = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), 1);
-    const [kbPublished, usage] = await Promise.all([
-      repo.listKb({ status: 'published' }),
-      repo.getUsageSince(monthStartMs),
-    ]);
+    const kbPublished = allKb.filter((e) => e.status === 'published').length;
     const weekAgo = now - 7 * 86_400_000;
     const recentRuns = statuses.filter((s) => s.lastRun && Date.parse(s.lastRun) >= weekAgo);
     const kpis = {
       runsOk7d: recentRuns.filter((s) => s.state === 'done').length,
       runsTotal7d: recentRuns.length,
-      kbPublished: kbPublished.length,
+      kbPublished,
       costMtdUsd: aggregateUsage(usage, { now, budgetUsd: null }).mtdUsd,
     };
-    companySnapshot = { statuses, digest, relatedEntryIds, kbPublishedCount: kbPublished.length, kpis };
+    companySnapshot = { statuses, digest, relatedEntryIds, kpis };
   } else if (dept === 'ops') {
     const statuses = await Promise.all(DEPARTMENTS.map((d) => repo.getStatus(d.id)));
     const outputs = await Promise.all(
@@ -196,7 +198,6 @@ export async function runAgent(agent: Agent, deps: RunnerDeps, overrides?: RunOv
     const theme = result.theme;
     const provenance = result.provenance ?? 'api';
     const sources = result.sources ?? [];
-    const related = result.related ?? [];
     const incomplete = result.incomplete ?? false;
     const slug = deriveSlug({ dept, date, theme, category });
 
@@ -205,6 +206,21 @@ export async function runAgent(agent: Agent, deps: RunnerDeps, overrides?: RunOv
     // normal draft the Admin Knowledge panel promotes manually.
     const frontend = isFrontendDept(dept);
     const kbStatus: KbEntry['status'] = frontend && qualityGate(result) ? 'published' : 'draft';
+
+    // F1 — restore the graph's dead builds_on edges: when a frontend dept's
+    // report doesn't explicitly cross-link (result.related), deterministically
+    // wire it to the same-day reports of departments that ran earlier in
+    // DEPT_ORDER (the runner's own collaboration order) — this is exactly the
+    // "today's peers" set buildContext already showed the LLM, so the graph
+    // reflects what the agent actually saw.
+    let related = result.related ?? [];
+    if (frontend && related.length === 0) {
+      const recent = await repo.listKb({ limit: 24 });
+      const myIndex = DEPT_ORDER.indexOf(dept);
+      related = recent
+        .filter((e) => e.date === date && e.dept !== dept && DEPT_ORDER.indexOf(e.dept) < myIndex)
+        .map((e) => e.id);
+    }
 
     await Promise.all([
       repo.setOutput({ dept, markdown, markdownEn, summary: result.summary, ts, category, tags, artifacts, meta: result.meta, incomplete }),
@@ -223,13 +239,16 @@ export async function runAgent(agent: Agent, deps: RunnerDeps, overrides?: RunOv
         : []),
     ]);
 
-    if (frontend && kbStatus === 'published') await pushLibrarySync(slug, repo);
-
     const warn = incomplete ? '\n⚠️ รายงานอาจไม่สมบูรณ์ — ตรวจก่อนเผยแพร่' : '';
     const kbNote = !frontend ? ''
       : kbStatus === 'published' ? `\n📚 published → KB (${slug})`
       : '\n📝 draft — review in /admin';
-    await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}${kbNote}\n\n${markdown.slice(0, 800)}`);
+    // pushLibrarySync and the run notify are independent (and pushLibrarySync
+    // never throws) — fire them concurrently instead of blocking notify on sync.
+    await Promise.all([
+      frontend && kbStatus === 'published' ? pushLibrarySync(slug, repo) : Promise.resolve(),
+      notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}${kbNote}\n\n${markdown.slice(0, 800)}`),
+    ]);
     if (result.alert) await notify(result.alert.text);
     return result;
   } catch (err) {

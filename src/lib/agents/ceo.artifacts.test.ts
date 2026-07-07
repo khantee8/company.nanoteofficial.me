@@ -73,13 +73,14 @@ describe('ceoTags', () => {
 });
 
 describe('ceoBoardArtifacts', () => {
-  it('builds matrix boards from findings, api provenance', () => {
+  it('builds matrix boards from findings, WITHOUT a provenance stamp (F2 — LLM-synthesized strategy, not api/web)', () => {
     const arts = ceoBoardArtifacts({
       swot: { strengths: ['s'], weaknesses: [], opportunities: [], threats: [] },
       forces: { rivalry: ['r'], newEntrants: [], substitutes: [], buyerPower: [], supplierPower: [] },
     });
     expect(arts).toHaveLength(2); // swot + forces (no canvas provided)
-    expect(arts[0]).toMatchObject({ kind: 'matrix', layout: 'swot', provenance: 'api' });
+    expect(arts[0]).toMatchObject({ kind: 'matrix', layout: 'swot' });
+    expect(arts[0].provenance).toBeUndefined();
     expect(arts[0]).toMatchObject({ cells: expect.arrayContaining([{ label: 'Strengths', items: ['s'] }]) });
   });
 });
@@ -89,5 +90,17 @@ describe('ceoKpiArtifact', () => {
     const a = ceoKpiArtifact({ runsOk7d: 6, runsTotal7d: 7, kbPublished: 12, costMtdUsd: 0.42 });
     expect(a).toMatchObject({ kind: 'scorecard', title: 'company KPIs' });
     expect((a as { tiles: unknown[] }).tiles).toHaveLength(3);
+  });
+
+  it('F5 — 0/0 runs in 7d is an outage (down), not a trivially-equal ok', () => {
+    const a = ceoKpiArtifact({ runsOk7d: 0, runsTotal7d: 0, kbPublished: 0, costMtdUsd: 0 });
+    const runsTile = (a as { tiles: { label: string; state: string }[] }).tiles[0];
+    expect(runsTile.state).toBe('down');
+  });
+
+  it('still reports ok when all 7d runs succeeded (nonzero total)', () => {
+    const a = ceoKpiArtifact({ runsOk7d: 7, runsTotal7d: 7, kbPublished: 3, costMtdUsd: 1 });
+    const runsTile = (a as { tiles: { label: string; state: string }[] }).tiles[0];
+    expect(runsTile.state).toBe('ok');
   });
 });

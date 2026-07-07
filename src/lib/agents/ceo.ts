@@ -118,8 +118,13 @@ const CELL_LABELS: Record<string, string> = {
 function matrixOf(title: string, layout: 'swot' | 'canvas' | 'forces',
                   cells: Record<string, string[]> | undefined): Artifact | null {
   if (!cells || Object.values(cells).every((v) => v.length === 0)) return null;
-  return withProvenance({ kind: 'matrix', title, layout,
-    cells: Object.entries(cells).map(([k, items]) => ({ label: CELL_LABELS[k] ?? k, items })) }, 'api');
+  // F2 — no provenance stamp: this board is LLM-synthesized strategic analysis,
+  // neither built from a real API ('api') nor from validated, cited findings
+  // ('web'). provenance is optional on ArtifactMeta; ArtifactRenderer only
+  // shows its badge when provenance is set, so an unstamped board just renders
+  // without a (misleading) "api" badge.
+  return { kind: 'matrix', title, layout,
+    cells: Object.entries(cells).map(([k, items]) => ({ label: CELL_LABELS[k] ?? k, items })) };
 }
 
 /** v1.11 CEOX strategy boards — built deterministically from VALIDATED findings. */
@@ -135,8 +140,13 @@ export interface CeoKpis { runsOk7d: number; runsTotal7d: number; kbPublished: n
 
 /** v1.11 KPI scorecard — fully deterministic, no LLM input. */
 export function ceoKpiArtifact(k: CeoKpis): Artifact {
+  // F5 — zero runs in 7 days is an outage, not a clean 0/0 pass: don't let the
+  // "runsOk7d === runsTotal7d" equality trivially read as 'ok' when both are 0.
+  const runsState = k.runsTotal7d === 0 ? 'down'
+    : k.runsOk7d === k.runsTotal7d ? 'ok'
+    : k.runsOk7d > 0 ? 'warn' : 'down';
   return withProvenance({ kind: 'scorecard', title: 'company KPIs', tiles: [
-    { label: `runs 7d ${k.runsOk7d}/${k.runsTotal7d}`, state: k.runsOk7d === k.runsTotal7d ? 'ok' : k.runsOk7d > 0 ? 'warn' : 'down' },
+    { label: `runs 7d ${k.runsOk7d}/${k.runsTotal7d}`, state: runsState },
     { label: `KB published ${k.kbPublished}`, state: k.kbPublished > 0 ? 'ok' : 'warn' },
     { label: `cost MTD $${k.costMtdUsd.toFixed(2)}`, state: 'ok' },
   ] }, 'api');

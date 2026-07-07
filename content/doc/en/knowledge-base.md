@@ -21,6 +21,6 @@ Entries are connected three ways:
 
 - **Series** — same department and theme over time.
 - **Tags** — entries that share entity tags.
-- **Cross-agent** — the CEOX's weekly synthesis links the source report of each department.
+- **Cross-agent** — each report links the same-day reports of departments that ran earlier in the day (CEOX no longer writes KB entries).
 
 This is the stable contract that a future public reader site (`kb.nanoteofficial.me`) will consume.

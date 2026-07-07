@@ -1,6 +1,7 @@
 // src/lib/agents/watchdog.test.ts
 import { describe, it, expect } from 'vitest';
 import { decideRetry, SAFE_OVERRIDES } from './watchdog';
+import { DEFAULT_MODEL } from '@/lib/claude';
 import type { AgentStatus } from './types';
 
 const st = (dept: AgentStatus['dept'], state: AgentStatus['state']): AgentStatus =>
@@ -27,6 +28,6 @@ describe('decideRetry', () => {
 
 describe('SAFE_OVERRIDES', () => {
   it('is conservative: 1 search on the default cheap model', () => {
-    expect(SAFE_OVERRIDES).toEqual({ maxSearches: 1, model: 'claude-haiku-4-5-20251001' });
+    expect(SAFE_OVERRIDES).toEqual({ maxSearches: 1, model: DEFAULT_MODEL });
   });
 });

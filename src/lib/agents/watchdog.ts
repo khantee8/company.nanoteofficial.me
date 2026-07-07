@@ -4,12 +4,13 @@
 import { DEPARTMENTS, isFrontendDept, type DeptId } from '@/lib/data/departments';
 import type { AgentStatus, RunOverrides } from './types';
 import type { RedisRepo } from '@/lib/redis';
-import { runAgent } from './runner';
+import { runAgent, todayDate } from './runner';
 import { AGENTS } from './index';
+import { DEFAULT_MODEL } from '@/lib/claude';
 
 /** Conservative retry settings — a thin report beats a dead one. The dept's
  *  next scheduled run uses its normal settings. */
-export const SAFE_OVERRIDES: RunOverrides = { maxSearches: 1, model: 'claude-haiku-4-5-20251001' };
+export const SAFE_OVERRIDES: RunOverrides = { maxSearches: 1, model: DEFAULT_MODEL };
 
 /** Pure: pick AT MOST ONE dept to heal (registry order). Backend depts are
  *  excluded — they synthesize internal state and are cheap to just rerun on
@@ -26,7 +27,7 @@ export function decideRetry(statuses: AgentStatus[], retriedToday: DeptId[], dis
 export async function runSweep(deps: { repo: RedisRepo; notify: (t: string) => Promise<void> }):
   Promise<{ retried: DeptId | null; ok?: boolean }> {
   const { repo, notify } = deps;
-  const date = new Date().toISOString().slice(0, 10);
+  const date = todayDate();
   const [statuses, disabled] = await Promise.all([
     Promise.all(DEPARTMENTS.map((d) => repo.getStatus(d.id))),
     repo.getDisabledDepts(),
@@ -39,6 +40,9 @@ export async function runSweep(deps: { repo: RedisRepo; notify: (t: string) => P
   if (!dept) return { retried: null };
 
   await repo.markRetried(dept, date); // before the rerun — no retry loops
+  // Announce BEFORE the rerun: if the platform kills this function mid-retry
+  // (300s cap), the attempt is not silent — the operator still saw it start.
+  await notify(`🔧 OperX: attempting self-heal rerun of ${dept.toUpperCase()}`);
   try {
     const result = await runAgent({ dept, run: AGENTS[dept] }, { repo, notify }, SAFE_OVERRIDES);
     await repo.pushSweepLog({ dept, ok: true, detail: result.summary, ts: Date.now() });

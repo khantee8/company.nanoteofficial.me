@@ -9,7 +9,10 @@ import type { RedisRepo } from '@/lib/redis';
 import type { AgentStatus } from './types';
 import type { DeptId } from '@/lib/data/departments';
 
-vi.mock('./runner', () => ({ runAgent: vi.fn() }));
+vi.mock('./runner', () => ({
+  runAgent: vi.fn(),
+  todayDate: () => new Date().toISOString().slice(0, 10),
+}));
 vi.mock('./index', () => ({
   AGENTS: { ceo: vi.fn(), cyb: vi.fn(), fin: vi.fn(), mkt: vi.fn(), rnd: vi.fn(), ops: vi.fn() },
 }));
@@ -33,10 +36,10 @@ beforeEach(() => {
 });
 
 describe('runSweep', () => {
-  it('marks retried BEFORE rerunning the failed dept (no retry loop on crash)', async () => {
+  it('marks retried, then announces, BEFORE rerunning the failed dept (no retry loop; no silent 300s kill)', async () => {
     const repo = fakeRepo();
-    const notify = vi.fn(async () => {});
     const callOrder: string[] = [];
+    const notify = vi.fn(async () => { callOrder.push('notify'); });
     (repo.markRetried as ReturnType<typeof vi.fn>).mockImplementation(async () => {
       callOrder.push('markRetried');
     });
@@ -47,7 +50,10 @@ describe('runSweep', () => {
 
     await runSweep({ repo, notify });
 
-    expect(callOrder).toEqual(['markRetried', 'runAgent']);
+    // pre-rerun announce sits between markRetried and runAgent; the trailing
+    // notify is the success message.
+    expect(callOrder).toEqual(['markRetried', 'notify', 'runAgent', 'notify']);
+    expect(notify).toHaveBeenNthCalledWith(1, expect.stringContaining('attempting self-heal rerun of FIN'));
   });
 
   it('failure path: runAgent rejects → ok:false, sweep log ok:false, alerts with 🚨 + "failed twice"', async () => {
