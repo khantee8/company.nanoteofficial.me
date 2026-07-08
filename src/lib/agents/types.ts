@@ -3,7 +3,7 @@ import type { Artifact, KbCategory, Citation } from './artifacts';
 
 export type { Artifact, KbCategory, Citation };
 
-export type AgentState = 'idle' | 'running' | 'done' | 'error';
+export type AgentState = 'idle' | 'queued' | 'running' | 'done' | 'error';
 
 export interface AgentStatus {
   dept: DeptId;

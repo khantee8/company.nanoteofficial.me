@@ -26,7 +26,7 @@ export interface CeoBoards {
 export interface CeoFindings { decisions: string[]; risks: string[]; priorities: string[]; boards?: CeoBoards }
 
 const STATE_TO_TILE: Record<AgentState, 'ok' | 'warn' | 'down'> = {
-  done: 'ok', error: 'down', idle: 'warn', running: 'warn',
+  done: 'ok', error: 'down', idle: 'warn', running: 'warn', queued: 'warn',
 };
 
 const strArray = (v: unknown): string[] =>

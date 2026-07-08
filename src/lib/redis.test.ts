@@ -10,7 +10,10 @@ function fakeClient() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     set: vi.fn(async (k: string, v: unknown, _options?: unknown) => { store.set(k, v); }),
     get: vi.fn(async (k: string) => store.get(k) ?? null),
+    del: vi.fn(async (...keys: string[]) => { keys.forEach((k) => store.delete(k)); return keys.length; }),
+    mget: vi.fn(async (keys: string[]) => keys.map((k) => store.get(k) ?? null)),
     lpush: vi.fn(async (k: string, v: unknown) => { const a = list.get(k) ?? []; a.unshift(v); list.set(k, a); return a.length; }),
+    lrem: vi.fn(async (k: string, _count: number, v: unknown) => { const a = list.get(k) ?? []; list.set(k, a.filter((x) => x !== v)); return 0; }),
     ltrim: vi.fn(async (k: string, start: number, stop: number) => { const a = list.get(k) ?? []; list.set(k, a.slice(start, stop + 1)); }),
     lrange: vi.fn(async (k: string, start: number, stop: number) => { const a = list.get(k) ?? []; return a.slice(start, stop === -1 ? undefined : stop + 1); }),
   } as unknown as RedisClientLike & {
@@ -18,7 +21,10 @@ function fakeClient() {
     list: Map<string, unknown[]>;
     set: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
+    del: ReturnType<typeof vi.fn>;
+    mget: ReturnType<typeof vi.fn>;
     lpush: ReturnType<typeof vi.fn>;
+    lrem: ReturnType<typeof vi.fn>;
     ltrim: ReturnType<typeof vi.fn>;
     lrange: ReturnType<typeof vi.fn>;
   };
@@ -89,5 +95,14 @@ describe('redis repo', () => {
     await repo.pushSweepLog({ dept: 'rnd', ok: true, detail: 'recovered', ts: 2 });
     const log = await repo.getSweepLog();
     expect(log[0]).toMatchObject({ dept: 'rnd', ok: true });
+  });
+
+  it('pending runs: save, list, delete', async () => {
+    const run = { id: 'fin:2026-07-07T10:00:00Z', dept: 'fin', submittedAt: 1, batchId: 'b1', customId: 'c1',
+      continuations: 0, origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [], usageAcc: { input: 0, output: 0 }, resumeContent: [] };
+    await repo.savePendingRun(run as never);
+    expect((await repo.getPendingRuns()).map((r) => r.id)).toEqual([run.id]);
+    await repo.deletePendingRun(run.id);
+    expect(await repo.getPendingRuns()).toEqual([]);
   });
 });

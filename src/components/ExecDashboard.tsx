@@ -10,7 +10,7 @@ import type { DashboardData, DashboardAgent } from '@/lib/dashboard';
 import type { AgentState } from '@/lib/agents/types';
 
 const STATE_COLOR: Record<AgentState, string> = {
-  done: '#3ddc97', running: '#ffc04d', error: '#ff6b86', idle: '#8b8db5',
+  done: '#3ddc97', running: '#ffc04d', error: '#ff6b86', idle: '#8b8db5', queued: '#ffc04d',
 };
 const deptMeta = (id: DeptId) => DEPARTMENTS.find((d) => d.id === id);
 const today = () => new Date().toISOString().slice(0, 10);

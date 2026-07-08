@@ -21,7 +21,7 @@ function dedupeSources(lists: Citation[][]): Citation[] {
 }
 
 const STATE_COLOR: Record<AgentState, string> = {
-  done: '#3ddc97', running: '#ffc04d', error: '#ff6b86', idle: '#8b8db5',
+  done: '#3ddc97', running: '#ffc04d', error: '#ff6b86', idle: '#8b8db5', queued: '#ffc04d',
 };
 const CATEGORY_LABEL: Record<string, string> = {
   'market-brief': 'Market Brief', 'threat-intel': 'Threat Intel', research: 'Research',

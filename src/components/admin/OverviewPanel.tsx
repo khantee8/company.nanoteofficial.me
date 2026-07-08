@@ -5,7 +5,7 @@ import type { DashboardData, DashboardAgent } from '@/lib/dashboard';
 import type { AgentState } from '@/lib/agents/types';
 
 const STATE_COLOR: Record<AgentState, string> = {
-  done: '#3fb950', running: '#d29922', error: '#f85149', idle: '#6e7681',
+  done: '#3fb950', running: '#d29922', error: '#f85149', idle: '#6e7681', queued: '#d29922',
 };
 
 const deptName = (id: DeptId) => DEPARTMENTS.find((d) => d.id === id)?.name ?? id;

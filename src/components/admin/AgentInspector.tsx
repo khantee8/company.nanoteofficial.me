@@ -9,7 +9,7 @@ import type { AgentState } from '@/lib/agents/types';
 import { exportMarkdown, exportPdf, exportHistoryCsv } from './exporters';
 
 const STATE_COLOR: Record<AgentState, string> = {
-  done: '#3fb950', running: '#d29922', error: '#f85149', idle: '#6e7681',
+  done: '#3fb950', running: '#d29922', error: '#f85149', idle: '#6e7681', queued: '#d29922',
 };
 
 // Human cadence labels mirroring vercel.json crons.

@@ -6,8 +6,28 @@ import { CATEGORY_BY_DEPT } from './agents/artifacts';
 import { focusKey } from './telegram';
 import type { FocusSession } from './telegram';
 import type { SyncLogEntry } from './librarySync';
+import type { CompleteOpts } from './claude';
 
 export interface SweepLogEntry { dept: DeptId; ok: boolean; detail: string; ts: number }
+
+/** v1.12 — a paused/in-flight batch run parked between the sync agent runner and
+ *  the async batch substrate. `resumeContent` holds each paused turn's assistant
+ *  `content` array, in order, so a continuation can resubmit exactly where the
+ *  prior turn left off (mirrors the pause_turn resume in claude.ts). */
+export interface PendingRun {
+  id: string;
+  dept: DeptId;
+  submittedAt: number;
+  batchId: string;
+  customId: string;
+  continuations: number;
+  origin: 'cron' | 'admin' | 'telegram' | 'sweep';
+  opts: CompleteOpts;
+  meta: unknown;
+  partialTexts: string[];
+  usageAcc: { input: number; output: number };
+  resumeContent: unknown[];
+}
 
 const FEED_KEY = 'feed:events';
 const FEED_CAP = 50;
@@ -29,6 +49,10 @@ const KB_LEGACY = 'kb:entries';
 const KB_CAP = 300;
 const kbKey = (id: string) => `kb:entry:${id}`;
 const retriedKey = (dept: DeptId, date: string) => `agent:retried:${dept}:${date}`;
+// Pending runs: same addressable-entry + index-list pattern as the KB (v1.12).
+const PENDING_INDEX = 'run:pending:index';
+const PENDING_CAP = 50;
+const pendingKey = (id: string) => `run:pending:${id}`;
 
 export interface KbQuery {
   status?: KbEntry['status'];
@@ -250,6 +274,21 @@ export function makeRedisRepo(client: RedisClientLike) {
     },
     async getSweepLog(): Promise<SweepLogEntry[]> {
       return await client.lrange<SweepLogEntry>(SWEEPLOG_KEY, 0, SWEEPLOG_CAP - 1);
+    },
+    async savePendingRun(run: PendingRun) {
+      await client.set(pendingKey(run.id), run);
+      await client.lpush(PENDING_INDEX, run.id);
+      await client.ltrim(PENDING_INDEX, 0, PENDING_CAP - 1);
+    },
+    async getPendingRuns(): Promise<PendingRun[]> {
+      const ids = await client.lrange<string>(PENDING_INDEX, 0, PENDING_CAP - 1);
+      if (ids.length === 0) return [];
+      const raw = await client.mget<PendingRun>(ids.map(pendingKey));
+      return raw.filter((r): r is PendingRun => r != null);
+    },
+    async deletePendingRun(id: string) {
+      await client.del(pendingKey(id));
+      await client.lrem(PENDING_INDEX, 0, id);
     },
   };
   return repo;
