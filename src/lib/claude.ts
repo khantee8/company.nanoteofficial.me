@@ -152,10 +152,19 @@ export type BatchItemResult =
   | { type: 'succeeded'; message: Anthropic.Messages.Message }
   | { type: 'errored' | 'expired' | 'canceled'; error?: string };
 
-export async function getAgentBatch(batchId: string): Promise<{ status: 'in_progress' } | { status: 'ended'; result: BatchItemResult }> {
-  const b = await client().messages.batches.retrieve(batchId);
+/** `useMcp` MUST match how the batch was created (`createAgentBatch`'s
+ *  `shape.useMcp`): a beta (MCP connector) batch only resolves through the
+ *  beta `client().beta.messages.batches.*` surface with the connector beta
+ *  header — the plain surface 404s on a beta-created batch id. */
+export async function getAgentBatch(batchId: string, useMcp = false): Promise<{ status: 'in_progress' } | { status: 'ended'; result: BatchItemResult }> {
+  const b = useMcp
+    ? await client().beta.messages.batches.retrieve(batchId, { betas: [MCP_BETA] } as never)
+    : await client().messages.batches.retrieve(batchId);
   if (b.processing_status !== 'ended') return { status: 'in_progress' };
-  for await (const item of await client().messages.batches.results(batchId)) {
+  const results = useMcp
+    ? await client().beta.messages.batches.results(batchId, { betas: [MCP_BETA] } as never)
+    : await client().messages.batches.results(batchId);
+  for await (const item of results) {
     const r = item.result as { type: string; message?: unknown; error?: { message?: string } };
     if (r.type === 'succeeded') return { status: 'ended', result: { type: 'succeeded', message: r.message as Anthropic.Messages.Message } };
     return { status: 'ended', result: { type: r.type as 'errored', error: r.error?.message } };

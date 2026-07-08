@@ -1,0 +1,235 @@
+// src/lib/agents/asyncRun.ts — v1.12 async batch run lifecycle. Every dept run
+// submits as an Anthropic Message Batch instead of a synchronous, timeout-
+// bound request; `submitRun` self-polls for a few minutes (the fast path),
+// and `pollPendingRuns` is the standalone collector `/api/cron/poll` calls as
+// the backstop for anything slower (or a serverless function that got killed
+// mid self-poll). Both funnel a finished batch through the SAME `collect()` →
+// `persistRunResult()` path — the post-LLM pipeline (bilingual split, role-
+// gated KB publish, Library sync, Telegram) is untouched by this file.
+import type Anthropic from '@anthropic-ai/sdk';
+import type { DeptId } from '@/lib/data/departments';
+import type { RunOverrides, AgentRunResult } from './types';
+import type { PendingRun } from '@/lib/redis';
+import type { RunnerDeps } from './runner';
+import { buildContext, persistRunResult } from './runner';
+import { PREPARES, FINALIZES } from './index';
+import {
+  buildRequestShape,
+  createAgentBatch,
+  getAgentBatch,
+  completionFromMessage,
+  type CompleteResult,
+} from '@/lib/claude';
+
+export const MAX_CONTINUATIONS = 3;
+export const STALE_MS = 6 * 3600_000;
+
+const DEFAULT_SELF_POLL_MS = 180_000;
+const DEFAULT_POLL_INTERVAL_MS = 15_000;
+
+type BatchPoll = Awaited<ReturnType<typeof getAgentBatch>>;
+
+export type PollAction =
+  | { kind: 'wait' }
+  | { kind: 'finalize'; message: Anthropic.Messages.Message }
+  | { kind: 'continue'; message: Anthropic.Messages.Message }
+  | { kind: 'fail'; reason: string };
+
+/** Pure decision table driving both the self-poll loop and the standalone
+ *  poll collector. Staleness is checked FIRST so a batch stuck in_progress
+ *  past 6h is killed rather than waited on forever. */
+export function decidePoll(run: PendingRun, batch: BatchPoll, now: number): PollAction {
+  if (now - run.submittedAt > STALE_MS) return { kind: 'fail', reason: 'stale (>6h)' };
+  if (batch.status === 'in_progress') return { kind: 'wait' };
+  const r = batch.result;
+  if (r.type !== 'succeeded') return { kind: 'fail', reason: r.error ?? r.type };
+  if (r.message.stop_reason === 'pause_turn') {
+    return run.continuations >= MAX_CONTINUATIONS
+      ? { kind: 'fail', reason: `pause_turn continuation cap (${MAX_CONTINUATIONS})` }
+      : { kind: 'continue', message: r.message };
+  }
+  return { kind: 'finalize', message: r.message };
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+/** A finished batch message → the persisted AgentRunResult. Rebuilds the
+ *  agent context fresh at collection time (a batch may sit for minutes to
+ *  hours; a stale ctx would understate CEOX's KPIs or miss a same-day peer
+ *  report) rather than reusing the snapshot taken at submit time. Shared by
+ *  the self-poll loop and the standalone poll collector — collection logic
+ *  lives here exactly once. */
+async function collect(run: PendingRun, message: Anthropic.Messages.Message, deps: RunnerDeps): Promise<AgentRunResult> {
+  const { repo, notify } = deps;
+  const single = completionFromMessage(message);
+  const out: CompleteResult = {
+    text: [...run.partialTexts, single.text].filter(Boolean).join('\n').trim(),
+    stopReason: single.stopReason,
+    usage: { input: run.usageAcc.input + single.usage.input, output: run.usageAcc.output + single.usage.output },
+    model: single.model,
+  };
+  const ctx = await buildContext(run.dept, repo);
+  const result = FINALIZES[run.dept](ctx, run.meta as never, out);
+  await persistRunResult(run.dept, result, deps);
+  await repo.deletePendingRun(run.id);
+  // Sweep-originated runs (OperX self-heal) get the same 🔧 "recovered" alert
+  // the pre-v1.12 inline retry sent, moved here since collection is now the
+  // async step that actually finishes the rerun.
+  if (run.origin === 'sweep') {
+    await repo.pushSweepLog({ dept: run.dept, ok: true, detail: result.summary, ts: Date.now() });
+    await notify(`🔧 OperX self-heal: ${run.dept.toUpperCase()} recovered`);
+  }
+  return result;
+}
+
+/** Resume a paused turn: append the assistant `content` verbatim (never a
+ *  "continue" user message — mirrors `completeRaw`'s own resume semantics)
+ *  and resubmit as a fresh batch, accumulating partial text/usage so the
+ *  eventual `collect()` sees the whole multi-turn research run. */
+async function continueRun(run: PendingRun, message: Anthropic.Messages.Message, deps: RunnerDeps): Promise<PendingRun> {
+  const resumeContent = [...run.resumeContent, message.content];
+  const shape = buildRequestShape(run.opts);
+  const messages = shape.params.messages as unknown[];
+  for (const c of resumeContent) messages.push({ role: 'assistant', content: c });
+  const batchId = await createAgentBatch(run.customId, shape);
+  const single = completionFromMessage(message);
+  const next: PendingRun = {
+    ...run,
+    batchId,
+    continuations: run.continuations + 1,
+    partialTexts: [...run.partialTexts, single.text],
+    usageAcc: { input: run.usageAcc.input + single.usage.input, output: run.usageAcc.output + single.usage.output },
+    resumeContent,
+    useMcp: shape.useMcp,
+  };
+  await deps.repo.savePendingRun(next);
+  return next;
+}
+
+/** Terminal failure: same notify text shape as `runAgent`'s catch block,
+ *  plus the sweep-origin 🚨 "failed twice today" alert (the second half of
+ *  the pre-v1.12 inline watchdog failure path — the first half, the ⚠ failed
+ *  notify, now fires here too since a batch failure never reaches runAgent's
+ *  own try/catch). */
+async function fail(run: PendingRun, reason: string, deps: RunnerDeps): Promise<void> {
+  const { repo, notify } = deps;
+  await repo.setStatus({ dept: run.dept, state: 'error', lastRun: nowIso(), error: reason });
+  await notify(`*${run.dept.toUpperCase()}* ⚠ failed: ${reason}`);
+  await repo.deletePendingRun(run.id);
+  if (run.origin === 'sweep') {
+    await repo.pushSweepLog({ dept: run.dept, ok: false, detail: reason, ts: Date.now() });
+    await notify(`🚨 OperX: ${run.dept.toUpperCase()} failed twice today — needs you (${reason.slice(0, 120)})`);
+  }
+}
+
+export interface SubmitOptions {
+  overrides?: RunOverrides;
+  origin?: PendingRun['origin'];
+  /** Self-poll window in ms (default 180_000 = 3 min). */
+  selfPollMs?: number;
+  /** Self-poll check interval in ms (default 15_000) — injectable so tests
+   *  don't have to sleep in wall-clock time. */
+  pollIntervalMs?: number;
+}
+
+/** Submit one dept's run as a batch, then self-poll for up to `selfPollMs`
+ *  so a fast batch resolves within the same request that triggered it — the
+ *  standalone `/api/cron/poll` sweep (GitHub Actions, every 10 min) is the
+ *  backstop for anything slower or for a function killed mid self-poll.
+ *  Status only flips to `queued` once the batch is actually accepted: a
+ *  submit failure (including an exhausted MCP fallback) never parks a
+ *  phantom pending run. */
+export async function submitRun(dept: DeptId, deps: RunnerDeps, options?: SubmitOptions): Promise<{ queued: boolean; summary?: string }> {
+  const { repo } = deps;
+  const origin = options?.origin ?? 'cron';
+
+  const ctx = await buildContext(dept, repo, options?.overrides);
+  const { opts: prepOpts, meta } = await PREPARES[dept](ctx);
+
+  // MCP-in-batches is unverified: on a submit rejection whose message
+  // mentions `mcp`, resubmit once without the connector (plain web_search).
+  let opts = prepOpts;
+  let shape = buildRequestShape(opts);
+  const customId = `${dept}-${Date.now()}`;
+  let batchId: string;
+  try {
+    batchId = await createAgentBatch(customId, shape);
+  } catch (err) {
+    if (/mcp/i.test(String(err)) && opts.mcpServers) {
+      const fallback = { ...opts, mcpServers: undefined, webSearch: true };
+      shape = buildRequestShape(fallback);
+      batchId = await createAgentBatch(customId, shape);
+      opts = fallback;
+    } else {
+      throw err;
+    }
+  }
+
+  const iso = nowIso();
+  let run: PendingRun = {
+    id: `${dept}:${iso}`,
+    dept,
+    submittedAt: Date.now(),
+    batchId,
+    customId,
+    continuations: 0,
+    origin,
+    opts,
+    meta,
+    partialTexts: [],
+    usageAcc: { input: 0, output: 0 },
+    resumeContent: [],
+    useMcp: shape.useMcp,
+  };
+  await repo.savePendingRun(run);
+  await repo.setStatus({ dept, state: 'queued', lastRun: iso });
+  await repo.pushEvent({ dept, msg: `${dept.toUpperCase()} submitted batch`, ts: iso });
+
+  const deadline = Date.now() + (options?.selfPollMs ?? DEFAULT_SELF_POLL_MS);
+  const intervalMs = options?.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+
+  for (;;) {
+    const batch = await getAgentBatch(run.batchId, run.useMcp);
+    const action = decidePoll(run, batch, Date.now());
+    if (action.kind === 'finalize') {
+      const result = await collect(run, action.message, deps);
+      return { queued: false, summary: result.summary };
+    }
+    if (action.kind === 'continue') {
+      run = await continueRun(run, action.message, deps);
+    } else if (action.kind === 'fail') {
+      await fail(run, action.reason, deps);
+      return { queued: false };
+    }
+    if (Date.now() >= deadline) return { queued: true };
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
+/** Standalone poll collector — the GitHub-Actions-triggered backstop
+ *  (`/api/cron/poll`) for batches that outlive a self-poll window. Runs are
+ *  always few, so a sequential for-of is fine (and keeps ordering simple to
+ *  reason about for the eventual sweep-outcome Telegram messages). */
+export async function pollPendingRuns(deps: RunnerDeps): Promise<{ collected: number; pending: number }> {
+  const runs = await deps.repo.getPendingRuns();
+  let collected = 0;
+  let pending = 0;
+  for (const run of runs) {
+    const batch = await getAgentBatch(run.batchId, run.useMcp);
+    const action = decidePoll(run, batch, Date.now());
+    if (action.kind === 'wait') {
+      pending++;
+    } else if (action.kind === 'finalize') {
+      await collect(run, action.message, deps);
+      collected++;
+    } else if (action.kind === 'continue') {
+      await continueRun(run, action.message, deps);
+      pending++;
+    } else {
+      await fail(run, action.reason, deps);
+    }
+  }
+  return { collected, pending };
+}

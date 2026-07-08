@@ -27,6 +27,13 @@ export interface PendingRun {
   partialTexts: string[];
   usageAcc: { input: number; output: number };
   resumeContent: unknown[];
+  /** v1.12 Task 6 — whether this batch was submitted through the beta
+   *  (MCP connector) batches surface. `getAgentBatch` must retrieve/read
+   *  results from the SAME surface it was created on (the plain, non-beta
+   *  surface 404s on a beta-created batch id) — carried review finding from
+   *  Task 1. Set from `buildRequestShape(...).useMcp` at submit time, and
+   *  again after the MCP-in-batch fallback flips it to `false`. */
+  useMcp: boolean;
 }
 
 const FEED_KEY = 'feed:events';

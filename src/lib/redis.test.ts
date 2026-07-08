@@ -99,7 +99,8 @@ describe('redis repo', () => {
 
   it('pending runs: save, list, delete', async () => {
     const run = { id: 'fin:2026-07-07T10:00:00Z', dept: 'fin', submittedAt: 1, batchId: 'b1', customId: 'c1',
-      continuations: 0, origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [], usageAcc: { input: 0, output: 0 }, resumeContent: [] };
+      continuations: 0, origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [], usageAcc: { input: 0, output: 0 },
+      resumeContent: [], useMcp: false };
     await repo.savePendingRun(run as never);
     expect((await repo.getPendingRuns()).map((r) => r.id)).toEqual([run.id]);
     await repo.deletePendingRun(run.id);
