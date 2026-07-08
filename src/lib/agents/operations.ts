@@ -1,4 +1,4 @@
-import { completeRaw, applyOverrides } from '@/lib/claude';
+import { completeRaw, applyOverrides, type CompleteOpts, type CompleteResult } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { fetchDeployments, formatDeployments, type DeployState } from '@/lib/sources/vercelApi';
@@ -137,7 +137,22 @@ export function opsTags(deploys: DeployState[], activity: RepoActivity[]): strin
   return normalizeTags(['ci-cd', 'vercel', 'deploy', ...ci]);
 }
 
-export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+export interface OperationsMeta {
+  deploys: DeployState[];
+  activity: RepoActivity[];
+  allOk: boolean;
+  healths: AgentHealth[];
+  agentWorst: Severity;
+  crit: AgentHealth[];
+  agg: UsageAggregate;
+  budget: { severity: Severity; detail: string } | null;
+  combinedWorst: Severity;
+}
+
+/** Everything before the completeRaw call: fetch deploy/CI state, compute
+ *  agent run-health + budget from the company snapshot, format context, build
+ *  the prompt, and apply operator overrides. */
+export async function prepare(ctx: AgentContext): Promise<{ opts: CompleteOpts; meta: OperationsMeta }> {
   const [deploys, activity] = await Promise.all([
     fetchDeployments().catch(() => []),
     fetchActivity().catch(() => []),
@@ -171,13 +186,22 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     .join('\n');
 
   const context = formatContext(ctx);
-  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
+  const opts = applyOverrides({
     system: PERSONAS.ops,
     prompt: `${context ? context + '\n\n---\n\n' : ''}CI/CD snapshot.\n\nDeployments:\n${deployLines.join('\n') || 'none'}\n\nRepo activity:\n${activityLines.join('\n') || 'none'}\n\nAgent run-health (internal monitoring):\n${healthLines || 'no snapshot'}\n\nSelf-heal sweep log (watchdog auto-retries):\n${sweepLines || 'no sweeps'}\n\nงบประมาณ Claude API (internal):\n${budgetLine}\n\nสรุปสุขภาพ deploy/CI และสุขภาพการทำงานของเอเจนต์อื่น แล้วชี้ "สิ่งเดียวที่ควรแก้วันนี้" วิเคราะห์เอเจนต์ที่มีปัญหา (error/stale/truncated/empty) พร้อมสาเหตุและวิธีแก้ และใส่ประเด็นเหล่านี้ในส่วน ## Flags เพื่อส่งต่อ CEO (รวมถึงงบประมาณถ้าใกล้หรือเกินลิมิต) สรุปผลการซ่อมอัตโนมัติ (self-heal) ในรายงานด้วย — อะไรพังแล้วระบบซ่อมเองสำเร็จ อะไรซ่อมไม่สำเร็จและต้องการคน ถ้าต้องอ้างอิงภายนอก (status page/changelog) ให้ค้นเว็บและแนบแหล่ง เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 3,
     maxTokens: 8000,
-  }, ctx));
+  }, ctx);
+  return { opts, meta: { deploys, activity, allOk, healths, agentWorst, crit, agg, budget, combinedWorst } };
+}
+
+/** Everything after the completeRaw call: parse findings, build artifacts,
+ *  compose the summary + OPS alert, and assemble the run result.
+ *  Pure/synchronous. */
+export function finalize(_ctx: AgentContext, meta: OperationsMeta, out: CompleteResult): AgentRunResult {
+  const { deploys, activity, allOk, healths, agentWorst, crit, agg, budget, combinedWorst } = meta;
+  const { text: markdown, stopReason, usage, model } = out;
 
   const findings = parseOperationsFindings(markdown) ?? { fixToday: '', notes: [] };
   const artifacts = [
@@ -227,4 +251,10 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     usage, model,
     meta: { deploys, activity, fixToday: findings.fixToday, notes: findings.notes.length, health: healths, stopReason, cost: { mtdUsd: agg.mtdUsd, budgetUsd: agg.budgetUsd } },
   };
+}
+
+export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+  const { opts, meta } = await prepare(ctx);
+  const out = await completeRaw(opts);
+  return finalize(ctx, meta, out);
 }

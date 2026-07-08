@@ -1,4 +1,4 @@
-import { completeRaw, applyOverrides, WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
+import { completeRaw, applyOverrides, WEB_REPORT_MAX_TOKENS, type CompleteOpts, type CompleteResult } from '@/lib/claude';
 import { PERSONAS, PROJECTS_BLURB } from './personas';
 import { formatContext } from './runner';
 import { fetchHN, type HNItem } from '@/lib/sources/hackernews';
@@ -107,7 +107,11 @@ export function marketingTags({ devto }: Pick<MarketingData, 'devto'>): string[]
   return normalizeTags([...devto.flatMap((d) => d.tags), 'x', 'linkedin', 'blog']);
 }
 
-export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+export type MarketingMeta = MarketingData;
+
+/** Everything before the completeRaw call: fetch trend sources, format the
+ *  prompt, and apply operator overrides. */
+export async function prepare(ctx: AgentContext): Promise<{ opts: CompleteOpts; meta: MarketingMeta }> {
   const [hn, devto, reach] = await Promise.all([
     fetchHN().catch(() => []),
     fetchDevto().catch(() => []),
@@ -119,13 +123,21 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     ...devto.map((d) => `${d.title} (${d.reactions}♥ ${d.comments}💬)`),
   ].slice(0, 6);
   const context = formatContext(ctx);
-  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
+  const opts = applyOverrides({
     system: PERSONAS.mkt,
     prompt: `${context ? context + '\n\n---\n\n' : ''}${PROJECTS_BLURB}\n\nกำลังเทรนด์จริงในวงการตอนนี้ (engagement จริง):\n${trending.join('\n') || 'n/a'}\n\nวิเคราะห์สัญญาณดีมานด์จริง ค้นเว็บเพิ่มเติมพร้อมอ้างอิงแหล่ง แล้วเสนอแผนคอนเทนต์ที่ผูกกับเทรนด์ ระบุ "## X post" / "## LinkedIn post" / "## Blog idea" และเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 4,
     maxTokens: WEB_REPORT_MAX_TOKENS,
-  }, ctx));
+  }, ctx);
+  return { opts, meta: data };
+}
+
+/** Everything after the completeRaw call: parse findings, build artifacts,
+ *  compute incomplete, and assemble the run result. Pure/synchronous. */
+export function finalize(_ctx: AgentContext, meta: MarketingMeta, out: CompleteResult): AgentRunResult {
+  const data = meta;
+  const { text: markdown, stopReason, usage, model } = out;
   const findings = parseMarketingFindings(markdown) ?? { theme: 'dev-demand', signals: [], plan: [] };
   const artifacts = [...marketingArtifacts(data), ...marketingSignalArtifacts(findings), ...marketingPlanArtifacts(findings)];
   const sources = findings.signals.map((s) => s.citation);
@@ -140,6 +152,12 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     sources,
     incomplete: stopReason === 'max_tokens',
     usage, model,
-    meta: { hn, devto, reach, signals: findings.signals.length, plan: findings.plan.length, stopReason },
+    meta: { hn: data.hn, devto: data.devto, reach: data.reach, signals: findings.signals.length, plan: findings.plan.length, stopReason },
   };
+}
+
+export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+  const { opts, meta } = await prepare(ctx);
+  const out = await completeRaw(opts);
+  return finalize(ctx, meta, out);
 }

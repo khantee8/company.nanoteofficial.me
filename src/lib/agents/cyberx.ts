@@ -1,7 +1,7 @@
-import { completeRaw, applyOverrides, WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
+import { completeRaw, applyOverrides, WEB_REPORT_MAX_TOKENS, type CompleteOpts, type CompleteResult } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
-import { fetchKev, fetchSecurityNews, formatThreatIntel, type KevEntry } from '@/lib/sources/threatintel';
+import { fetchKev, fetchSecurityNews, formatThreatIntel, type KevEntry, type NewsItem } from '@/lib/sources/threatintel';
 import { extractFindingsBlock, hasCitation } from './findings';
 import { normalizeTags, withProvenance, type Artifact, type Citation } from './artifacts';
 import type { AgentRunResult, AgentContext } from './types';
@@ -84,17 +84,29 @@ export function cyberxAdvisoryArtifacts(f: CyberxFindings): Artifact[] {
   ];
 }
 
-export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+export interface CyberxMeta { kev: KevEntry[]; news: NewsItem[] }
+
+/** Everything before the completeRaw call: fetch the KEV feed + security news,
+ *  format context, build the prompt, and apply operator overrides. */
+export async function prepare(ctx: AgentContext): Promise<{ opts: CompleteOpts; meta: CyberxMeta }> {
   const [kev, news] = await Promise.all([fetchKev(), fetchSecurityNews()]);
   const lines = formatThreatIntel(kev, news);
   const context = formatContext(ctx);
-  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
+  const opts = applyOverrides({
     system: PERSONAS.cyb,
     prompt: `${context ? context + '\n\n---\n\n' : ''}Today's threat feed:\n${lines.join('\n')}\n\nวิเคราะห์ภัยคุกคามจริงในรอบ 24-48 ชม.ที่เกี่ยวกับสแตกของบริษัท ค้นเว็บหา advisory/รายละเอียดเพิ่มเติม อ้างอิงแหล่ง+วันที่ เปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
     webSearch: true,
     maxSearches: 5,
     maxTokens: WEB_REPORT_MAX_TOKENS,
-  }, ctx));
+  }, ctx);
+  return { opts, meta: { kev, news } };
+}
+
+/** Everything after the completeRaw call: parse findings, build artifacts,
+ *  compute incomplete, and assemble the run result. Pure/synchronous. */
+export function finalize(_ctx: AgentContext, meta: CyberxMeta, out: CompleteResult): AgentRunResult {
+  const { kev, news } = meta;
+  const { text: markdown, stopReason, usage, model } = out;
   const findings = parseCyberxFindings(markdown) ?? { items: [] };
   const artifacts = [...cyberxArtifacts(kev), ...cyberxAdvisoryArtifacts(findings)];
   const sources = findings.items.map((x) => x.citation);
@@ -110,4 +122,10 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     usage, model,
     meta: { kev, news, advisories: findings.items.length, stopReason },
   };
+}
+
+export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+  const { opts, meta } = await prepare(ctx);
+  const out = await completeRaw(opts);
+  return finalize(ctx, meta, out);
 }

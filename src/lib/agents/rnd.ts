@@ -1,4 +1,4 @@
-import { completeRaw, applyOverrides, WEB_REPORT_MAX_TOKENS } from '@/lib/claude';
+import { completeRaw, applyOverrides, WEB_REPORT_MAX_TOKENS, type CompleteOpts, type CompleteResult } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { fetchTrending, type TrendingRepo } from '@/lib/sources/githubTrending';
@@ -106,7 +106,11 @@ export function rndTags(repos: TrendingRepo[]): string[] {
 
 // ─── Agent run ────────────────────────────────────────────────────────────────
 
-export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+export interface RndMeta { theme: string; label: string; repos: TrendingRepo[] }
+
+/** Everything before the completeRaw call: theme pick, fetch trending repos,
+ *  format context, build the prompt, and apply operator overrides. */
+export async function prepare(ctx: AgentContext): Promise<{ opts: CompleteOpts; meta: RndMeta }> {
   const { theme, label } = themeForToday();
   const repos = await fetchTrending().catch(() => []);
   const radar = repos
@@ -115,7 +119,7 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     .join('\n');
 
   const context = formatContext(ctx);
-  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
+  const opts = applyOverrides({
     system: PERSONAS.rnd,
     prompt: `${context ? context + '\n\n---\n\n' : ''}โฟกัสประจำรอบวันนี้: **${label}** (theme: ${theme}).\n${
       radar ? `Repo ที่กำลังมาแรง (14 วัน):\n${radar}\n\n` : ''
@@ -123,8 +127,15 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     webSearch: true,
     maxSearches: 5,
     maxTokens: WEB_REPORT_MAX_TOKENS,
-  }, ctx));
+  }, ctx);
+  return { opts, meta: { theme, label, repos } };
+}
 
+/** Everything after the completeRaw call: parse findings, build artifacts,
+ *  compute incomplete, and assemble the run result. Pure/synchronous. */
+export function finalize(_ctx: AgentContext, meta: RndMeta, out: CompleteResult): AgentRunResult {
+  const { theme, label, repos } = meta;
+  const { text: markdown, stopReason, usage, model } = out;
   const findings = parseRndFindings(markdown) ?? { theme, items: [] };
   const artifacts = [...rndArtifacts(repos), ...rndResearchArtifacts(findings)];
   const sources = findings.items.map((x) => x.citation);
@@ -142,4 +153,10 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     usage, model,
     meta: { theme, repos, items: findings.items.length, stopReason },
   };
+}
+
+export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+  const { opts, meta } = await prepare(ctx);
+  const out = await completeRaw(opts);
+  return finalize(ctx, meta, out);
 }

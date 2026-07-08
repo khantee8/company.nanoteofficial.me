@@ -1,4 +1,4 @@
-import { completeRaw, applyOverrides, type CompleteOpts } from '@/lib/claude';
+import { completeRaw, applyOverrides, type CompleteOpts, type CompleteResult } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { DEPARTMENTS, type DeptId } from '@/lib/data/departments';
@@ -152,13 +152,24 @@ export function ceoKpiArtifact(k: CeoKpis): Artifact {
   ] }, 'api');
 }
 
-export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+/** Everything before the completeRaw call: format context, build the prompt,
+ *  and apply operator overrides. Nothing local crosses into finalize — it
+ *  reads the company snapshot straight off ctx. */
+export async function prepare(ctx: AgentContext): Promise<{ opts: CompleteOpts; meta: Record<string, never> }> {
   const context = formatContext(ctx);
-  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides<CompleteOpts>({
+  const opts = applyOverrides<CompleteOpts>({
     system: PERSONAS.ceo,
     prompt: `${context ? context + '\n\n---\n\n' : ''}สังเคราะห์บทสรุปผู้บริหารจากผลงานของทุกแผนก: "## Summary" (3-4 ประโยค เชื่อมโยงกิจกรรมล่าสุดของบริษัท) และ "## Decisions" (2-3 ข้อ ลงมือได้จริง อ้างถึงผลงานของแผนกที่เจาะจง) เปิดรายงานด้วยบล็อก \`\`\`json findings (decisions/risks/priorities/boards ตามสคีมาในบทบาทของคุณ — boards ประกอบด้วย swot, canvas, forces)`,
     maxTokens: 8000,
-  }, ctx));
+  }, ctx);
+  return { opts, meta: {} };
+}
+
+/** Everything after the completeRaw call: parse findings, build the
+ *  Executive Cockpit + strategy boards from ctx.companySnapshot, and
+ *  assemble the run result. Pure/synchronous. */
+export function finalize(ctx: AgentContext, _meta: Record<string, never>, out: CompleteResult): AgentRunResult {
+  const { text: markdown, stopReason, usage, model } = out;
   const snapshot = ctx.companySnapshot ?? { statuses: [], digest: [] };
   const findings = parseCeoFindings(markdown) ?? { decisions: [], risks: [], priorities: [] };
   return {
@@ -178,4 +189,10 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     usage, model,
     meta: { risks: findings.risks, priorities: findings.priorities, stopReason },
   };
+}
+
+export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+  const { opts, meta } = await prepare(ctx);
+  const out = await completeRaw(opts);
+  return finalize(ctx, meta, out);
 }

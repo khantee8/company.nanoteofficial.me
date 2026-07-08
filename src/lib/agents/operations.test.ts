@@ -19,7 +19,7 @@ vi.mock('@/lib/sources/githubApi', () => ({
   formatActivity: vi.fn(() => []),
 }));
 
-import { run } from './operations';
+import { run, prepare, finalize } from './operations';
 import type { AgentContext, UsageEntry } from './types';
 
 const emptyCtx: AgentContext = { ownHistory: [], companyDigest: [], todayPeers: [] };
@@ -147,5 +147,17 @@ describe('operations.run — budget monitoring', () => {
   it('always includes the cost & budget artifact', async () => {
     const r = await run(ctxWithUsage([]));
     expect((r.artifacts ?? []).some((a) => a.title === 'cost & budget')).toBe(true);
+  });
+});
+
+describe('prepare/finalize split', () => {
+  it('prepare returns webSearch request opts + deploy/health/budget meta; finalize flags max_tokens as incomplete', async () => {
+    const { opts, meta } = await prepare(emptyCtx);
+    expect(opts).toMatchObject({ webSearch: true, maxSearches: 3, maxTokens: 8000 });
+    expect(meta).toMatchObject({ deploys: [], activity: [], allOk: false, healths: [] });
+    const result = finalize(emptyCtx, meta, {
+      text: 'รายงานถูกตัดกลางคัน', stopReason: 'max_tokens', usage: { input: 1, output: 4000 }, model: 'claude-haiku-4-5-20251001',
+    });
+    expect(result.incomplete).toBe(true);
   });
 });
