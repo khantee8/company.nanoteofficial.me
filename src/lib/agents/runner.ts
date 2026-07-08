@@ -171,6 +171,82 @@ export function formatContext(ctx: AgentContext): string {
   return parts.join('\n\n');
 }
 
+export async function persistRunResult(dept: DeptId, result: AgentRunResult, deps: RunnerDeps): Promise<void> {
+  const { repo, notify } = deps;
+  const now = () => new Date().toISOString();
+
+  const ts = now();
+  // Dual-generated narrative → two clean per-language documents (both carry the
+  // shared findings + Highlight/Flags tail, so parsing works on either).
+  // v1.5: agents emit the findings/Highlight/Flags head FIRST (truncation-
+  // safe); normalize back to the narrative-first storage layout before split.
+  const { th: markdown, en: markdownEn } = splitBilingual(normalizeReportOrder(result.markdown));
+  const highlight = parseHighlight(markdown, 'th');
+  const highlightEn = parseHighlight(markdown, 'en');
+  const flags = parseFlags(markdown, 'th');
+  const flagsEn = parseFlags(markdown, 'en');
+  const date = todayDate();
+  const category = CATEGORY_BY_DEPT[dept];
+  const artifacts = result.artifacts ?? [];
+  const tags = result.tags ?? [];
+  const id = `${dept}:${ts}`;
+  const theme = result.theme;
+  const provenance = result.provenance ?? 'api';
+  const sources = result.sources ?? [];
+  const incomplete = result.incomplete ?? false;
+  const slug = deriveSlug({ dept, date, theme, category });
+
+  // v1.11 role seam — backend depts (CEOX/OperX) write no KB entry.
+  // Frontend depts auto-publish through the quality gate; a failed gate is a
+  // normal draft the Admin Knowledge panel promotes manually.
+  const frontend = isFrontendDept(dept);
+  const kbStatus: KbEntry['status'] = frontend && qualityGate(result) ? 'published' : 'draft';
+
+  // F1 — restore the graph's dead builds_on edges: when a frontend dept's
+  // report doesn't explicitly cross-link (result.related), deterministically
+  // wire it to the same-day reports of departments that ran earlier in
+  // DEPT_ORDER (the runner's own collaboration order) — this is exactly the
+  // "today's peers" set buildContext already showed the LLM, so the graph
+  // reflects what the agent actually saw.
+  let related = result.related ?? [];
+  if (frontend && related.length === 0) {
+    const recent = await repo.listKb({ limit: 24 });
+    const myIndex = DEPT_ORDER.indexOf(dept);
+    related = recent
+      .filter((e) => e.date === date && e.dept !== dept && DEPT_ORDER.indexOf(e.dept) < myIndex)
+      .map((e) => e.id);
+  }
+
+  await Promise.all([
+    repo.setOutput({ dept, markdown, markdownEn, summary: result.summary, ts, category, tags, artifacts, meta: result.meta, incomplete }),
+    repo.pushEvent({ dept, msg: result.feedMsg, ts }),
+    repo.setStatus({ dept, state: 'done', lastRun: ts, summary: result.summary }),
+    repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown }),
+    repo.pushDigest({ dept, date, summary: result.summary, highlight, highlightEn, flags, flagsEn }),
+    ...(frontend
+      ? [repo.pushKb({ id, slug, dept, date, ts, category, theme,
+          tags, status: kbStatus, summary: result.summary, highlight, highlightEn, flags, flagsEn, artifacts,
+          sources, provenance, related, markdown, markdownEn, incomplete })]
+      : []),
+    // v1.8 — record token usage to the cost ledger (skip non-LLM runs lacking usage/model).
+    ...(result.usage && result.model
+      ? [repo.recordUsage({ dept, model: result.model, input: result.usage.input, output: result.usage.output, ts: Date.parse(ts) })]
+      : []),
+  ]);
+
+  const warn = incomplete ? '\n⚠️ รายงานอาจไม่สมบูรณ์ — ตรวจก่อนเผยแพร่' : '';
+  const kbNote = !frontend ? ''
+    : kbStatus === 'published' ? `\n📚 published → KB (${slug})`
+    : '\n📝 draft — review in /admin';
+  // pushLibrarySync and the run notify are independent (and pushLibrarySync
+  // never throws) — fire them concurrently instead of blocking notify on sync.
+  await Promise.all([
+    frontend && kbStatus === 'published' ? pushLibrarySync(slug, repo) : Promise.resolve(),
+    notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}${kbNote}\n\n${markdown.slice(0, 800)}`),
+  ]);
+  if (result.alert) await notify(result.alert.text);
+}
+
 export async function runAgent(agent: Agent, deps: RunnerDeps, overrides?: RunOverrides): Promise<AgentRunResult> {
   const { dept } = agent;
   const { repo, notify } = deps;
@@ -180,76 +256,7 @@ export async function runAgent(agent: Agent, deps: RunnerDeps, overrides?: RunOv
   try {
     const ctx = await buildContext(dept, repo, overrides);
     const result = await agent.run(ctx);
-    const ts = now();
-    // Dual-generated narrative → two clean per-language documents (both carry the
-    // shared findings + Highlight/Flags tail, so parsing works on either).
-    // v1.5: agents emit the findings/Highlight/Flags head FIRST (truncation-
-    // safe); normalize back to the narrative-first storage layout before split.
-    const { th: markdown, en: markdownEn } = splitBilingual(normalizeReportOrder(result.markdown));
-    const highlight = parseHighlight(markdown, 'th');
-    const highlightEn = parseHighlight(markdown, 'en');
-    const flags = parseFlags(markdown, 'th');
-    const flagsEn = parseFlags(markdown, 'en');
-    const date = todayDate();
-    const category = CATEGORY_BY_DEPT[dept];
-    const artifacts = result.artifacts ?? [];
-    const tags = result.tags ?? [];
-    const id = `${dept}:${ts}`;
-    const theme = result.theme;
-    const provenance = result.provenance ?? 'api';
-    const sources = result.sources ?? [];
-    const incomplete = result.incomplete ?? false;
-    const slug = deriveSlug({ dept, date, theme, category });
-
-    // v1.11 role seam — backend depts (CEOX/OperX) write no KB entry.
-    // Frontend depts auto-publish through the quality gate; a failed gate is a
-    // normal draft the Admin Knowledge panel promotes manually.
-    const frontend = isFrontendDept(dept);
-    const kbStatus: KbEntry['status'] = frontend && qualityGate(result) ? 'published' : 'draft';
-
-    // F1 — restore the graph's dead builds_on edges: when a frontend dept's
-    // report doesn't explicitly cross-link (result.related), deterministically
-    // wire it to the same-day reports of departments that ran earlier in
-    // DEPT_ORDER (the runner's own collaboration order) — this is exactly the
-    // "today's peers" set buildContext already showed the LLM, so the graph
-    // reflects what the agent actually saw.
-    let related = result.related ?? [];
-    if (frontend && related.length === 0) {
-      const recent = await repo.listKb({ limit: 24 });
-      const myIndex = DEPT_ORDER.indexOf(dept);
-      related = recent
-        .filter((e) => e.date === date && e.dept !== dept && DEPT_ORDER.indexOf(e.dept) < myIndex)
-        .map((e) => e.id);
-    }
-
-    await Promise.all([
-      repo.setOutput({ dept, markdown, markdownEn, summary: result.summary, ts, category, tags, artifacts, meta: result.meta, incomplete }),
-      repo.pushEvent({ dept, msg: result.feedMsg, ts }),
-      repo.setStatus({ dept, state: 'done', lastRun: ts, summary: result.summary }),
-      repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown }),
-      repo.pushDigest({ dept, date, summary: result.summary, highlight, highlightEn, flags, flagsEn }),
-      ...(frontend
-        ? [repo.pushKb({ id, slug, dept, date, ts, category, theme,
-            tags, status: kbStatus, summary: result.summary, highlight, highlightEn, flags, flagsEn, artifacts,
-            sources, provenance, related, markdown, markdownEn, incomplete })]
-        : []),
-      // v1.8 — record token usage to the cost ledger (skip non-LLM runs lacking usage/model).
-      ...(result.usage && result.model
-        ? [repo.recordUsage({ dept, model: result.model, input: result.usage.input, output: result.usage.output, ts: Date.parse(ts) })]
-        : []),
-    ]);
-
-    const warn = incomplete ? '\n⚠️ รายงานอาจไม่สมบูรณ์ — ตรวจก่อนเผยแพร่' : '';
-    const kbNote = !frontend ? ''
-      : kbStatus === 'published' ? `\n📚 published → KB (${slug})`
-      : '\n📝 draft — review in /admin';
-    // pushLibrarySync and the run notify are independent (and pushLibrarySync
-    // never throws) — fire them concurrently instead of blocking notify on sync.
-    await Promise.all([
-      frontend && kbStatus === 'published' ? pushLibrarySync(slug, repo) : Promise.resolve(),
-      notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}${kbNote}\n\n${markdown.slice(0, 800)}`),
-    ]);
-    if (result.alert) await notify(result.alert.text);
+    await persistRunResult(dept, result, deps);
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
