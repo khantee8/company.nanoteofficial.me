@@ -31,7 +31,7 @@ export interface CompleteOpts {
   webSearch?: boolean;
   maxSearches?: number;
   /** Remote MCP servers for the Anthropic MCP connector. When set, the request
-   *  routes through the beta Messages API and web_search is ignored. */
+   *  routes through the beta Messages API; combines with web_search (hybrid). */
   mcpServers?: { url: string; name: string; token?: string }[];
 }
 
