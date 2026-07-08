@@ -60,7 +60,7 @@ describe('run — truncation flag', () => {
   });
 });
 
-describe('run — research source selection (v1.10.1)', () => {
+describe('run — research source selection (v1.12 hybrid)', () => {
   const CLEAN_RUN = {
     text: '```json findings\n{"theme":"x","funds":[]}\n```',
     stopReason: 'end_turn',
@@ -73,13 +73,13 @@ describe('run — research source selection (v1.10.1)', () => {
     vi.unstubAllEnvs();
   });
 
-  it('runs MCP-only (no web_search) when the thai-funds MCP server is configured', async () => {
+  it('runs hybrid (web_search + MCP together) when the thai-funds MCP server is configured', async () => {
     vi.stubEnv('THAI_FUNDS_MCP_URL', 'https://mcp.example/api/mcp');
     const { run } = await import('./finance');
     await run(ctx);
     expect(completeRaw).toHaveBeenCalledWith(
       expect.objectContaining({
-        webSearch: false,
+        webSearch: true,
         mcpServers: [expect.objectContaining({ url: 'https://mcp.example/api/mcp' })],
       }),
     );
@@ -93,6 +93,27 @@ describe('run — research source selection (v1.10.1)', () => {
     expect(completeRaw).toHaveBeenCalledWith(
       expect.objectContaining({ webSearch: true, mcpServers: undefined }),
     );
+    vi.unstubAllEnvs();
+  });
+});
+
+describe('prepare/finalize split', () => {
+  beforeEach(() => {
+    completeRaw.mockReset();
+    vi.unstubAllEnvs();
+  });
+
+  it('prepare/finalize split: prepare returns hybrid request opts; finalize builds the result without I/O', async () => {
+    vi.stubEnv('THAI_FUNDS_MCP_URL', 'https://mcp.example/api/mcp');
+    const { prepare, finalize } = await import('./finance');
+    const { opts, meta } = await prepare(ctx);
+    // v1.12 restores the v1.6 hybrid: web_search + MCP together — the 300s cap
+    // that forced MCP-only (v1.10.1) is gone under the batch substrate.
+    expect(opts).toMatchObject({ model: 'claude-sonnet-4-6', webSearch: true, maxTokens: 8000 });
+    expect(opts.mcpServers).toEqual([expect.objectContaining({ url: 'https://mcp.example/api/mcp' })]);
+    expect(meta.theme).toBeTruthy();
+    const result = finalize(ctx, meta, { text: '```json findings\n{"theme":"x","funds":[]}\n```', stopReason: 'end_turn', usage: { input: 1, output: 1 }, model: 'm' });
+    expect(result.incomplete).toBe(true); // zero cited funds
     vi.unstubAllEnvs();
   });
 });

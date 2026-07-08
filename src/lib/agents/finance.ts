@@ -1,4 +1,4 @@
-import { completeRaw, applyOverrides } from '@/lib/claude';
+import { completeRaw, applyOverrides, type CompleteOpts, type CompleteResult } from '@/lib/claude';
 import { PERSONAS } from './personas';
 import { formatContext } from './runner';
 import { extractFindingsBlock, hasCitation } from './findings';
@@ -75,7 +75,11 @@ export function financeTags(f: FinanceFindings): string[] {
   return normalizeTags([f.theme, ...f.funds.map((x) => x.amc)]);
 }
 
-export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+export interface FinMeta { theme: string; label: string }
+
+/** Everything before the completeRaw call: theme pick, context format, MCP env
+ *  wiring, prompt build, and operator overrides applied to the request opts. */
+export async function prepare(ctx: AgentContext): Promise<{ opts: CompleteOpts; meta: FinMeta }> {
   const { theme, label } = themeForToday();
   const context = formatContext(ctx);
   const mcpUrl = process.env.THAI_FUNDS_MCP_URL;
@@ -83,23 +87,31 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
   const mcpServers = mcpUrl
     ? [{ url: mcpUrl, name: 'thai-funds', ...(mcpToken ? { token: mcpToken } : {}) }]
     : undefined;
-  // ponytail: MCP-only when the connector is configured — web_search kept
-  // timing Finance out past the 300s cap even at maxSearches 2 (errored
-  // 2026-07-03; no clean run since 6/05), so it now only backstops
-  // environments without the MCP server. Cost: no master-fund/1y-return color
-  // from the web; the SEC numbers via MCP remain the authoritative core.
+  // ponytail: v1.10.1 forced MCP-only because web_search kept timing Finance
+  // out past the sync request's 300s cap. v1.12 moves agent runs onto the
+  // batch substrate (no HTTP-response deadline), so that pressure is gone —
+  // restore the v1.6 hybrid: web_search for names/master-fund/1y-return color
+  // alongside thai-funds-mcp for the authoritative SEC numbers.
   const sourceBrief = mcpServers
-    ? `ใช้เครื่องมือ thai-funds-mcp (ข้อมูล ก.ล.ต. ที่อ้างอิงได้) เป็นแหล่งข้อมูลหลักเพียงแหล่งเดียว: list_thai_funds (ค้นด้วยรหัสคลาส), thai_fund_fees (TER), thai_fund_nav (NAV+AUM), thai_fund_risk (ระดับความเสี่ยง+ความผันผวน), thai_fund_asset_allocation และ market_index/fx_rate เป็นบริบท\nข้อมูลใดไม่มีใน MCP (เช่น กองแม่/ผลตอบแทนย้อนหลัง) ให้ระบุว่า "ไม่มีข้อมูลทางการ" — ห้ามเดา`
+    ? `ใช้ web_search หาชื่อกองเต็ม บลจ. กองแม่/underlying ผลตอบแทนย้อนหลัง 1 ปี การป้องกันค่าเงิน และประเภทภาษี (SSF/RMF/ThaiESG) แล้วใช้เครื่องมือ thai-funds-mcp (ข้อมูล ก.ล.ต. ที่อ้างอิงได้) เพื่อยืนยันตัวเลขทางการ: list_thai_funds (ค้นด้วยรหัสคลาส), thai_fund_fees (TER), thai_fund_nav (NAV+AUM), thai_fund_risk (ระดับความเสี่ยง+ความผันผวน), thai_fund_asset_allocation และ market_index/fx_rate เป็นบริบท\nหากตัวเลขจาก web_search กับ MCP ขัดแย้งกัน ให้ยึดตาม MCP (แหล่ง ก.ล.ต.) เป็นหลัก`
     : `ใช้ web_search หาชื่อกองเต็ม บลจ. กองแม่/underlying ผลตอบแทนย้อนหลัง 1 ปี การป้องกันค่าเงิน และประเภทภาษี (SSF/RMF/ThaiESG)`;
-  const { text: markdown, stopReason, usage, model } = await completeRaw(applyOverrides({
+  const opts = applyOverrides({
     system: PERSONAS.fin,
     prompt: `${context ? context + '\n\n---\n\n' : ''}ธีมประจำรอบวันนี้: **${label}** (theme: ${theme}).\nหากองทุนรวมไทยจริง 3-5 กองในธีมนี้\n${sourceBrief}\nอ้างอิง sourceUrl + วันที่ (asOf) ของทุกตัวเลขเสมอ — ห้ามแต่งตัวเลข\nเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมา แล้วเขียนรายงานตามโครงสร้างในบทบาท`,
     model: FINANCE_MODEL,
-    webSearch: !mcpServers,
-    maxSearches: 2,
+    webSearch: true,
+    maxSearches: 4,
     mcpServers,
     maxTokens: 8000,
-  }, ctx));
+  }, ctx);
+  return { opts, meta: { theme, label } };
+}
+
+/** Everything after the completeRaw call: parse findings, build artifacts,
+ *  compute incomplete/summary, and assemble the run result. Pure/synchronous. */
+export function finalize(_ctx: AgentContext, meta: FinMeta, out: CompleteResult): AgentRunResult {
+  const { theme, label } = meta;
+  const { text: markdown, stopReason, usage, model } = out;
   const findings = parseFinanceFindings(markdown) ?? { theme, funds: [] };
   const artifacts = financeArtifacts(findings);
   const sources = findings.funds.map((x) => x.citation);
@@ -123,4 +135,10 @@ export async function run(ctx: AgentContext): Promise<AgentRunResult> {
     usage, model,
     meta: { theme, fundCount: findings.funds.length, stopReason },
   };
+}
+
+export async function run(ctx: AgentContext): Promise<AgentRunResult> {
+  const { opts, meta } = await prepare(ctx);
+  const out = await completeRaw(opts);
+  return finalize(ctx, meta, out);
 }
