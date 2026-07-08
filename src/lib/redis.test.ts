@@ -7,8 +7,14 @@ function fakeClient() {
   const list = new Map<string, unknown[]>();
   return {
     store, list,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    set: vi.fn(async (k: string, v: unknown, _options?: unknown) => { store.set(k, v); }),
+    // Mirrors the real Upstash/Redis SET contract: with `nx: true`, a key
+    // that already exists is left untouched and the call returns `null`
+    // (a failed claim); otherwise it writes and returns `"OK"`.
+    set: vi.fn(async (k: string, v: unknown, options?: { ex?: number; nx?: boolean }) => {
+      if (options?.nx && store.has(k)) return null;
+      store.set(k, v);
+      return 'OK';
+    }),
     get: vi.fn(async (k: string) => store.get(k) ?? null),
     del: vi.fn(async (...keys: string[]) => { keys.forEach((k) => store.delete(k)); return keys.length; }),
     mget: vi.fn(async (keys: string[]) => keys.map((k) => store.get(k) ?? null)),
@@ -105,5 +111,23 @@ describe('redis repo', () => {
     expect((await repo.getPendingRuns()).map((r) => r.id)).toEqual([run.id]);
     await repo.deletePendingRun(run.id);
     expect(await repo.getPendingRuns()).toEqual([]);
+  });
+
+  it('savePendingRun is an upsert: saving the same id twice leaves one index entry (F1)', async () => {
+    const run = { id: 'fin:2026-07-07T10:00:00Z', dept: 'fin', submittedAt: 1, batchId: 'b1', customId: 'c1',
+      continuations: 0, origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [], usageAcc: { input: 0, output: 0 },
+      resumeContent: [], useMcp: false };
+    await repo.savePendingRun(run as never);
+    // continueRun-style re-save of the SAME id (e.g. a pause_turn continuation).
+    await repo.savePendingRun({ ...run, continuations: 1, batchId: 'b2' } as never);
+    const all = await repo.getPendingRuns();
+    expect(all.length).toBe(1);
+    expect(all[0]).toMatchObject({ id: run.id, batchId: 'b2', continuations: 1 });
+  });
+
+  it('claimPendingRun: first caller wins, second is rejected until the claim expires (F3)', async () => {
+    expect(await repo.claimPendingRun('fin:t1')).toBe(true);
+    expect(await repo.claimPendingRun('fin:t1')).toBe(false);
+    expect(client.set).toHaveBeenLastCalledWith('run:claim:fin:t1', '1', { ex: 600, nx: true });
   });
 });

@@ -52,6 +52,7 @@ function fakeRepo(overrides: Partial<Record<string, unknown>> = {}) {
     savePendingRun: vi.fn(async () => {}),
     getPendingRuns: vi.fn(async () => []),
     deletePendingRun: vi.fn(async () => {}),
+    claimPendingRun: vi.fn(async () => true),
     ...overrides,
   } as unknown as RedisRepo;
 }
@@ -172,6 +173,36 @@ describe('submitRun', () => {
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('🔧'));
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('recovered'));
   });
+
+  it('F4: getAgentBatch rejects during self-poll → resolves { queued: true }, pending record survives', async () => {
+    const repo = fakeRepo();
+    const notify = vi.fn(async () => {});
+    createAgentBatch.mockResolvedValueOnce('batch1');
+    getAgentBatch.mockRejectedValueOnce(new Error('network blip'));
+
+    const res = await submitRun('fin', { repo, notify }, { selfPollMs: 1000, pollIntervalMs: 5 });
+
+    expect(res).toEqual({ queued: true });
+    // The batch was already durably queued before self-poll started; a
+    // thrown getAgentBatch must not roll that back.
+    expect(repo.savePendingRun).toHaveBeenCalledTimes(1);
+    expect(repo.deletePendingRun).not.toHaveBeenCalled();
+    expect(repo.setStatus).toHaveBeenCalledWith(expect.objectContaining({ dept: 'fin', state: 'queued' }));
+    expect(repo.setStatus).not.toHaveBeenCalledWith(expect.objectContaining({ state: 'error' }));
+  });
+
+  it('F3: finalize but the claim is lost to another collector → resolves { queued: true }, no double-persist', async () => {
+    const repo = fakeRepo({ claimPendingRun: vi.fn(async () => false) });
+    const notify = vi.fn(async () => {});
+    createAgentBatch.mockResolvedValueOnce('batch1');
+    getAgentBatch.mockResolvedValueOnce({ status: 'ended', result: { type: 'succeeded', message: msg('end_turn') } });
+
+    const res = await submitRun('fin', { repo, notify }, { selfPollMs: 1000, pollIntervalMs: 5 });
+
+    expect(res).toEqual({ queued: true });
+    expect(finalFin).not.toHaveBeenCalled();
+    expect(repo.deletePendingRun).not.toHaveBeenCalled();
+  });
 });
 
 describe('pollPendingRuns', () => {
@@ -227,5 +258,82 @@ describe('pollPendingRuns', () => {
     expect(repo.pushSweepLog).toHaveBeenCalledWith(expect.objectContaining({ dept: 'mkt', ok: false }));
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('🚨'));
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('failed twice'));
+  });
+
+  it('F2: one run whose getAgentBatch rejects does not stop the other from being collected', async () => {
+    const flaky: PendingRun = {
+      id: 'cyb:t1', dept: 'cyb', submittedAt: Date.now(), batchId: 'b-flaky', customId: 'cyb-1', continuations: 0,
+      origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [],
+      usageAcc: { input: 0, output: 0 }, resumeContent: [], useMcp: false,
+    };
+    const healthy: PendingRun = {
+      id: 'fin:t1', dept: 'fin', submittedAt: Date.now(), batchId: 'b-ok', customId: 'fin-1', continuations: 0,
+      origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [],
+      usageAcc: { input: 0, output: 0 }, resumeContent: [], useMcp: false,
+    };
+    const repo = fakeRepo({ getPendingRuns: vi.fn(async () => [flaky, healthy]) });
+    const notify = vi.fn(async () => {});
+    getAgentBatch.mockImplementation(async (batchId: string) => {
+      if (batchId === 'b-flaky') throw new Error('transient 500');
+      return { status: 'ended', result: { type: 'succeeded', message: msg('end_turn') } };
+    });
+
+    const res = await pollPendingRuns({ repo, notify });
+
+    expect(res).toEqual({ collected: 1, pending: 1 });
+    expect(finalFin).toHaveBeenCalledTimes(1);
+    expect(repo.deletePendingRun).toHaveBeenCalledWith('fin:t1');
+    expect(repo.deletePendingRun).not.toHaveBeenCalledWith('cyb:t1');
+  });
+
+  it('F2: staleness is checked before any network call — a stale run whose getAgentBatch would reject still fails cleanly', async () => {
+    const staleRun: PendingRun = {
+      id: 'cyb:t0', dept: 'cyb', submittedAt: Date.now() - 7 * 3600_000, batchId: 'b-stale', customId: 'cyb-1', continuations: 0,
+      origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [],
+      usageAcc: { input: 0, output: 0 }, resumeContent: [], useMcp: false,
+    };
+    const repo = fakeRepo({ getPendingRuns: vi.fn(async () => [staleRun]) });
+    const notify = vi.fn(async () => {});
+    getAgentBatch.mockRejectedValueOnce(new Error('would 404 anyway'));
+
+    const res = await pollPendingRuns({ repo, notify });
+
+    expect(res).toEqual({ collected: 0, pending: 0 });
+    expect(getAgentBatch).not.toHaveBeenCalled();
+    expect(repo.setStatus).toHaveBeenCalledWith(expect.objectContaining({ dept: 'cyb', state: 'error' }));
+    expect(repo.deletePendingRun).toHaveBeenCalledWith('cyb:t0');
+  });
+
+  it('F1: dedupes by id (defense in depth) — a duplicated id in the index is only collected once', async () => {
+    const run: PendingRun = {
+      id: 'fin:t1', dept: 'fin', submittedAt: Date.now(), batchId: 'b-ok', customId: 'fin-1', continuations: 0,
+      origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [],
+      usageAcc: { input: 0, output: 0 }, resumeContent: [], useMcp: false,
+    };
+    const repo = fakeRepo({ getPendingRuns: vi.fn(async () => [run, { ...run }]) });
+    const notify = vi.fn(async () => {});
+    getAgentBatch.mockResolvedValueOnce({ status: 'ended', result: { type: 'succeeded', message: msg('end_turn') } });
+
+    const res = await pollPendingRuns({ repo, notify });
+
+    expect(res).toEqual({ collected: 1, pending: 0 });
+    expect(getAgentBatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('F3: finalize but the claim is already held by another collector → skipped silently, not double-collected', async () => {
+    const run: PendingRun = {
+      id: 'fin:t1', dept: 'fin', submittedAt: Date.now(), batchId: 'b-ok', customId: 'fin-1', continuations: 0,
+      origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [],
+      usageAcc: { input: 0, output: 0 }, resumeContent: [], useMcp: false,
+    };
+    const repo = fakeRepo({ getPendingRuns: vi.fn(async () => [run]), claimPendingRun: vi.fn(async () => false) });
+    const notify = vi.fn(async () => {});
+    getAgentBatch.mockResolvedValueOnce({ status: 'ended', result: { type: 'succeeded', message: msg('end_turn') } });
+
+    const res = await pollPendingRuns({ repo, notify });
+
+    expect(res).toEqual({ collected: 0, pending: 0 });
+    expect(finalFin).not.toHaveBeenCalled();
+    expect(repo.deletePendingRun).not.toHaveBeenCalled();
   });
 });

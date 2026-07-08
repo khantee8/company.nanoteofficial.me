@@ -60,6 +60,14 @@ const retriedKey = (dept: DeptId, date: string) => `agent:retried:${dept}:${date
 const PENDING_INDEX = 'run:pending:index';
 const PENDING_CAP = 50;
 const pendingKey = (id: string) => `run:pending:${id}`;
+// v1.12 Task 6 (F3) — atomic collection claim: whichever collector (self-poll
+// or the backstop poller) acquires this NX key persists the result; the loser
+// skips silently. TTL is the crash-recovery window: if the claim holder dies
+// after acquiring but before deleting the pending run, the claim expires and
+// the backstop can safely re-claim and re-collect (at-least-once, not exactly-
+// once — duplicates are bounded to once per 10-minute window).
+const CLAIM_TTL_SECONDS = 600;
+const claimKey = (id: string) => `run:claim:${id}`;
 
 export interface KbQuery {
   status?: KbEntry['status'];
@@ -130,8 +138,17 @@ function matchesKbQuery(e: KbEntry, q: KbQuery): boolean {
   return true;
 }
 
+/** `set(..., { nx: true })` — Upstash (and real Redis SET NX) returns `"OK"`
+ *  when the key was newly written and `null` when it already existed, i.e.
+ *  a failed claim. Fakes/mocks of `RedisClientLike` must mirror this exact
+ *  contract (return `null`, not `false`, on an NX miss). */
+export interface RedisSetOptions {
+  ex?: number;
+  nx?: boolean;
+}
+
 export interface RedisClientLike {
-  set(key: string, value: unknown, options?: unknown): Promise<unknown>;
+  set(key: string, value: unknown, options?: RedisSetOptions): Promise<unknown>;
   get<T = unknown>(key: string): Promise<T | null>;
   del(...keys: string[]): Promise<unknown>;
   mget<T = unknown>(keys: string[]): Promise<(T | null)[]>;
@@ -283,7 +300,13 @@ export function makeRedisRepo(client: RedisClientLike) {
       return await client.lrange<SweepLogEntry>(SWEEPLOG_KEY, 0, SWEEPLOG_CAP - 1);
     },
     async savePendingRun(run: PendingRun) {
+      // Upsert: `continueRun` re-saves the SAME id on every pause_turn
+      // continuation. An unconditional lpush would leave duplicate ids in
+      // the index, so the next poll would collect the same run twice
+      // (double-published KB, double notify, double usage-ledger entry) —
+      // lrem-before-lpush keeps the index a set, not a multiset (F1).
       await client.set(pendingKey(run.id), run);
+      await client.lrem(PENDING_INDEX, 0, run.id);
       await client.lpush(PENDING_INDEX, run.id);
       await client.ltrim(PENDING_INDEX, 0, PENDING_CAP - 1);
     },
@@ -296,6 +319,15 @@ export function makeRedisRepo(client: RedisClientLike) {
     async deletePendingRun(id: string) {
       await client.del(pendingKey(id));
       await client.lrem(PENDING_INDEX, 0, id);
+    },
+    /** F3 — atomic collection claim: SET NX so only one of {self-poll,
+     *  backstop poller} persists a given run's result. Returns `true` iff
+     *  THIS call acquired the claim. A 10-min TTL bounds the crash-recovery
+     *  window (claim holder dies mid-collect → backstop can reclaim once it
+     *  expires, since the pending record is still there). */
+    async claimPendingRun(id: string): Promise<boolean> {
+      const res = await client.set(claimKey(id), '1', { ex: CLAIM_TTL_SECONDS, nx: true });
+      return res === 'OK';
     },
   };
   return repo;

@@ -55,14 +55,21 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-/** A finished batch message → the persisted AgentRunResult. Rebuilds the
- *  agent context fresh at collection time (a batch may sit for minutes to
- *  hours; a stale ctx would understate CEOX's KPIs or miss a same-day peer
- *  report) rather than reusing the snapshot taken at submit time. Shared by
- *  the self-poll loop and the standalone poll collector — collection logic
- *  lives here exactly once. */
-async function collect(run: PendingRun, message: Anthropic.Messages.Message, deps: RunnerDeps): Promise<AgentRunResult> {
+/** A finished batch message → the persisted AgentRunResult, or `null` if
+ *  another collector already owns this run. Rebuilds the agent context
+ *  fresh at collection time (a batch may sit for minutes to hours; a stale
+ *  ctx would understate CEOX's KPIs or miss a same-day peer report) rather
+ *  than reusing the snapshot taken at submit time. Shared by the self-poll
+ *  loop and the standalone poll collector — collection logic lives here
+ *  exactly once.
+ *
+ *  F3 — self-poll and the backstop poller can both observe the same batch
+ *  as `ended` (self-poll running past its deadline right as the backstop
+ *  fires). Before persisting, claim `run:claim:<id>` (SET NX, 10-min TTL);
+ *  the loser skips silently rather than double-publishing/double-notifying. */
+async function collect(run: PendingRun, message: Anthropic.Messages.Message, deps: RunnerDeps): Promise<AgentRunResult | null> {
   const { repo, notify } = deps;
+  if (!(await repo.claimPendingRun(run.id))) return null;
   const single = completionFromMessage(message);
   const out: CompleteResult = {
     text: [...run.partialTexts, single.text].filter(Boolean).join('\n').trim(),
@@ -191,17 +198,28 @@ export async function submitRun(dept: DeptId, deps: RunnerDeps, options?: Submit
   const intervalMs = options?.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
 
   for (;;) {
-    const batch = await getAgentBatch(run.batchId, run.useMcp);
-    const action = decidePoll(run, batch, Date.now());
-    if (action.kind === 'finalize') {
-      const result = await collect(run, action.message, deps);
-      return { queued: false, summary: result.summary };
-    }
-    if (action.kind === 'continue') {
-      run = await continueRun(run, action.message, deps);
-    } else if (action.kind === 'fail') {
-      await fail(run, action.reason, deps);
-      return { queued: false };
+    try {
+      const batch = await getAgentBatch(run.batchId, run.useMcp);
+      const action = decidePoll(run, batch, Date.now());
+      if (action.kind === 'finalize') {
+        const result = await collect(run, action.message, deps);
+        // `result` is null iff the backstop poller won the collection race
+        // (F3) — the batch is already durably queued/handled either way, so
+        // report `queued: true` rather than fabricating a summary.
+        return result ? { queued: false, summary: result.summary } : { queued: true };
+      }
+      if (action.kind === 'continue') {
+        run = await continueRun(run, action.message, deps);
+      } else if (action.kind === 'fail') {
+        await fail(run, action.reason, deps);
+        return { queued: false };
+      }
+    } catch {
+      // F4 — self-poll is best-effort: the batch is already durably queued
+      // in Redis, so a thrown getAgentBatch/collect error here must NOT
+      // reject submitRun. Fall through to the standalone backstop poller
+      // (`/api/cron/poll`) instead of failing the whole submit request.
+      return { queued: true };
     }
     if (Date.now() >= deadline) return { queued: true };
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
@@ -211,24 +229,52 @@ export async function submitRun(dept: DeptId, deps: RunnerDeps, options?: Submit
 /** Standalone poll collector — the GitHub-Actions-triggered backstop
  *  (`/api/cron/poll`) for batches that outlive a self-poll window. Runs are
  *  always few, so a sequential for-of is fine (and keeps ordering simple to
- *  reason about for the eventual sweep-outcome Telegram messages). */
+ *  reason about for the eventual sweep-outcome Telegram messages).
+ *
+ *  F1 — dedupes by id (defense in depth on top of the `savePendingRun`
+ *  upsert fix): a duplicate id in the index must not be collected twice.
+ *  F2 — staleness is checked BEFORE any network call, so a run stuck past
+ *  `STALE_MS` (or whose batch id is permanently 404/expired on Anthropic's
+ *  side) fails without ever touching `getAgentBatch`; and each run's
+ *  processing is isolated in its own try/catch so one run throwing (a
+ *  flaky `getAgentBatch`/collect) never stops the rest of the batch from
+ *  being processed — it's simply counted as still-pending. */
 export async function pollPendingRuns(deps: RunnerDeps): Promise<{ collected: number; pending: number }> {
-  const runs = await deps.repo.getPendingRuns();
+  const all = await deps.repo.getPendingRuns();
+  const seen = new Set<string>();
+  const runs = all.filter((run) => {
+    if (seen.has(run.id)) return false;
+    seen.add(run.id);
+    return true;
+  });
+
   let collected = 0;
   let pending = 0;
   for (const run of runs) {
-    const batch = await getAgentBatch(run.batchId, run.useMcp);
-    const action = decidePoll(run, batch, Date.now());
-    if (action.kind === 'wait') {
+    try {
+      const now = Date.now();
+      if (now - run.submittedAt > STALE_MS) {
+        await fail(run, 'stale (>6h)', deps);
+        continue;
+      }
+      const batch = await getAgentBatch(run.batchId, run.useMcp);
+      const action = decidePoll(run, batch, now);
+      if (action.kind === 'wait') {
+        pending++;
+      } else if (action.kind === 'finalize') {
+        const result = await collect(run, action.message, deps);
+        if (result) collected++; // else: another collector already owns it (F3) — skip silently
+      } else if (action.kind === 'continue') {
+        await continueRun(run, action.message, deps);
+        pending++;
+      } else {
+        await fail(run, action.reason, deps);
+      }
+    } catch (err) {
+      // Isolation: a throw from this run's getAgentBatch/collect must not
+      // prevent the remaining runs in this poll from being processed.
+      await deps.repo.pushEvent({ dept: run.dept, msg: `${run.dept.toUpperCase()} poll error: ${String(err)}`, ts: nowIso() }).catch(() => {});
       pending++;
-    } else if (action.kind === 'finalize') {
-      await collect(run, action.message, deps);
-      collected++;
-    } else if (action.kind === 'continue') {
-      await continueRun(run, action.message, deps);
-      pending++;
-    } else {
-      await fail(run, action.reason, deps);
     }
   }
   return { collected, pending };
