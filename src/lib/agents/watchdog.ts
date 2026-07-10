@@ -4,8 +4,8 @@
 import { DEPARTMENTS, isFrontendDept, type DeptId } from '@/lib/data/departments';
 import type { AgentStatus, RunOverrides } from './types';
 import type { RedisRepo } from '@/lib/redis';
-import { runAgent, todayDate } from './runner';
-import { AGENTS } from './index';
+import { todayDate } from './runner';
+import { submitRunSafe } from './asyncRun';
 import { DEFAULT_MODEL } from '@/lib/claude';
 
 /** Conservative retry settings — a thin report beats a dead one. The dept's
@@ -43,10 +43,14 @@ export async function runSweep(deps: { repo: RedisRepo; notify: (t: string) => P
   // Announce BEFORE the rerun: if the platform kills this function mid-retry
   // (300s cap), the attempt is not silent — the operator still saw it start.
   await notify(`🔧 OperX: attempting self-heal rerun of ${dept.toUpperCase()}`);
+  // v1.12 — the run itself is now async (batch submit + self-poll/backstop
+  // collect). A successful submitRunSafe here only means the batch was
+  // accepted; the actual recovered/failed-twice outcome (and its 🔧/🚨
+  // notify + sweep log entry) is now owned by asyncRun's `collect()`/`fail()`
+  // sweep-origin handling at collection time. A THROW means submission
+  // itself failed — that's still this function's problem to log and alert.
   try {
-    const result = await runAgent({ dept, run: AGENTS[dept] }, { repo, notify }, SAFE_OVERRIDES);
-    await repo.pushSweepLog({ dept, ok: true, detail: result.summary, ts: Date.now() });
-    await notify(`🔧 OperX self-heal: ${dept.toUpperCase()} recovered`);
+    await submitRunSafe(dept, { repo, notify }, { overrides: SAFE_OVERRIDES, origin: 'sweep', selfPollMs: 120_000 });
     return { retried: dept, ok: true };
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);

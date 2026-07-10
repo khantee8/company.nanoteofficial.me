@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AGENTS, isDeptId } from '@/lib/agents';
-import { runAgent } from '@/lib/agents/runner';
+import { isDeptId } from '@/lib/agents';
+import { submitRunSafe } from '@/lib/agents/asyncRun';
 import { getRepo } from '@/lib/redis';
 import { sendMessage } from '@/lib/telegram';
 import { runSweep } from '@/lib/agents/watchdog';
@@ -35,11 +35,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await runAgent(
-      { dept, run: AGENTS[dept] },
-      { repo: getRepo(), notify: (t) => sendMessage(t) },
-    );
-    return NextResponse.json({ ok: true, dept, summary: result.summary });
+    const r = await submitRunSafe(dept, { repo: getRepo(), notify: (t) => sendMessage(t) }, { origin: 'cron' });
+    return NextResponse.json({ ok: true, dept, queued: r.queued, summary: r.summary });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ ok: false, dept, error: message }, { status: 500 });

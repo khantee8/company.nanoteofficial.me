@@ -226,6 +226,24 @@ export async function submitRun(dept: DeptId, deps: RunnerDeps, options?: Submit
   }
 }
 
+/** `submitRun`, but with a caller-side safety net: a submit-time throw (batch
+ *  creation itself failed — network error, exhausted MCP fallback, etc.)
+ *  never leaves the dept silently `queued`/stale in Redis or the operator
+ *  unnotified. Mirrors `runAgent`'s own catch block exactly (same status
+ *  write, same `⚠ failed` notify text) before rethrowing so each call site
+ *  can still layer its own submit-failure handling (HTTP 500, sweep log, …).
+ *  Every caller of `submitRun` should go through this wrapper instead. */
+export async function submitRunSafe(dept: DeptId, deps: RunnerDeps, options?: SubmitOptions): Promise<{ queued: boolean; summary?: string }> {
+  try {
+    return await submitRun(dept, deps, options);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await deps.repo.setStatus({ dept, state: 'error', lastRun: nowIso(), error: message });
+    await deps.notify(`*${dept.toUpperCase()}* ⚠ failed: ${message}`);
+    throw err;
+  }
+}
+
 /** Standalone poll collector — the GitHub-Actions-triggered backstop
  *  (`/api/cron/poll`) for batches that outlive a self-poll window. Runs are
  *  always few, so a sequential for-of is fine (and keeps ordering simple to

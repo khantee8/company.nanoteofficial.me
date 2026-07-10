@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { parseCommand, isAllowedChat, sendMessage, isFocusLive, FOCUS_TTL_MS } from '@/lib/telegram';
 import type { FocusSession } from '@/lib/telegram';
-import { AGENTS, isDeptId } from '@/lib/agents';
-import { runAgent } from '@/lib/agents/runner';
+import { isDeptId } from '@/lib/agents';
+import { submitRunSafe } from '@/lib/agents/asyncRun';
 import { getRepo } from '@/lib/redis';
 import { complete } from '@/lib/claude';
 import { CHAT_PERSONAS } from '@/lib/agents/personas';
@@ -123,8 +123,9 @@ export async function POST(req: NextRequest) {
     await reply(`▶ running ${id}…`);
     after(async () => {
       try {
-        await runAgent({ dept: id, run: AGENTS[id] }, { repo: getRepo(), notify: (t) => sendMessage(t, String(chatId)) });
-      } catch { /* runAgent already notified */ }
+        const r = await submitRunSafe(id, { repo: getRepo(), notify: (t) => sendMessage(t, String(chatId)) }, { origin: 'telegram' });
+        if (r.queued) await sendMessage('⏳ queued — รายงานจะแจ้งเตือนเมื่อเสร็จ', String(chatId));
+      } catch { /* submitRunSafe already notified */ }
     });
   } else if (parsed.cmd === 'ask') {
     const id = NAME_TO_ID[(parsed.args[0] ?? '').toLowerCase()];

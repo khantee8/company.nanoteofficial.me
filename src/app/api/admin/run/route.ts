@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ADMIN_COOKIE, verifySession } from '@/lib/auth';
-import { AGENTS, isDeptId } from '@/lib/agents';
-import { runAgent } from '@/lib/agents/runner';
+import { isDeptId } from '@/lib/agents';
+import { submitRunSafe } from '@/lib/agents/asyncRun';
 import { getRepo } from '@/lib/redis';
 import { sendMessage } from '@/lib/telegram';
 import { isKnownModel } from '@/lib/cost';
@@ -31,12 +31,13 @@ export async function POST(req: NextRequest) {
         }
       }
     }
-    const result = await runAgent(
-      { dept, run: AGENTS[dept] },
+    const r = await submitRunSafe(
+      dept,
       { repo: getRepo(), notify: (t) => sendMessage(t) },
-      overrides,
+      { origin: 'admin', overrides },
     );
-    return NextResponse.json({ ok: true, dept, summary: result.summary });
+    if (r.queued) return NextResponse.json({ ok: true, queued: true });
+    return NextResponse.json({ ok: true, dept, summary: r.summary });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ ok: false, dept, error: message }, { status: 500 });
