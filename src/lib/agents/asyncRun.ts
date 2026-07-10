@@ -94,8 +94,17 @@ async function collect(run: PendingRun, message: Anthropic.Messages.Message, dep
 /** Resume a paused turn: append the assistant `content` verbatim (never a
  *  "continue" user message — mirrors `completeRaw`'s own resume semantics)
  *  and resubmit as a fresh batch, accumulating partial text/usage so the
- *  eventual `collect()` sees the whole multi-turn research run. */
-async function continueRun(run: PendingRun, message: Anthropic.Messages.Message, deps: RunnerDeps): Promise<PendingRun> {
+ *  eventual `collect()` sees the whole multi-turn research run.
+ *
+ *  I2 — returns `null` if the new batch was created but persisting the
+ *  updated record then failed. Left alone, the OLD record (still pointing
+ *  at the now-consumed pause_turn batch) would stay in the pending index:
+ *  the next poll would re-observe the same pause_turn result and call
+ *  `continueRun` again, spawning a fresh orphan batch every cycle until the
+ *  6h staleness kill. Failing the run outright here — rather than letting
+ *  the save error escape to a caller's per-run catch — deletes the record
+ *  so that never happens. */
+async function continueRun(run: PendingRun, message: Anthropic.Messages.Message, deps: RunnerDeps): Promise<PendingRun | null> {
   const resumeContent = [...run.resumeContent, message.content];
   const shape = buildRequestShape(run.opts);
   const messages = shape.params.messages as unknown[];
@@ -111,7 +120,13 @@ async function continueRun(run: PendingRun, message: Anthropic.Messages.Message,
     resumeContent,
     useMcp: shape.useMcp,
   };
-  await deps.repo.savePendingRun(next);
+  try {
+    await deps.repo.savePendingRun(next);
+  } catch (err) {
+    const message2 = err instanceof Error ? err.message : String(err);
+    await fail(run, `continuation save failed: ${message2}`, deps);
+    return null;
+  }
   return next;
 }
 
@@ -151,6 +166,13 @@ export interface SubmitOptions {
 export async function submitRun(dept: DeptId, deps: RunnerDeps, options?: SubmitOptions): Promise<{ queued: boolean; summary?: string }> {
   const { repo } = deps;
   const origin = options?.origin ?? 'cron';
+
+  // I1 — an operator Run-now / Telegram `/run` firing while a batch for
+  // this dept is already queued must not create a second run: the existing
+  // record's collector (self-poll or the backstop poller) owns the
+  // eventual outcome, so bail out before submitting anything new.
+  const existingPending = await repo.getPendingRuns();
+  if (existingPending.some((r) => r.dept === dept)) return { queued: true };
 
   const ctx = await buildContext(dept, repo, options?.overrides);
   const { opts: prepOpts, meta } = await PREPARES[dept](ctx);
@@ -209,7 +231,12 @@ export async function submitRun(dept: DeptId, deps: RunnerDeps, options?: Submit
         return result ? { queued: false, summary: result.summary } : { queued: true };
       }
       if (action.kind === 'continue') {
-        run = await continueRun(run, action.message, deps);
+        const next = await continueRun(run, action.message, deps);
+        // I2 — `null` means continueRun already failed the run (its save
+        // threw); mirror the `fail` branch below rather than looping on a
+        // stale `run` reference.
+        if (!next) return { queued: false };
+        run = next;
       } else if (action.kind === 'fail') {
         await fail(run, action.reason, deps);
         return { queued: false };
@@ -283,8 +310,11 @@ export async function pollPendingRuns(deps: RunnerDeps): Promise<{ collected: nu
         const result = await collect(run, action.message, deps);
         if (result) collected++; // else: another collector already owns it (F3) — skip silently
       } else if (action.kind === 'continue') {
-        await continueRun(run, action.message, deps);
-        pending++;
+        const next = await continueRun(run, action.message, deps);
+        // I2 — `null` means continueRun's save failed and it already
+        // called `fail()` (record deleted, status error, notified); don't
+        // double-count this run as pending.
+        if (next) pending++;
       } else {
         await fail(run, action.reason, deps);
       }

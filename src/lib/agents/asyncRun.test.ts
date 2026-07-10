@@ -22,7 +22,7 @@ vi.mock('./index', () => ({
   },
 }));
 
-import { submitRun, pollPendingRuns, decidePoll, MAX_CONTINUATIONS } from './asyncRun';
+import { submitRun, submitRunSafe, pollPendingRuns, decidePoll, MAX_CONTINUATIONS } from './asyncRun';
 import * as claudeLib from '@/lib/claude';
 import { PREPARES, FINALIZES } from './index';
 
@@ -203,6 +203,58 @@ describe('submitRun', () => {
     expect(finalFin).not.toHaveBeenCalled();
     expect(repo.deletePendingRun).not.toHaveBeenCalled();
   });
+
+  it('I1: a pending run already exists for this dept → resolves { queued: true } without submitting a new batch', async () => {
+    const existing: PendingRun = {
+      id: 'fin:already', dept: 'fin', submittedAt: Date.now(), batchId: 'b-old', customId: 'fin-old', continuations: 0,
+      origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [],
+      usageAcc: { input: 0, output: 0 }, resumeContent: [], useMcp: false,
+    };
+    const repo = fakeRepo({ getPendingRuns: vi.fn(async () => [existing]) });
+    const notify = vi.fn(async () => {});
+
+    const res = await submitRun('fin', { repo, notify }, { selfPollMs: 1000, pollIntervalMs: 5 });
+
+    expect(res).toEqual({ queued: true });
+    expect(createAgentBatch).not.toHaveBeenCalled();
+    expect(repo.savePendingRun).not.toHaveBeenCalled();
+    expect(prepFin).not.toHaveBeenCalled();
+  });
+
+  it('I1: a pending run for a DIFFERENT dept does not block this submit', async () => {
+    const other: PendingRun = {
+      id: 'cyb:already', dept: 'cyb', submittedAt: Date.now(), batchId: 'b-old', customId: 'cyb-old', continuations: 0,
+      origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [],
+      usageAcc: { input: 0, output: 0 }, resumeContent: [], useMcp: false,
+    };
+    const repo = fakeRepo({ getPendingRuns: vi.fn(async () => [other]) });
+    const notify = vi.fn(async () => {});
+    createAgentBatch.mockResolvedValueOnce('batch1');
+    getAgentBatch.mockResolvedValueOnce({ status: 'ended', result: { type: 'succeeded', message: msg('end_turn') } });
+
+    const res = await submitRun('fin', { repo, notify }, { selfPollMs: 1000, pollIntervalMs: 5 });
+
+    expect(res).toEqual({ queued: false, summary: 'fin done' });
+    expect(createAgentBatch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('submitRunSafe', () => {
+  it('I1: the pending-run guard resolving { queued: true } is not treated as a submit-time error', async () => {
+    const existing: PendingRun = {
+      id: 'fin:already', dept: 'fin', submittedAt: Date.now(), batchId: 'b-old', customId: 'fin-old', continuations: 0,
+      origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [],
+      usageAcc: { input: 0, output: 0 }, resumeContent: [], useMcp: false,
+    };
+    const repo = fakeRepo({ getPendingRuns: vi.fn(async () => [existing]) });
+    const notify = vi.fn(async () => {});
+
+    const res = await submitRunSafe('fin', { repo, notify }, { selfPollMs: 1000, pollIntervalMs: 5 });
+
+    expect(res).toEqual({ queued: true });
+    expect(repo.setStatus).not.toHaveBeenCalledWith(expect.objectContaining({ state: 'error' }));
+    expect(notify).not.toHaveBeenCalledWith(expect.stringContaining('⚠ failed'));
+  });
 });
 
 describe('pollPendingRuns', () => {
@@ -335,5 +387,42 @@ describe('pollPendingRuns', () => {
     expect(res).toEqual({ collected: 0, pending: 0 });
     expect(finalFin).not.toHaveBeenCalled();
     expect(repo.deletePendingRun).not.toHaveBeenCalled();
+  });
+
+  it('I2: savePendingRun throws during a pause_turn continuation → the run is failed (status error, record deleted) instead of surviving to spawn an orphan batch next poll', async () => {
+    const run: PendingRun = {
+      id: 'fin:t1', dept: 'fin', submittedAt: Date.now(), batchId: 'b-old', customId: 'fin-1', continuations: 0,
+      origin: 'cron', opts: { system: 's', prompt: 'p' }, meta: {}, partialTexts: [],
+      usageAcc: { input: 0, output: 0 }, resumeContent: [], useMcp: false,
+    };
+    const savePendingRun = vi.fn(async () => { throw new Error('redis write timeout'); });
+    const getPendingRuns = vi.fn().mockResolvedValueOnce([run]).mockResolvedValueOnce([]);
+    const repo = fakeRepo({ getPendingRuns, savePendingRun });
+    const notify = vi.fn(async () => {});
+    getAgentBatch.mockResolvedValueOnce({ status: 'ended', result: { type: 'succeeded', message: msg('pause_turn') } });
+    createAgentBatch.mockResolvedValueOnce('b-new');
+
+    const res = await pollPendingRuns({ repo, notify });
+
+    // the continuation batch WAS created (that step succeeded), but since
+    // the updated record never persisted, the run is failed outright
+    // rather than left pointing at the old, already-consumed batch.
+    expect(createAgentBatch).toHaveBeenCalledWith('fin-1', expect.anything());
+    expect(res).toEqual({ collected: 0, pending: 0 });
+    expect(repo.setStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ dept: 'fin', state: 'error', error: expect.stringContaining('continuation save failed') }),
+    );
+    expect(repo.deletePendingRun).toHaveBeenCalledWith('fin:t1');
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('⚠ failed'));
+
+    // no unbounded loop: a subsequent poll (Redis now empty, per the
+    // second getPendingRuns resolution above) never re-observes the run
+    // or re-creates a batch for it.
+    createAgentBatch.mockClear();
+    getAgentBatch.mockClear();
+    const res2 = await pollPendingRuns({ repo, notify });
+    expect(res2).toEqual({ collected: 0, pending: 0 });
+    expect(getAgentBatch).not.toHaveBeenCalled();
+    expect(createAgentBatch).not.toHaveBeenCalled();
   });
 });

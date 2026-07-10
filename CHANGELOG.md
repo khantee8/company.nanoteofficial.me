@@ -30,9 +30,11 @@ All notable changes to this project are documented here. Versions follow
   submit time, accumulated partial text/usage, and continuation count;
   `decidePoll()` is the pure decision table (wait / continue / finalize /
   fail) shared by both the self-poll loop and the standalone poller.
-- **`pause_turn` continuations** — a batch that pauses mid-turn (e.g. for a
-  tool round-trip) is resumed automatically, capped at 3 continuations
-  before the run is failed outright.
+- **`pause_turn` continuations** — a batch whose turn hits the server-side
+  tool iteration cap (stop_reason `pause_turn`, ~10 web_search/MCP
+  iterations) is resumed by re-submitting with the assistant content
+  appended verbatim, capped at 3 continuations before the run is failed
+  outright.
 - **6h staleness kill** — a pending run older than `STALE_MS` (6 hours) is
   failed and cleaned up rather than polled forever, checked before any
   network call so it can't be reanimated by a late poll.
@@ -40,9 +42,9 @@ All notable changes to this project are documented here. Versions follow
   TTL) ensures only one collector (self-poll vs. the backstop poller, which
   can race when self-poll overruns its deadline right as the poller fires)
   persists and notifies for a given run.
-- **MCP-in-batch runtime fallback** — Finance's `thai-funds-mcp` connector
-  degrades safely inside the batch runtime, so an MCP outage doesn't sink
-  the whole submission.
+- **MCP-in-batch submit fallback** — if the Batches API rejects the
+  MCP-connector params at submission (400 mentioning `mcp`), the run is
+  resubmitted once without the connector, web_search only.
 - **`submitRunSafe`** — wraps `submitRun()` so a submission failure (bad
   request, Anthropic API error) always surfaces as a normal `error` status
   + Telegram alert instead of leaving the dept silently stuck.

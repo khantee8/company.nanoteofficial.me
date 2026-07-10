@@ -33,9 +33,18 @@ export function createStateOverlay(ambient: AmbientController): StateOverlayCont
 
   return {
     update(agents, states, dt) {
-      for (const [dept, state] of Object.entries(states) as [DeptId, AgentState][]) {
-        const prev = prevStates.get(dept) ?? 'idle';
-        prevStates.set(dept, state);
+      for (const [dept, rawState] of Object.entries(states) as [DeptId, AgentState][]) {
+        const rawPrev = prevStates.get(dept) ?? 'idle';
+        prevStates.set(dept, rawState);
+
+        // v1.12 final-review — production only ever sets `queued`/`done`/
+        // `error` now (batches, not synchronous runs), so `'running'` alone
+        // never fires. Normalize `'queued'` to `'running'` for choreography
+        // purposes only (walk-to-desk/work while the batch is out,
+        // celebrate/error on the queued→done/error edge); the raw state is
+        // still what's stored in `prevStates` above.
+        const state = rawState === 'queued' ? 'running' : rawState;
+        const prev = rawPrev === 'queued' ? 'running' : rawPrev;
 
         if (state === 'running' && prev !== 'running' && !active.has(dept)) {
           ambient.lockAgent(dept);
