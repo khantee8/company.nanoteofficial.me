@@ -1,0 +1,17 @@
+# Collects finished agent batch runs. The in-request self-poll is the fast
+# path; this schedule is the backstop (GH cron is best-effort, drift is fine).
+name: poll-agent-batches
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll company.nanoteofficial.me for finished batches
+        run: |
+          curl -fsS -m 280 -H "Authorization: Bearer $CRON_SECRET" \
+            "https://company.nanoteofficial.me/api/cron/poll"
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
