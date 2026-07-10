@@ -2,7 +2,7 @@
 'use client';
 
 import { DEPARTMENTS, type DeptId, type Department } from '@/lib/data/departments';
-import { getSpriteRects, SPRITE_VIEWBOX_W, SPRITE_VIEWBOX_H } from '@/lib/agents/sprites';
+import { spriteRects, SPRITE_VIEWBOX_W, SPRITE_VIEWBOX_H } from '@/lib/agents/sprites';
 
 interface Props {
   selectedDept: DeptId | null;
@@ -86,7 +86,7 @@ function DeptItem({ dept, index, active, taskText, onClick }: ItemProps) {
 
 /** React-rendered pixel-art sprite (no innerHTML). */
 function PixelSprite({ dept, animationDelay }: { dept: DeptId; animationDelay: string }) {
-  const rects = getSpriteRects(dept);
+  const rects = spriteRects(dept);
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
