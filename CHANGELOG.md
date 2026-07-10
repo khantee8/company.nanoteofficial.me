@@ -3,6 +3,71 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.12.0] — 2026-07-10
+
+**"Async Company" — batch substrate + the chibi shonen crew.**
+
+### Added
+- **Batch run substrate** — every department module is split into
+  `prepare`/`finalize` halves (`PREPARES`/`FINALIZES` in `index.ts`); all six
+  run triggers (Vercel cron, `/api/admin/run`, Telegram `/run`) now call
+  `submitRun()` (`asyncRun.ts`), which submits a one-request Anthropic
+  Message Batch instead of a synchronous, timeout-bound call — batches bill
+  at **50% of standard token pricing**.
+- **In-request self-poll** — `submitRun()` polls the freshly-submitted batch
+  for up to ~3 minutes before returning, so most runs still finish and
+  notify within the same request; anything slower falls through to the
+  backstop collector.
+- **`/api/cron/poll` collector** — `CRON_SECRET`-protected route that scans
+  all pending runs and collects any finished batch through the same
+  `collect()` → `persistRunResult()` path as the self-poll, driven by a
+  10-minute GitHub Actions schedule (`.github/workflows/poll.yml`) as the
+  backstop for anything the in-request poll missed (e.g. a serverless
+  function killed mid-poll).
+- **`queued` agent state** — `AgentState` gains `'queued'` (between `idle`
+  and `running`) for a submitted-but-not-yet-collected batch.
+- **Pending-run records** — `PendingRun` rows in Redis track the batch id,
+  submit time, accumulated partial text/usage, and continuation count;
+  `decidePoll()` is the pure decision table (wait / continue / finalize /
+  fail) shared by both the self-poll loop and the standalone poller.
+- **`pause_turn` continuations** — a batch that pauses mid-turn (e.g. for a
+  tool round-trip) is resumed automatically, capped at 3 continuations
+  before the run is failed outright.
+- **6h staleness kill** — a pending run older than `STALE_MS` (6 hours) is
+  failed and cleaned up rather than polled forever, checked before any
+  network call so it can't be reanimated by a late poll.
+- **Atomic collection claims** — `repo.claimPendingRun()` (`SET NX`, 10-min
+  TTL) ensures only one collector (self-poll vs. the backstop poller, which
+  can race when self-poll overruns its deadline right as the poller fires)
+  persists and notifies for a given run.
+- **MCP-in-batch runtime fallback** — Finance's `thai-funds-mcp` connector
+  degrades safely inside the batch runtime, so an MCP outage doesn't sink
+  the whole submission.
+- **`submitRunSafe`** — wraps `submitRun()` so a submission failure (bad
+  request, Anthropic API error) always surfaces as a normal `error` status
+  + Telegram alert instead of leaving the dept silently stuck.
+- **Chibi shonen sprite crew** — `sprites.ts` rebuilt from the old 9×11
+  blob sprites to six original chibi-shonen manga pixel characters on a
+  14×18 grid (big expressive head, 2×2-pixel eyes, spiky/shaped hair, mouth
+  row, per-agent signature accessory): CEOX (blond spikes, crimson
+  captain's coat), CyberX (dark hood, neon visor) are the user-approved
+  mockup maps verbatim; FinX, M&SX, AIX, OperX are authored in the same
+  proportions. Approved via mockup before implementation.
+
+### Changed
+- **Finance regains `web_search`** — the v1.10.1 MCP-only restriction (a
+  workaround for the old 300s serverless timeout) is lifted now that runs
+  are async batches with no request-duration cap; Finance is hybrid again
+  (`web_search` for fund names/returns/tax type + `thai-funds-mcp` for
+  authoritative SEC numbers, MCP wins on conflict).
+- **Run triggers reply `queued`** when the in-request self-poll window is
+  exceeded, instead of blocking the caller until the batch finishes; the
+  backstop poller or a later self-poll collects and notifies.
+- **Run notifications arrive on collection**, not on submission — Telegram
+  and KB writes now fire from whichever collector (self-poll or
+  `/api/cron/poll`) first claims the finished batch, not from the original
+  triggering request.
+
 ## [1.11.0] — 2026-07-06
 
 **"The Company Change Agent" — backend/frontend agent roles + knowledge graph.**
