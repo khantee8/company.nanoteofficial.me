@@ -6,8 +6,10 @@ import { normalizeTags, withProvenance, type Artifact, type Citation } from './a
 import type { AgentRunResult, AgentContext } from './types';
 
 export interface FundFinding {
-  name: string; amc: string; ter: number; aum: number; masterFund: string;
-  return1y: number; hedged: boolean; taxType: 'none' | 'ssf' | 'rmf' | 'thaiesg';
+  name: string; amc: string; masterFund: string;
+  hedged: boolean; taxType: 'none' | 'ssf' | 'rmf' | 'thaiesg';
+  /** null = the source (SEC/MCP or web) had no figure; charts skip null values. */
+  ter: number | null; aum: number | null; return1y: number | null;
   citation: Citation;
 }
 export interface FinanceFindings { theme: string; funds: FundFinding[] }
@@ -23,52 +25,73 @@ export function themeForToday(d = new Date()): { theme: string; label: string } 
   return THEME_BY_DOW[d.getUTCDay()] ?? THEME_BY_DOW[1];
 }
 
-/** Validate the model's findings block; drop any fund without a real citation. */
+const finiteOrNull = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) ? v : null;
+
+/** Validate the model's findings block; drop any fund without a real citation.
+ *  Numbers are individually optional (v1.12.1) — when the SEC/MCP source is
+ *  down, web research rarely yields all of TER+AUM+1Y, and the old all-three
+ *  rule zeroed entire runs (2026-07-10). A cited fund with at least one finite
+ *  number is a usable finding; zero numbers is not. */
 export function parseFinanceFindings(markdown: string): FinanceFindings | null {
   const raw = extractFindingsBlock<Partial<FinanceFindings>>(markdown);
   if (!raw) return null;
   if (!Array.isArray(raw.funds)) return { theme: String(raw.theme ?? ''), funds: [] };
-  const funds = raw.funds.filter(
-    (f): f is FundFinding =>
-      !!f &&
-      typeof f.name === 'string' &&
-      [f.ter, f.aum, f.return1y].every((n) => typeof n === 'number' && Number.isFinite(n)) &&
-      hasCitation(f as { citation?: Partial<Citation> }),
-  );
+  const funds: FundFinding[] = [];
+  for (const f of raw.funds as Partial<FundFinding>[]) {
+    if (!f || typeof f.name !== 'string' || !hasCitation(f as { citation?: Partial<Citation> })) continue;
+    const ter = finiteOrNull(f.ter);
+    const aum = finiteOrNull(f.aum);
+    const return1y = finiteOrNull(f.return1y);
+    if (ter === null && aum === null && return1y === null) continue;
+    funds.push({ ...(f as FundFinding), ter, aum, return1y });
+  }
   return { theme: String(raw.theme ?? ''), funds };
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Charts built from validated findings, tagged web·cited. */
+/** Charts built from validated findings, tagged web·cited. Numeric charts only
+ *  plot funds that carry that number and are omitted when none do; the table
+ *  keeps every fund with '—' for missing figures. */
 export function financeArtifacts(f: FinanceFindings): Artifact[] {
   if (f.funds.length === 0) return [];
   const sources = f.funds.map((x) => x.citation);
-  return [
-    withProvenance({
-      kind: 'bars', title: 'Total expense ratio (TER %)', unit: '%',
-      series: f.funds.map((x) => ({ label: x.name, value: round2(x.ter) })),
-    }, 'web', sources),
-    withProvenance({
-      kind: 'divergingBars', title: '1-year return (%)', unit: '%',
-      series: f.funds.map((x) => ({ label: x.name, value: round2(x.return1y) })),
-    }, 'web', sources),
-    withProvenance({
-      kind: 'table', title: 'Fund comparison',
-      columns: ['กอง', 'บลจ.', 'TER%', 'AUM(ลบ.)', 'กองแม่', 'ป้องกันค่าเงิน', '1Y%'],
-      rows: f.funds.map((x) => [x.name, x.amc, round2(x.ter), round2(x.aum), x.masterFund, x.hedged ? 'hedged' : 'unhedged', round2(x.return1y)]),
-    }, 'web', sources),
-    withProvenance({
-      kind: 'bars', title: 'Fund size — AUM (ล้านบาท)', unit: 'ลบ.',
-      series: f.funds.map((x) => ({ label: x.name, value: round2(x.aum) })),
-    }, 'web', sources),
-    withProvenance({
-      kind: 'donut', title: 'Tax type mix',
-      series: Object.entries(
-        f.funds.reduce<Record<string, number>>((m, x) => ((m[x.taxType] = (m[x.taxType] ?? 0) + 1), m), {}),
-      ).map(([label, value]) => ({ label, value })),
-    }, 'web', sources),
-  ];
+  const seriesOf = (pick: (x: FundFinding) => number | null) =>
+    f.funds.flatMap((x) => {
+      const v = pick(x);
+      return v === null ? [] : [{ label: x.name, value: round2(v) }];
+    });
+  const cell = (v: number | null): string | number => (v === null ? '—' : round2(v));
+
+  const ter = seriesOf((x) => x.ter);
+  const ret = seriesOf((x) => x.return1y);
+  const aum = seriesOf((x) => x.aum);
+  const out: Artifact[] = [];
+  if (ter.length > 0)
+    out.push(withProvenance({
+      kind: 'bars', title: 'Total expense ratio (TER %)', unit: '%', series: ter,
+    }, 'web', sources));
+  if (ret.length > 0)
+    out.push(withProvenance({
+      kind: 'divergingBars', title: '1-year return (%)', unit: '%', series: ret,
+    }, 'web', sources));
+  out.push(withProvenance({
+    kind: 'table', title: 'Fund comparison',
+    columns: ['กอง', 'บลจ.', 'TER%', 'AUM(ลบ.)', 'กองแม่', 'ป้องกันค่าเงิน', '1Y%'],
+    rows: f.funds.map((x) => [x.name, x.amc, cell(x.ter), cell(x.aum), x.masterFund, x.hedged ? 'hedged' : 'unhedged', cell(x.return1y)]),
+  }, 'web', sources));
+  if (aum.length > 0)
+    out.push(withProvenance({
+      kind: 'bars', title: 'Fund size — AUM (ล้านบาท)', unit: 'ลบ.', series: aum,
+    }, 'web', sources));
+  out.push(withProvenance({
+    kind: 'donut', title: 'Tax type mix',
+    series: Object.entries(
+      f.funds.reduce<Record<string, number>>((m, x) => ((m[x.taxType] = (m[x.taxType] ?? 0) + 1), m), {}),
+    ).map(([label, value]) => ({ label, value })),
+  }, 'web', sources));
+  return out;
 }
 
 export function financeTags(f: FinanceFindings): string[] {
@@ -102,7 +125,9 @@ export async function prepare(ctx: AgentContext): Promise<{ opts: CompleteOpts; 
     webSearch: true,
     maxSearches: 4,
     mcpServers,
-    maxTokens: 8000,
+    // 8000 truncated the 2026-07-10 hybrid run mid-narrative (bilingual report +
+    // web_search overhead); batches have no HTTP deadline, so headroom is cheap.
+    maxTokens: 16000,
   }, ctx);
   return { opts, meta: { theme, label } };
 }

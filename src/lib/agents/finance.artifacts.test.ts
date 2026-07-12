@@ -28,4 +28,36 @@ describe('financeArtifacts', () => {
   it('returns no artifacts when no funds (graceful empty)', () => {
     expect(financeArtifacts({ theme: 't', funds: [] })).toEqual([]);
   });
+
+  // v1.12.1: funds may carry partial numbers (SEC/MCP down → web-only research).
+  describe('partial-number funds', () => {
+    const partial: FinanceFindings = { theme: 'thai-tax-funds', funds: [
+      { name: 'C', amc: 'X', ter: null, aum: null, masterFund: 'ThaiESG bond', return1y: 9.82, hedged: false, taxType: 'thaiesg', citation: { url: 'https://e.com', title: 't', date: '2026-07-10' } },
+      { name: 'D', amc: 'Y', ter: 0.59, aum: null, masterFund: 'S&P500', return1y: null, hedged: false, taxType: 'rmf', citation: { url: 'https://e2.com', title: 't2', date: '2026-07-10' } },
+    ]};
+
+    it('each numeric chart only includes funds with that number', () => {
+      const a = financeArtifacts(partial);
+      const ter = a.find((x) => x.kind === 'bars' && /TER/i.test(x.title));
+      if (!ter || ter.kind !== 'bars') throw new Error('no TER chart');
+      expect(ter.series).toEqual([{ label: 'D', value: 0.59 }]);
+      const ret = a.find((x) => x.kind === 'divergingBars');
+      if (!ret || ret.kind !== 'divergingBars') throw new Error('no 1Y chart');
+      expect(ret.series).toEqual([{ label: 'C', value: 9.82 }]);
+    });
+
+    it('omits a chart entirely when no fund has that number', () => {
+      const a = financeArtifacts(partial);
+      expect(a.some((x) => x.kind === 'bars' && /AUM/i.test(x.title))).toBe(false);
+    });
+
+    it('table keeps every fund, with — for missing values', () => {
+      const a = financeArtifacts(partial);
+      const table = a.find((x) => x.kind === 'table');
+      if (!table || table.kind !== 'table') throw new Error('no table');
+      expect(table.rows).toHaveLength(2);
+      expect(table.rows[0]).toContain('—');
+      expect(table.rows[1]).toContain(0.59);
+    });
+  });
 });

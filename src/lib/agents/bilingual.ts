@@ -38,21 +38,20 @@ export function narrativeOf(markdown: string): string {
  * Never throws.
  */
 export function splitBilingual(markdown: string): { th: string; en: string } {
-  const full = markdown ?? '';
-  const idx = full.indexOf(EN_DELIMITER);
+  // Split the shared tail off FIRST, then look for the narrative delimiter in
+  // the body only: the head's own Highlight/Flags sections are bilingual (they
+  // carry internal EN delimiters), so on a truncated report — which ends before
+  // the narrative's delimiter — searching the full document splits inside the
+  // tail and discards the whole findings/Highlight/Flags head.
+  const { body, tail } = splitTail(markdown ?? '');
+  const idx = body.indexOf(EN_DELIMITER);
   if (idx === -1) {
-    const doc = full.trim();
+    const doc = join(body, tail);
     return { th: doc, en: doc };
   }
 
-  const thRaw = full.slice(0, idx);
-  const enRaw = full.slice(idx + EN_DELIMITER.length);
-
-  // The shared tail lives in whichever side still contains it (the English side,
-  // since the footer/findings follow the English narrative). Pull it from there.
-  const { tail } = splitTail(enRaw);
-  const thBody = splitTail(thRaw).body;
-  const enBody = splitTail(enRaw).body;
+  const thBody = body.slice(0, idx).trim();
+  const enBody = body.slice(idx + EN_DELIMITER.length).trim();
 
   const th = join(thBody, tail);
   const en = enBody ? join(enBody, tail) : th;

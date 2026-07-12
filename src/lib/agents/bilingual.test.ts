@@ -42,6 +42,20 @@ describe('splitBilingual', () => {
   it('never throws on empty input', () => {
     expect(splitBilingual('')).toEqual({ th: '', en: '' });
   });
+
+  // Regression (fin 2026-07-10): a max_tokens-truncated report ends before the
+  // narrative's own EN delimiter, so the first delimiter in the document is the
+  // one INSIDE the bilingual Highlight head — splitting there discarded the
+  // whole findings/Highlight/Flags tail from the stored TH doc.
+  it('keeps the shared tail intact when truncation removed the narrative EN delimiter', () => {
+    const biTail = `\`\`\`json findings\n{}\n\`\`\`\n\n## Highlight\nสรุป\n${EN_DELIMITER}\nSummary\n\n## Flags\n- ไทย\n${EN_DELIMITER}\n- english`;
+    const md = `รายงานไทยที่ถูกตัดกลางปร\n\n${biTail}`;
+    const { th, en } = splitBilingual(md);
+    expect(th).toContain('รายงานไทยที่ถูกตัดกลางปร');
+    expect(th).toContain('```json findings');
+    expect(th).toContain('## Flags');
+    expect(en).toBe(th); // no EN narrative survived → fall back to the TH doc
+  });
 });
 
 describe('narrativeOf', () => {

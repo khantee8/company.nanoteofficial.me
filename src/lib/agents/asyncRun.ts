@@ -191,6 +191,13 @@ export async function submitRun(dept: DeptId, deps: RunnerDeps, options?: Submit
       shape = buildRequestShape(fallback);
       batchId = await createAgentBatch(customId, shape);
       opts = fallback;
+      // Surface the degradation — a silent fallback looks identical to a
+      // healthy hybrid run until the report complains about missing SEC data.
+      await repo.pushEvent({
+        dept,
+        msg: `${dept.toUpperCase()} MCP connector rejected at submit — resubmitted web_search-only`,
+        ts: nowIso(),
+      });
     } else {
       throw err;
     }

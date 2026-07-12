@@ -159,6 +159,11 @@ describe('submitRun', () => {
         opts: expect.objectContaining({ webSearch: true, mcpServers: undefined }),
       }),
     );
+    // The fallback must be visible to the operator — otherwise a rejected
+    // connector silently degrades every run to web_search-only.
+    expect(repo.pushEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ dept: 'fin', msg: expect.stringMatching(/mcp/i) }),
+    );
   });
 
   it('sweep origin: successful collection fires pushSweepLog ok:true + a 🔧 recovered notify (in addition to the normal run notify)', async () => {

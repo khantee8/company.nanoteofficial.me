@@ -109,7 +109,7 @@ describe('prepare/finalize split', () => {
     const { opts, meta } = await prepare(ctx);
     // v1.12 restores the v1.6 hybrid: web_search + MCP together — the 300s cap
     // that forced MCP-only (v1.10.1) is gone under the batch substrate.
-    expect(opts).toMatchObject({ model: 'claude-sonnet-4-6', webSearch: true, maxTokens: 8000 });
+    expect(opts).toMatchObject({ model: 'claude-sonnet-4-6', webSearch: true, maxTokens: 16000 });
     expect(opts.mcpServers).toEqual([expect.objectContaining({ url: 'https://mcp.example/api/mcp' })]);
     expect(meta.theme).toBeTruthy();
     const result = finalize(ctx, meta, { text: '```json findings\n{"theme":"x","funds":[]}\n```', stopReason: 'end_turn', usage: { input: 1, output: 1 }, model: 'm' });

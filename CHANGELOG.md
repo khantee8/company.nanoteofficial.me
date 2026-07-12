@@ -3,6 +3,48 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.12.1] — 2026-07-12
+
+**Finance run-quality patch** — root-caused the 2026-07-10 Finance run that
+finished with "no citable funds" and published nothing: the thai-funds-mcp
+`list_thai_funds` tool scanned only the first 100-row page of the SEC nav
+endpoint (cursor-paginated), so queried funds were never found, every
+downstream proj_id lookup nulled, and the strict all-three-numbers findings
+validator then zeroed the run; a `max_tokens` truncation mangled the stored
+bilingual report on top.
+
+### Fixed
+- **Findings validator relaxed** (`finance.ts`) — a cited fund now needs at
+  least **one** finite number among TER/AUM/1Y-return instead of all three;
+  numbers are individually nullable. `financeArtifacts()` plots only funds
+  carrying each number, omits a numeric chart entirely when none do, and the
+  comparison table shows `—` for gaps. A cited fund with zero numbers is
+  still dropped.
+- **`splitBilingual` truncation mangling** (`bilingual.ts`) — the shared
+  findings/Highlight/Flags tail is split off *before* searching for the
+  narrative EN delimiter. Previously a `max_tokens`-truncated report (which
+  ends before the narrative's own delimiter) split at the delimiter *inside*
+  the bilingual Highlight head, silently discarding the whole head from the
+  stored Thai doc and storing a headerless Highlight fragment as the English
+  doc.
+- **Finance `maxTokens` 8000 → 16000** — the hybrid bilingual report plus
+  web_search overhead exceeded 8000 (the 2026-07-10 run stopped on
+  `max_tokens` mid-narrative); batches have no HTTP deadline, so the extra
+  headroom costs nothing unless used.
+
+### Added
+- **MCP submit-fallback feed event** (`asyncRun.ts`) — when a batch
+  submission is rejected with an MCP-related 400 and resubmitted
+  web_search-only, `submitRun()` now pushes a feed event so the degradation
+  is visible instead of silently producing an SEC-less run.
+
+### Companion (separate repo: `thai-funds-mcp`)
+- `list_thai_funds` now filters **server-side** via the confirmed
+  `?fund_class_name=` nav parameter when a query is given (falling back to
+  the unfiltered first page), so queried funds are actually found past the
+  100-row page boundary; `secGet` failures are logged (`console.warn` with
+  path + HTTP status) instead of silently returning empty.
+
 ## [1.12.0] — 2026-07-10
 
 **"Async Company" — batch substrate + the chibi shonen crew.**
