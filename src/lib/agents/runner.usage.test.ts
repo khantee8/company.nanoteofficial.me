@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeRedisRepo, type RedisClientLike } from '@/lib/redis';
-import { runAgent, type Agent } from './runner';
+import { persistRunResult, runAgent, type Agent } from './runner';
 import type { AgentRunResult } from './types';
 
 function memoryClient(): RedisClientLike {
@@ -36,5 +36,16 @@ describe('runAgent — usage ledger', () => {
     const repo = makeRedisRepo(memoryClient());
     await runAgent(agentWith(baseResult), { repo, notify: async () => {} });
     expect(await repo.getUsageSince(0)).toEqual([]);
+  });
+
+  // v1.12.2 — a batch-collected result marks its ledger entry so costOf halves it.
+  it('carries the batch flag into the ledger entry', async () => {
+    const repo = makeRedisRepo(memoryClient());
+    await persistRunResult('cyb',
+      { ...baseResult, usage: { input: 10, output: 20 }, model: 'claude-haiku-4-5-20251001', batch: true },
+      { repo, notify: async () => {} });
+    const ledger = await repo.getUsageSince(0);
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0].batch).toBe(true);
   });
 });

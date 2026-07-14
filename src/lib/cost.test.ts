@@ -26,4 +26,10 @@ describe('costOf', () => {
   it('returns 0 for zero usage', () => {
     expect(costOf('claude-haiku-4-5-20251001', { input: 0, output: 0 })).toBe(0);
   });
+
+  // v1.12.2 — batch runs bill at 50% of standard token pricing.
+  it('halves the price for batch usage', () => {
+    const usage = { input: 1_000_000, output: 1_000_000 };
+    expect(costOf('claude-sonnet-4-6', usage, true)).toBe(costOf('claude-sonnet-4-6', usage) / 2);
+  });
 });

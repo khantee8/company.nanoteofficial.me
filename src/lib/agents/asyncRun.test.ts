@@ -166,6 +166,24 @@ describe('submitRun', () => {
     );
   });
 
+  it('collect flags the usage ledger entry as batch (50% pricing)', async () => {
+    const repo = fakeRepo();
+    finalFin.mockImplementationOnce(
+      () =>
+        ({
+          markdown: '## Highlight\nhi\n\n## Flags\n- none',
+          summary: 'fin done', feedMsg: 'fin ran',
+          usage: { input: 5, output: 7 }, model: 'claude-sonnet-4-6',
+        }) as never,
+    );
+    createAgentBatch.mockResolvedValueOnce('batch1');
+    getAgentBatch.mockResolvedValueOnce({ status: 'ended', result: { type: 'succeeded', message: msg('end_turn') } });
+
+    await submitRun('fin', { repo, notify: vi.fn(async () => {}) }, { selfPollMs: 1000, pollIntervalMs: 5 });
+
+    expect(repo.recordUsage).toHaveBeenCalledWith(expect.objectContaining({ batch: true }));
+  });
+
   it('sweep origin: successful collection fires pushSweepLog ok:true + a 🔧 recovered notify (in addition to the normal run notify)', async () => {
     const repo = fakeRepo();
     const notify = vi.fn(async () => {});

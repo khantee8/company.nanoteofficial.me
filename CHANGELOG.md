@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.12.2] — 2026-07-12
+
+**Cost-ledger batch discount** — closes the v1.12.0 known gap: every agent
+run is now an Anthropic Message Batch (billed at **50%** of standard token
+pricing), but the ledger priced everything at standard rates, overstating
+cost tiles and `MONTHLY_BUDGET_USD` alerts by up to 2×.
+
+### Fixed
+- `UsageEntry` gains an optional `batch` flag; the batch collector
+  (`asyncRun.ts` `collect()`) sets `batch: true` on the run result, the
+  runner records it, and `costOf()` halves the price for flagged entries.
+  Entries recorded before v1.12.2 (and legacy synchronous runs) lack the
+  flag and remain priced at the standard rate — early-July history stays
+  slightly overstated, fail-safe direction.
+
 ## [1.12.1] — 2026-07-12
 
 **Finance run-quality patch** — root-caused the 2026-07-10 Finance run that

@@ -52,6 +52,9 @@ export interface UsageEntry {
   input: number;
   output: number;
   ts: number; // epoch ms
+  /** v1.12.2 — true = Message Batch run, billed at 50%; absent (pre-v1.12.2
+   *  entries / legacy sync runs) = standard rate. */
+  batch?: boolean;
 }
 
 export interface AgentRunResult {
@@ -79,6 +82,8 @@ export interface AgentRunResult {
    *  runner. Set by LLM dept modules; absent for non-LLM runs (then not recorded). */
   usage?: { input: number; output: number };
   model?: string;
+  /** v1.12.2 — set true by the batch collector so the ledger prices at 50%. */
+  batch?: boolean;
   /** v1.7 — a critical operations alert the runner sends as a distinct Telegram
    *  message, in addition to the routine run notify. */
   alert?: { severity: 'critical'; text: string };

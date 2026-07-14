@@ -29,7 +29,9 @@ export function isKnownModel(model: string): boolean {
   return model in PRICING;
 }
 
-export function costOf(model: string, usage: { input: number; output: number }): number {
+export function costOf(model: string, usage: { input: number; output: number }, batch = false): number {
   const price = PRICING[model] ?? DEFAULT_MODEL_PRICE;
-  return (usage.input / 1_000_000) * price.input + (usage.output / 1_000_000) * price.output;
+  const std = (usage.input / 1_000_000) * price.input + (usage.output / 1_000_000) * price.output;
+  // Message Batches bill at 50% of standard token pricing (v1.12 substrate).
+  return batch ? std / 2 : std;
 }

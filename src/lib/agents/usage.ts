@@ -47,7 +47,7 @@ export function aggregateUsage(
   let last7dUsd = 0;
 
   for (const e of entries) {
-    const cost = costOf(e.model, { input: e.input, output: e.output });
+    const cost = costOf(e.model, { input: e.input, output: e.output }, e.batch === true);
     const tokens = e.input + e.output;
     if (e.ts >= monthStart) {
       mtdUsd += cost;

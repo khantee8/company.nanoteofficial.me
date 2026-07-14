@@ -79,7 +79,8 @@ async function collect(run: PendingRun, message: Anthropic.Messages.Message, dep
   };
   const ctx = await buildContext(run.dept, repo);
   const result = FINALIZES[run.dept](ctx, run.meta as never, out);
-  await persistRunResult(run.dept, result, deps);
+  // batch: true → the cost ledger prices this run at the 50% Batches rate.
+  await persistRunResult(run.dept, { ...result, batch: true }, deps);
   await repo.deletePendingRun(run.id);
   // Sweep-originated runs (OperX self-heal) get the same 🔧 "recovered" alert
   // the pre-v1.12 inline retry sent, moved here since collection is now the

@@ -20,6 +20,15 @@ describe('aggregateUsage', () => {
     expect(agg.mtdUsd).toBeCloseTo(15, 6); // 1M out @ $15/Mtok
   });
 
+  // v1.12.2 — batch runs bill at 50%; the ledger must not overstate them.
+  it('prices batch-flagged entries at half rate', () => {
+    const entries: UsageEntry[] = [
+      { ...sonnet(Date.UTC(2026, 5, 2), 1_000_000), batch: true },
+    ];
+    const agg = aggregateUsage(entries, { now: NOW, budgetUsd: null });
+    expect(agg.mtdUsd).toBeCloseTo(7.5, 6); // 1M out @ $15/Mtok × 50%
+  });
+
   it('computes a 7-day burn-per-day average', () => {
     const entries = [sonnet(NOW - 2 * DAY, 1_000_000)]; // $15 in last 7d
     const agg = aggregateUsage(entries, { now: NOW, budgetUsd: null });

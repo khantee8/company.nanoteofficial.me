@@ -230,7 +230,7 @@ export async function persistRunResult(dept: DeptId, result: AgentRunResult, dep
       : []),
     // v1.8 — record token usage to the cost ledger (skip non-LLM runs lacking usage/model).
     ...(result.usage && result.model
-      ? [repo.recordUsage({ dept, model: result.model, input: result.usage.input, output: result.usage.output, ts: Date.parse(ts) })]
+      ? [repo.recordUsage({ dept, model: result.model, input: result.usage.input, output: result.usage.output, ts: Date.parse(ts), batch: result.batch === true })]
       : []),
   ]);
 
