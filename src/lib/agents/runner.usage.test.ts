@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeRedisRepo, type RedisClientLike } from '@/lib/redis';
+import { makeMemoryKbStore } from '@/lib/kbDb';
 import { persistRunResult, runAgent, type Agent } from './runner';
 import type { AgentRunResult } from './types';
 
@@ -23,7 +24,7 @@ const agentWith = (r: AgentRunResult): Agent => ({ dept: 'cyb', run: async () =>
 
 describe('runAgent — usage ledger', () => {
   it('records usage when the result carries usage + model', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     await runAgent(agentWith({ ...baseResult, usage: { input: 10, output: 20 }, model: 'claude-haiku-4-5-20251001' }),
       { repo, notify: async () => {} });
     const ledger = await repo.getUsageSince(0);
@@ -33,14 +34,14 @@ describe('runAgent — usage ledger', () => {
   });
 
   it('skips recording when usage/model are absent', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     await runAgent(agentWith(baseResult), { repo, notify: async () => {} });
     expect(await repo.getUsageSince(0)).toEqual([]);
   });
 
   // v1.12.2 — a batch-collected result marks its ledger entry so costOf halves it.
   it('carries the batch flag into the ledger entry', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     await persistRunResult('cyb',
       { ...baseResult, usage: { input: 10, output: 20 }, model: 'claude-haiku-4-5-20251001', batch: true },
       { repo, notify: async () => {} });

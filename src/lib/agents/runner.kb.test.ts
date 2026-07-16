@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeRedisRepo, type RedisClientLike } from '@/lib/redis';
+import { makeMemoryKbStore } from '@/lib/kbDb';
 import { runAgent } from './runner';
 import type { KbEntry } from './types';
 
@@ -19,7 +20,7 @@ function memClient(): RedisClientLike {
 
 describe('runAgent enriched KB write', () => {
   it('persists slug/theme/provenance/sources on the kb entry, auto-published via the quality gate', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     const captured: KbEntry[] = [];
     const orig = repo.pushKb.bind(repo);
     repo.pushKb = async (e) => { captured.push(e); return orig(e); };
@@ -46,7 +47,7 @@ describe('runAgent enriched KB write', () => {
   });
 
   it('defaults provenance to api and theme undefined when result omits them', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     const captured: KbEntry[] = [];
     const orig = repo.pushKb.bind(repo);
     repo.pushKb = async (e) => { captured.push(e); return orig(e); };
@@ -64,7 +65,7 @@ describe('runAgent enriched KB write', () => {
   });
 
   it('splits a dual-generated report into markdown (TH) + markdownEn (EN)', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     const captured: KbEntry[] = [];
     const orig = repo.pushKb.bind(repo);
     repo.pushKb = async (e) => { captured.push(e); return orig(e); };
@@ -85,14 +86,19 @@ describe('runAgent enriched KB write', () => {
     expect(e.markdownEn).toContain('## Highlight');
   });
 
-  it('backfills markdownEn from markdown for a single-language entry on read', async () => {
-    const repo = makeRedisRepo(memClient());
+  // v1.13 — the pre-v1.4.1 read-time backfill (`normalizeKbEntry` on every
+  // `getKbEntry`) is gone now that the KB system of record is Neon: real
+  // callers (`persistRunResult` above) always populate `markdownEn`
+  // explicitly, and a genuinely single-language legacy row is normalized
+  // ONCE at backfill import time, not on every read. The store now returns
+  // exactly what was pushed.
+  it('round-trips an entry that already carries markdownEn (no read-time backfill)', async () => {
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     await repo.pushKb({
       id: 'x:1', slug: 'x-1', dept: 'fin', date: '2026-01-01', ts: '2026-01-01T00:00:00Z',
       category: 'market-brief', tags: [], status: 'published', summary: 's', highlight: '',
       flags: [], artifacts: [], sources: [], provenance: 'api', related: [],
-      markdown: 'ไทยล้วน',
-      // markdownEn intentionally omitted (pre-v1.4.1 shape)
+      markdown: 'ไทยล้วน', markdownEn: 'ไทยล้วน',
     } as KbEntry);
     const got = await repo.getKbEntry('x:1');
     expect(got?.markdownEn).toBe('ไทยล้วน');

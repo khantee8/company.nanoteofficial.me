@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeRedisRepo, type RedisClientLike } from './redis';
+import { makeMemoryKbStore } from './kbDb';
 import type { KbEntry } from './agents/types';
 
 function memClient(): RedisClientLike {
@@ -25,7 +26,7 @@ const entry = (over: Partial<KbEntry> & { dept: KbEntry['dept']; ts: string }): 
 
 describe('knowledge graph', () => {
   it('getKbBySlug finds a published entry and resolves series + tag neighbours', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     await repo.pushKb(entry({ id: 'fin:1', slug: 'fin-sp500-2026-06-01', dept: 'fin', ts: '2026-06-01T10:00:00Z', theme: 'sp500', tags: ['us', 'index'] }));
     await repo.pushKb(entry({ id: 'fin:2', slug: 'fin-sp500-2026-06-04', dept: 'fin', ts: '2026-06-04T10:00:00Z', theme: 'sp500', tags: ['us', 'index'] }));
     await repo.pushKb(entry({ id: 'rnd:1', slug: 'rnd-2026-06-03', dept: 'rnd', ts: '2026-06-03T10:00:00Z', tags: ['index'] }));
@@ -38,7 +39,7 @@ describe('knowledge graph', () => {
   });
 
   it('resolves explicit related ids', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     await repo.pushKb(entry({ id: 'ceo:1', slug: 'ceo-weekly-2026-06-07', dept: 'ceo', ts: '2026-06-07T15:00:00Z', related: ['fin:2'] }));
     await repo.pushKb(entry({ id: 'fin:2', slug: 'fin-sp500-2026-06-04', dept: 'fin', ts: '2026-06-04T10:00:00Z' }));
     const res = await repo.getKbBySlug('ceo-weekly-2026-06-07');
@@ -46,7 +47,7 @@ describe('knowledge graph', () => {
   });
 
   it('returns null for a draft slug (published-only)', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     await repo.pushKb(entry({ id: 'fin:9', slug: 'fin-x-2026-06-04', dept: 'fin', ts: '2026-06-04T10:00:00Z', status: 'draft' }));
     expect(await repo.getKbBySlug('fin-x-2026-06-04')).toBeNull();
   });

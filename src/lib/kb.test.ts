@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeRedisRepo, type RedisClientLike } from './redis';
+import { makeMemoryKbStore } from './kbDb';
 import { getKnowledge, getKnowledgeEntry } from './kb';
 import type { KbEntry } from './agents/types';
 
@@ -32,7 +33,7 @@ const entry = (dept: KbEntry['dept'], date: string, over: Partial<KbEntry> = {})
 
 describe('KB storage', () => {
   it('archives addressable entries and lists them newest-first', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     await repo.pushKb(entry('ceo', '2026-06-01'));
     await repo.pushKb(entry('fin', '2026-06-02'));
 
@@ -43,17 +44,19 @@ describe('KB storage', () => {
   });
 
   it('updates a single entry (publish/archive/pin/tags) without touching others', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     await repo.pushKb(entry('fin', '2026-06-02', { status: 'draft' }));
     await repo.pushKb(entry('ceo', '2026-06-01'));
 
     const updated = await repo.updateKbEntry('fin:2026-06-02', { status: 'published', pinned: true, tags: ['btc'] });
     expect(updated).toMatchObject({ status: 'published', pinned: true, tags: ['btc'] });
-    expect(await repo.getKbEntry('ceo:2026-06-01')).toMatchObject({ status: 'published', pinned: undefined });
+    const ceoEntry = await repo.getKbEntry('ceo:2026-06-01');
+    expect(ceoEntry).toMatchObject({ status: 'published' });
+    expect(ceoEntry?.pinned).toBeFalsy(); // untouched by the fin patch
   });
 
   it('deletes an entry and removes it from the index', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     await repo.pushKb(entry('fin', '2026-06-02'));
     await repo.pushKb(entry('ceo', '2026-06-01'));
     await repo.deleteKbEntry('fin:2026-06-02');
@@ -64,7 +67,7 @@ describe('KB storage', () => {
   });
 
   it('filters by status, dept, category, q, and date range', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     await repo.pushKb(entry('fin', '2026-06-01', { tags: ['btc'], markdown: 'bitcoin rose' }));
     await repo.pushKb(entry('ceo', '2026-06-02', { status: 'draft' }));
     await repo.pushKb(entry('fin', '2026-06-03', { tags: ['eth'] }));
@@ -76,22 +79,11 @@ describe('KB storage', () => {
     expect(await repo.listKb({ from: '2026-06-02', to: '2026-06-03' }).then((r) => r.length)).toBe(2);
     expect(await repo.listKb({ limit: 1 })).toHaveLength(1);
   });
-
-  it('falls back to and normalizes the pre-v1.3 flat list', async () => {
-    const client = memoryClient();
-    const repo = makeRedisRepo(client);
-    // Seed a legacy entry that lacks id/category/tags/status/artifacts.
-    await client.lpush('kb:entries', { dept: 'fin', date: '2026-05-30', ts: '2026-05-30T00:00:00Z', summary: 's', highlight: 'h', flags: [], markdown: '# old' });
-
-    const all = await repo.listKb();
-    expect(all).toHaveLength(1);
-    expect(all[0]).toMatchObject({ id: 'fin:2026-05-30T00:00:00Z', category: 'market-brief', status: 'published', tags: [], artifacts: [] });
-  });
 });
 
 describe('getKnowledge (public)', () => {
   it('returns published only, honoring filters', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     await repo.pushKb(entry('fin', '2026-06-01'));
     await repo.pushKb(entry('ceo', '2026-06-02', { status: 'draft' }));
     await repo.pushKb(entry('fin', '2026-06-03', { status: 'archived' }));
@@ -122,18 +114,18 @@ const byId = (over: Partial<KbEntry> & { id: string; slug: string; dept: KbEntry
 
 describe('getKnowledgeEntry by id (published-only)', () => {
   it('returns a published entry by id', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     await repo.pushKb(byId({ id: 'fin:1', slug: 'fin-a-2026-06-04', dept: 'fin', ts: '2026-06-04T10:00:00Z' }));
     const res = await getKnowledgeEntry(repo, { id: 'fin:1' });
     expect(res?.entry.id).toBe('fin:1');
   });
   it('returns null for a draft id (no draft leak)', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     await repo.pushKb(byId({ id: 'fin:2', slug: 'fin-b-2026-06-04', dept: 'fin', ts: '2026-06-04T11:00:00Z', status: 'draft' }));
     expect(await getKnowledgeEntry(repo, { id: 'fin:2' })).toBeNull();
   });
   it('returns null for a nonexistent id', async () => {
-    const repo = makeRedisRepo(memoryClient());
+    const repo = makeRedisRepo(memoryClient(), makeMemoryKbStore());
     expect(await getKnowledgeEntry(repo, { id: 'nope:0' })).toBeNull();
   });
 });
