@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
   // Next's tracer can't follow the dynamic readFileSync path, so include the
   // briefs explicitly in every API function bundle that may run an agent.
   outputFileTracingIncludes: {
-    "/api/**": ["./.agents/**/*"],
+    "/api/**": ["./.agents/**/*", "./db/schema.sql"],
     // The /doc pages read content/doc/<lang>/*.md (see src/lib/doc.ts). Pages are
     // statically generated, but include the content defensively for any on-demand
     // render — same mechanism as the agent briefs above.
