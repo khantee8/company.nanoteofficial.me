@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { makeRedisRepo, type RedisClientLike } from '@/lib/redis';
 import { makeMemoryKbStore } from '@/lib/kbDb';
-import { runAgent } from './runner';
+import { runAgent, persistRunResult } from './runner';
 import type { KbEntry } from './types';
 
 function memClient(): RedisClientLike {
@@ -102,5 +102,25 @@ describe('runAgent enriched KB write', () => {
     } as KbEntry);
     const got = await repo.getKbEntry('x:1');
     expect(got?.markdownEn).toBe('ไทยล้วน');
+  });
+
+  // v1.13 Task 5 — a Neon outage on the KB write path must not fail the run:
+  // the rest of persistRunResult's Promise.all (status/history/digest/usage)
+  // still lands, a feed event records the failure, and the Telegram notify
+  // carries a warning suffix instead of a false "published → KB" claim.
+  it('a throwing KbStore does not fail the run — feed event + notify warning instead', async () => {
+    const kb = makeMemoryKbStore();
+    kb.pushKb = async () => { throw new Error('neon down'); };
+    kb.listKb = async () => { throw new Error('neon down'); };
+    const repo = makeRedisRepo(memClient(), kb);
+    const notify = vi.fn(async () => {});
+    await persistRunResult('cyb', {
+      markdown: '# x\n\n## Highlight\nh\n\n## Flags\nNone', summary: 's', feedMsg: 'm',
+      sources: [{ url: 'https://x', title: 't', date: '2026-07-14' }], provenance: 'web',
+    }, { repo, notify });
+    const feed = await repo.getFeed();
+    const events = JSON.stringify(feed);
+    expect(events).toContain('KB write failed');
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('KB write failed'));
   });
 });
