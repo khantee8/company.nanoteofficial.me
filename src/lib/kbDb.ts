@@ -89,7 +89,7 @@ const PLACEHOLDERS = Array.from({ length: 22 }, (_, i) => `$${i + 1}`).join(', '
 const PUSH_SQL =
   `INSERT INTO kb_entry (${KB_COLUMNS}) VALUES (${PLACEHOLDERS})
    ON CONFLICT (id) DO UPDATE SET
-     slug=EXCLUDED.slug, status=EXCLUDED.status, pinned=EXCLUDED.pinned,
+     slug=EXCLUDED.slug, category=EXCLUDED.category, theme=EXCLUDED.theme, status=EXCLUDED.status, pinned=EXCLUDED.pinned,
      incomplete=EXCLUDED.incomplete, summary=EXCLUDED.summary,
      highlight=EXCLUDED.highlight, highlight_en=EXCLUDED.highlight_en,
      flags=EXCLUDED.flags, flags_en=EXCLUDED.flags_en, tags=EXCLUDED.tags,
@@ -175,7 +175,12 @@ export function makeMemoryKbStore(seed: KbEntry[] = []): KbStore {
   return {
     async pushKb(e) { entries = [e, ...entries.filter((x) => x.id !== e.id)]; },
     async getKbEntry(id) { return entries.find((e) => e.id === id) ?? null; },
-    async getKbBySlug(slug) { return entries.find((e) => e.slug === slug) ?? null; },
+    async getKbBySlug(slug) {
+      const slugMatches = entries.filter((e) => e.slug === slug);
+      if (!slugMatches.length) return null;
+      // Return newest by ts DESC (same as the real store)
+      return slugMatches.sort((a, b) => (a.ts < b.ts ? 1 : -1))[0];
+    },
     async updateKbEntry(id, patch) {
       const cur = entries.find((e) => e.id === id);
       if (!cur) return null;

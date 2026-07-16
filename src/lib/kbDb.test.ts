@@ -69,6 +69,16 @@ describe('makeMemoryKbStore', () => {
     expect(await s.listKb({ q: 'ไทย' })).toHaveLength(1);
     expect(await s.listKb({ q: 'nope' })).toHaveLength(0);
   });
+  it('getKbBySlug with duplicate slugs returns newest by ts', async () => {
+    // Seed with entries out of insertion order to expose if it's just lucky
+    const older = { ...ENTRY, id: 'fin:older', ts: '2026-07-14T09:00:00.000Z' };
+    const newer = { ...ENTRY, id: 'fin:newer', ts: '2026-07-14T11:00:00.000Z' };
+    const s = makeMemoryKbStore([newer, older]); // newer first, but older has a higher ts value... wait that's wrong
+    // Actually: newer has ts=11:00, older has ts=09:00, so newer > older. Seed as [older, newer] to test sorting.
+    const s2 = makeMemoryKbStore([older, newer]);
+    const result = await s2.getKbBySlug(ENTRY.slug);
+    expect(result?.id).toBe('fin:newer');
+  });
 });
 
 describe('makeKbDbStore SQL', () => {
@@ -89,6 +99,23 @@ describe('makeKbDbStore SQL', () => {
     expect(calls[0].params).toHaveLength(22);
     expect(calls[1].text).toContain('ORDER BY ts DESC');
     expect(calls[1].text).toContain('LIMIT');
+    vi.doUnmock('@neondatabase/serverless');
+    delete process.env.DATABASE_URL;
+  });
+
+  it('upsert SET clause includes category and theme', async () => {
+    const calls: { text: string; params?: unknown[] }[] = [];
+    const fakeSql = Object.assign(
+      async (text: string, params?: unknown[]) => { calls.push({ text, params }); return []; },
+      { query: async (text: string, params?: unknown[]) => { calls.push({ text, params }); return []; } },
+    );
+    vi.doMock('@neondatabase/serverless', () => ({ neon: () => fakeSql }));
+    process.env.DATABASE_URL = 'postgres://x';
+    const { makeKbDbStore } = await import('./kbDb');
+    const store = makeKbDbStore();
+    await store.pushKb(ENTRY);
+    expect(calls[0].text).toContain('category=EXCLUDED.category');
+    expect(calls[0].text).toContain('theme=EXCLUDED.theme');
     vi.doUnmock('@neondatabase/serverless');
     delete process.env.DATABASE_URL;
   });
