@@ -280,8 +280,16 @@ export function makeRedisRepo(client: RedisClientLike, kb: KbStore = makeKbDbSto
 
 export type RedisRepo = ReturnType<typeof makeRedisRepo>;
 
+let _client: RedisClientLike | null = null;
+/** The same raw Upstash client `getRepo()` wraps — v1.13 migration route needs
+ *  direct access to the legacy `kb:*` keys, which the repo no longer exposes. */
+export function getRedisClient(): RedisClientLike {
+  if (!_client) _client = Redis.fromEnv() as unknown as RedisClientLike;
+  return _client;
+}
+
 let _repo: RedisRepo | null = null;
 export function getRepo(): RedisRepo {
-  if (!_repo) _repo = makeRedisRepo(Redis.fromEnv() as unknown as RedisClientLike);
+  if (!_repo) _repo = makeRedisRepo(getRedisClient());
   return _repo;
 }
