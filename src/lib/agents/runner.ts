@@ -5,7 +5,6 @@ import { EN_DELIMITER, normalizeReportOrder, splitBilingual } from './bilingual'
 import type { RedisRepo } from '@/lib/redis';
 import { deriveSlug } from '@/lib/redis';
 import { qualityGate } from './kbGate';
-import { pushLibrarySync } from '@/lib/librarySync';
 import { aggregateUsage, startOfMonthUtc } from './usage';
 
 export interface Agent {
@@ -252,12 +251,7 @@ export async function persistRunResult(dept: DeptId, result: AgentRunResult, dep
   const kbNote = kbFailed || !frontend ? ''
     : kbStatus === 'published' ? `\n📚 published → KB (${slug})`
     : '\n📝 draft — review in /admin';
-  // pushLibrarySync and the run notify are independent (and pushLibrarySync
-  // never throws) — fire them concurrently instead of blocking notify on sync.
-  await Promise.all([
-    frontend && !kbFailed && kbStatus === 'published' ? pushLibrarySync(slug, repo) : Promise.resolve(),
-    notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}${kbNote}${kbWarn}\n\n${markdown.slice(0, 800)}`),
-  ]);
+  await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}${kbNote}${kbWarn}\n\n${markdown.slice(0, 800)}`);
   if (result.alert) await notify(result.alert.text);
 }
 

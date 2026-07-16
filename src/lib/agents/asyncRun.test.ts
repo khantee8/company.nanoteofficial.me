@@ -47,7 +47,6 @@ function fakeRepo(overrides: Partial<Record<string, unknown>> = {}) {
     recordUsage: vi.fn(async () => {}),
     getUsageSince: vi.fn(async () => []),
     getSweepLog: vi.fn(async () => []),
-    pushSyncLog: vi.fn(async () => {}),
     pushSweepLog: vi.fn(async () => {}),
     savePendingRun: vi.fn(async () => {}),
     getPendingRuns: vi.fn(async () => []),

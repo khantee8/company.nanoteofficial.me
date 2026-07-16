@@ -1,9 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AdminSection } from './AdminConsole';
-import type { SyncLogEntry } from '@/lib/librarySync';
 
 const SECTIONS: { id: AdminSection; label: string; icon: string; kbd: string }[] = [
   { id: 'overview',  label: 'Overview',  icon: '▦', kbd: '⌘1' },
@@ -27,20 +25,6 @@ interface AdminNavProps {
 
 export function AdminNav({ section, onSection, health, version }: AdminNavProps) {
   const router = useRouter();
-  const [lastSync, setLastSync] = useState<SyncLogEntry | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const j = (await fetch('/api/admin/synclog', { cache: 'no-store' }).then((r) => r.json())) as { log?: SyncLogEntry[] };
-        if (alive) setLastSync(j.log?.[0] ?? null);
-      } catch {
-        /* keep null */
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
 
   const logout = async () => {
     try { await fetch('/api/admin/logout', { method: 'POST' }); } catch { /* ignore */ }
@@ -73,11 +57,6 @@ export function AdminNav({ section, onSection, health, version }: AdminNavProps)
 
       {/* Footer */}
       <div style={footerStyle}>
-        <div style={footerRowStyle} title={lastSync?.detail ?? 'No sync yet'}>
-          {lastSync
-            ? `${lastSync.ok ? '✓' : '⚠'} Library · ${new Date(lastSync.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-            : '↻ Sync → Library'}
-        </div>
         <button onClick={logout} style={signOutStyle}>⎋ Sign out</button>
         <div style={versionStyle}>v{version}</div>
       </div>
@@ -163,10 +142,6 @@ const footerStyle: React.CSSProperties = {
   gap: 4,
   fontSize: 11,
   color: '#6e7681',
-};
-
-const footerRowStyle: React.CSSProperties = {
-  padding: '2px 0',
 };
 
 const signOutStyle: React.CSSProperties = {

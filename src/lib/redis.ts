@@ -5,7 +5,6 @@ import type { AgentStatus, AgentOutput, FeedEvent, HistoryEntry, DigestEntry, Kb
 import { CATEGORY_BY_DEPT } from './agents/artifacts';
 import { focusKey } from './telegram';
 import type { FocusSession } from './telegram';
-import type { SyncLogEntry } from './librarySync';
 import type { CompleteOpts } from './claude';
 import { makeKbDbStore, type KbStore } from './kbDb';
 
@@ -41,8 +40,6 @@ const FEED_KEY = 'feed:events';
 const FEED_CAP = 50;
 const USAGE_KEY = 'usage:ledger';
 const USAGE_CAP = 1000; // ~months of runs at the current cadence; window-filtered on read
-const SYNCLOG_KEY = 'library:synclog';
-const SYNCLOG_CAP = 20;
 const SWEEPLOG_KEY = 'ops:sweeplog';
 const SWEEPLOG_CAP = 50;
 const HISTORY_CAP = 7;
@@ -234,13 +231,6 @@ export function makeRedisRepo(client: RedisClientLike, kb: KbStore = makeKbDbSto
       return (await client.get<FocusSession>(focusKey(chatId))) ?? null;
     },
     async clearFocus(chatId: string | number) { await client.del(focusKey(chatId)); },
-    async pushSyncLog(e: SyncLogEntry) {
-      await client.lpush(SYNCLOG_KEY, e);
-      await client.ltrim(SYNCLOG_KEY, 0, SYNCLOG_CAP - 1);
-    },
-    async getSyncLog(): Promise<SyncLogEntry[]> {
-      return await client.lrange<SyncLogEntry>(SYNCLOG_KEY, 0, SYNCLOG_CAP - 1);
-    },
     async markRetried(dept: DeptId, date: string) {
       await client.set(retriedKey(dept, date), '1', { ex: 172800 }); // self-expires after 2 days
     },
