@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { rowToKbEntry, entryToParams, buildKbWhere, KB_COLUMNS } from './kbDb';
+import { describe, it, expect, vi } from 'vitest';
+import { rowToKbEntry, entryToParams, buildKbWhere, KB_COLUMNS, makeMemoryKbStore } from './kbDb';
 import type { KbEntry } from './agents/types';
 
 export const ENTRY: KbEntry = {
@@ -48,5 +48,62 @@ describe('buildKbWhere', () => {
   it('KB_COLUMNS lists snake_case columns, no search vector', () => {
     expect(KB_COLUMNS).toContain('highlight_en');
     expect(KB_COLUMNS).not.toContain('search');
+  });
+});
+
+describe('makeMemoryKbStore', () => {
+  it('push → list newest-first with status filter; update patches; delete removes', async () => {
+    const s = makeMemoryKbStore();
+    await s.pushKb(ENTRY);
+    await s.pushKb({ ...ENTRY, id: 'cyb:x', slug: 'cyb-threat-intel-2026-07-15', dept: 'cyb', date: '2026-07-15', ts: '2026-07-15T10:00:00.000Z', status: 'draft' });
+    expect((await s.listKb({})).map((e) => e.id)).toEqual(['cyb:x', ENTRY.id]);
+    expect(await s.listKb({ status: 'published' })).toHaveLength(1);
+    expect((await s.getKbBySlug(ENTRY.slug))?.id).toBe(ENTRY.id);
+    const patched = await s.updateKbEntry('cyb:x', { status: 'published' });
+    expect(patched?.status).toBe('published');
+    await s.deleteKbEntry('cyb:x');
+    expect(await s.getKbEntry('cyb:x')).toBeNull();
+  });
+  it('listKb q matches substring across summary/highlight/markdown', async () => {
+    const s = makeMemoryKbStore([ENTRY]);
+    expect(await s.listKb({ q: 'ไทย' })).toHaveLength(1);
+    expect(await s.listKb({ q: 'nope' })).toHaveLength(0);
+  });
+});
+
+describe('makeKbDbStore SQL', () => {
+  it('pushKb issues an upsert with 22 params; listKb orders ts DESC with limit', async () => {
+    const calls: { text: string; params?: unknown[] }[] = [];
+    const fakeSql = Object.assign(
+      async (text: string, params?: unknown[]) => { calls.push({ text, params }); return []; },
+      { query: async (text: string, params?: unknown[]) => { calls.push({ text, params }); return []; } },
+    );
+    vi.doMock('@neondatabase/serverless', () => ({ neon: () => fakeSql }));
+    process.env.DATABASE_URL = 'postgres://x';
+    const { makeKbDbStore } = await import('./kbDb');
+    const store = makeKbDbStore();
+    await store.pushKb(ENTRY);
+    await store.listKb({ status: 'published', limit: 5 });
+    expect(calls[0].text).toContain('INSERT INTO kb_entry');
+    expect(calls[0].text).toContain('ON CONFLICT (id) DO UPDATE');
+    expect(calls[0].params).toHaveLength(22);
+    expect(calls[1].text).toContain('ORDER BY ts DESC');
+    expect(calls[1].text).toContain('LIMIT');
+    vi.doUnmock('@neondatabase/serverless');
+    delete process.env.DATABASE_URL;
+  });
+
+  it('listKb returns [] (and warns) when DATABASE_URL is unset', async () => {
+    delete process.env.DATABASE_URL;
+    delete process.env.POSTGRES_URL;
+    vi.resetModules();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { makeKbDbStore } = await import('./kbDb');
+    const store = makeKbDbStore();
+    const result = await store.listKb({});
+    expect(result).toEqual([]);
+    expect(warnSpy).toHaveBeenCalled();
+    expect(warnSpy.mock.calls[0][0]).toContain('[kbDb] read failed');
+    warnSpy.mockRestore();
   });
 });
