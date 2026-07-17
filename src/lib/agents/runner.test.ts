@@ -21,7 +21,6 @@ function fakeRepo() {
     recordUsage: vi.fn(async () => {}),
     getUsageSince: vi.fn(async () => []),
     getSweepLog: vi.fn(async () => []),
-    pushSyncLog: vi.fn(async () => {}),
   } as unknown as RedisRepo;
 }
 
@@ -157,11 +156,10 @@ describe('runAgent — v1.11 role branch', () => {
     expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ status: 'published' }));
   });
 
-  it('frontend dept gate fail (incomplete) → status draft, no Library sync', async () => {
+  it('frontend dept gate fail (incomplete) → status draft', async () => {
     const repo = fakeRepo();
     await runAgent({ dept: 'cyb', run: async () => citedResult({ incomplete: true }) }, { repo, notify: vi.fn(async () => {}) });
     expect(repo.pushKb).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft' }));
-    expect(repo.pushSyncLog).not.toHaveBeenCalled();
   });
 
   // F1 — cross-agent KB links: an unlinked frontend run wires `related` to the

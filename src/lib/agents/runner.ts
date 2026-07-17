@@ -5,7 +5,6 @@ import { EN_DELIMITER, normalizeReportOrder, splitBilingual } from './bilingual'
 import type { RedisRepo } from '@/lib/redis';
 import { deriveSlug } from '@/lib/redis';
 import { qualityGate } from './kbGate';
-import { pushLibrarySync } from '@/lib/librarySync';
 import { aggregateUsage, startOfMonthUtc } from './usage';
 
 export interface Agent {
@@ -210,7 +209,9 @@ export async function persistRunResult(dept: DeptId, result: AgentRunResult, dep
   // reflects what the agent actually saw.
   let related = result.related ?? [];
   if (frontend && related.length === 0) {
-    const recent = await repo.listKb({ limit: 24 });
+    // v1.13 Task 5 — a Neon outage on this read must not fail the run; a
+    // missed related-ids pass just leaves the graph edge unwired this time.
+    const recent = await repo.listKb({ limit: 24 }).catch(() => [] as KbEntry[]);
     const myIndex = DEPT_ORDER.indexOf(dept);
     related = recent
       .filter((e) => e.date === date && e.dept !== dept && DEPT_ORDER.indexOf(e.dept) < myIndex)
@@ -223,27 +224,34 @@ export async function persistRunResult(dept: DeptId, result: AgentRunResult, dep
     repo.setStatus({ dept, state: 'done', lastRun: ts, summary: result.summary }),
     repo.pushHistory({ dept, date, summary: result.summary, highlight, markdown }),
     repo.pushDigest({ dept, date, summary: result.summary, highlight, highlightEn, flags, flagsEn }),
-    ...(frontend
-      ? [repo.pushKb({ id, slug, dept, date, ts, category, theme,
-          tags, status: kbStatus, summary: result.summary, highlight, highlightEn, flags, flagsEn, artifacts,
-          sources, provenance, related, markdown, markdownEn, incomplete })]
-      : []),
     // v1.8 — record token usage to the cost ledger (skip non-LLM runs lacking usage/model).
     ...(result.usage && result.model
       ? [repo.recordUsage({ dept, model: result.model, input: result.usage.input, output: result.usage.output, ts: Date.parse(ts), batch: result.batch === true })]
       : []),
   ]);
 
+  // v1.13 Task 5 — KB is a second network dependency (Neon) independent of
+  // the Redis-backed writes above; pulled out of the Promise.all so a Neon
+  // outage can't reject the whole run. Fail-soft: log a feed event and warn
+  // in the notify instead of throwing.
+  let kbFailed = false;
+  if (frontend) {
+    try {
+      await repo.pushKb({ id, slug, dept, date, ts, category, theme,
+        tags, status: kbStatus, summary: result.summary, highlight, highlightEn, flags, flagsEn, artifacts,
+        sources, provenance, related, markdown, markdownEn, incomplete });
+    } catch (err) {
+      kbFailed = true;
+      await repo.pushEvent({ dept, msg: `${dept.toUpperCase()} KB write failed: ${err instanceof Error ? err.message : String(err)}`, ts });
+    }
+  }
+
   const warn = incomplete ? '\n⚠️ รายงานอาจไม่สมบูรณ์ — ตรวจก่อนเผยแพร่' : '';
-  const kbNote = !frontend ? ''
+  const kbWarn = kbFailed ? '\n⚠ KB write failed — entry not archived' : '';
+  const kbNote = kbFailed || !frontend ? ''
     : kbStatus === 'published' ? `\n📚 published → KB (${slug})`
     : '\n📝 draft — review in /admin';
-  // pushLibrarySync and the run notify are independent (and pushLibrarySync
-  // never throws) — fire them concurrently instead of blocking notify on sync.
-  await Promise.all([
-    frontend && kbStatus === 'published' ? pushLibrarySync(slug, repo) : Promise.resolve(),
-    notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}${kbNote}\n\n${markdown.slice(0, 800)}`),
-  ]);
+  await notify(`*${dept.toUpperCase()}* ✓ ${result.summary}${warn}${kbNote}${kbWarn}\n\n${markdown.slice(0, 800)}`);
   if (result.alert) await notify(result.alert.text);
 }
 

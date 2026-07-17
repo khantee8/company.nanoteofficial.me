@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { makeRedisRepo, type RedisClientLike } from '@/lib/redis';
+import { makeMemoryKbStore } from '@/lib/kbDb';
 import { buildContext } from './runner';
 import type { KbEntry } from './types';
 
@@ -26,7 +27,7 @@ const mk = (over: Partial<KbEntry> & { dept: KbEntry['dept']; ts: string }): KbE
 
 describe('buildContext for ceo', () => {
   it('computes relatedEntryIds = newest entry per non-ceo dept', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     await repo.pushKb(mk({ id: 'fin:1', dept: 'fin', ts: '2026-06-04T10:00:00Z' }));
     await repo.pushKb(mk({ id: 'cyb:1', dept: 'cyb', ts: '2026-06-04T11:00:00Z' }));
     await repo.pushKb(mk({ id: 'ceo:1', dept: 'ceo', ts: '2026-06-04T15:00:00Z' }));
@@ -38,7 +39,7 @@ describe('buildContext for ceo', () => {
   });
 
   it('keeps only the newest entry per dept', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     await repo.pushKb(mk({ id: 'fin:1', dept: 'fin', ts: '2026-06-03T10:00:00Z' }));
     await repo.pushKb(mk({ id: 'fin:2', dept: 'fin', ts: '2026-06-04T10:00:00Z' })); // newer
     const ctx = await buildContext('ceo', repo);

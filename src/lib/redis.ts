@@ -5,8 +5,8 @@ import type { AgentStatus, AgentOutput, FeedEvent, HistoryEntry, DigestEntry, Kb
 import { CATEGORY_BY_DEPT } from './agents/artifacts';
 import { focusKey } from './telegram';
 import type { FocusSession } from './telegram';
-import type { SyncLogEntry } from './librarySync';
 import type { CompleteOpts } from './claude';
+import { makeKbDbStore, type KbStore } from './kbDb';
 
 export interface SweepLogEntry { dept: DeptId; ok: boolean; detail: string; ts: number }
 
@@ -40,21 +40,14 @@ const FEED_KEY = 'feed:events';
 const FEED_CAP = 50;
 const USAGE_KEY = 'usage:ledger';
 const USAGE_CAP = 1000; // ~months of runs at the current cadence; window-filtered on read
-const SYNCLOG_KEY = 'library:synclog';
-const SYNCLOG_CAP = 20;
 const SWEEPLOG_KEY = 'ops:sweeplog';
 const SWEEPLOG_CAP = 50;
 const HISTORY_CAP = 7;
 const DIGEST_KEY = 'company:digest';
 const DIGEST_CAP = 25;
-// Knowledge base: entries are individually addressable (`kb:entry:<id>`) with a
-// newest-first id index (`kb:index`) so a single entry can be published /
-// archived / pinned / deleted. `kb:entries` is the pre-v1.3 flat list, read as a
-// fallback and normalized on the fly until it ages out.
-const KB_INDEX = 'kb:index';
-const KB_LEGACY = 'kb:entries';
-const KB_CAP = 300;
-const kbKey = (id: string) => `kb:entry:${id}`;
+// Knowledge base (v1.13): system of record moved to Neon (`kbDb.ts`,
+// `kb_entry` table). `makeRedisRepo`'s six KB methods delegate to an injected
+// `KbStore` — see below.
 const retriedKey = (dept: DeptId, date: string) => `agent:retried:${dept}:${date}`;
 // Pending runs: same addressable-entry + index-list pattern as the KB (v1.12).
 const PENDING_INDEX = 'run:pending:index';
@@ -123,21 +116,6 @@ export function normalizeKbEntry(raw: Partial<KbEntry> & { dept: DeptId; ts: str
   };
 }
 
-function matchesKbQuery(e: KbEntry, q: KbQuery): boolean {
-  if (q.status && e.status !== q.status) return false;
-  if (q.dept && e.dept !== q.dept) return false;
-  if (q.category && e.category !== q.category) return false;
-  if (typeof q.pinned === 'boolean' && Boolean(e.pinned) !== q.pinned) return false;
-  if (q.from && e.date < q.from) return false;
-  if (q.to && e.date > q.to) return false;
-  if (q.q) {
-    const needle = q.q.toLowerCase();
-    const hay = `${e.summary} ${e.highlight} ${e.markdown} ${e.tags.join(' ')}`.toLowerCase();
-    if (!hay.includes(needle)) return false;
-  }
-  return true;
-}
-
 /** `set(..., { nx: true })` — Upstash (and real Redis SET NX) returns `"OK"`
  *  when the key was newly written and `null` when it already existed, i.e.
  *  a failed claim. Fakes/mocks of `RedisClientLike` must mirror this exact
@@ -170,7 +148,7 @@ export function normalizeStatus(s: AgentStatus, nowMs = Date.now()): AgentStatus
   return { ...s, state: 'error', error: 'run interrupted (timed out before completing)' };
 }
 
-export function makeRedisRepo(client: RedisClientLike) {
+export function makeRedisRepo(client: RedisClientLike, kb: KbStore = makeKbDbStore()) {
   const repo = {
     async setStatus(s: AgentStatus) { await client.set(`agent:${s.dept}:status`, s); },
     async getStatus(dept: DeptId): Promise<AgentStatus> {
@@ -224,42 +202,16 @@ export function makeRedisRepo(client: RedisClientLike) {
       );
       return flags.filter((d): d is DeptId => d !== null);
     },
-    async pushKb(entry: KbEntry) {
-      await client.set(kbKey(entry.id), entry);
-      await client.lpush(KB_INDEX, entry.id);
-      await client.ltrim(KB_INDEX, 0, KB_CAP - 1);
-    },
-    async getKbEntry(id: string): Promise<KbEntry | null> {
-      const v = await client.get<KbEntry>(kbKey(id));
-      return v ? normalizeKbEntry(v) : null;
-    },
-    async updateKbEntry(id: string, patch: KbPatch): Promise<KbEntry | null> {
-      const cur = await client.get<KbEntry>(kbKey(id));
-      if (!cur) return null;
-      const next = normalizeKbEntry({ ...cur, ...patch });
-      await client.set(kbKey(id), next);
-      return next;
-    },
-    async deleteKbEntry(id: string) {
-      await client.del(kbKey(id));
-      await client.lrem(KB_INDEX, 0, id);
-    },
-    async listKb(opts: KbQuery = {}): Promise<KbEntry[]> {
-      const ids = await client.lrange<string>(KB_INDEX, 0, KB_CAP - 1);
-      let entries: KbEntry[];
-      if (ids.length > 0) {
-        const raw = await client.mget<KbEntry>(ids.map(kbKey));
-        entries = raw.filter((e): e is KbEntry => e != null).map(normalizeKbEntry);
-      } else {
-        // Pre-v1.3 fallback: the flat list, normalized on read.
-        const legacy = await client.lrange<KbEntry>(KB_LEGACY, 0, KB_CAP - 1);
-        entries = legacy.map(normalizeKbEntry);
-      }
-      const filtered = entries.filter((e) => matchesKbQuery(e, opts));
-      return typeof opts.limit === 'number' ? filtered.slice(0, opts.limit) : filtered;
-    },
+    pushKb: (entry: KbEntry) => kb.pushKb(entry),
+    getKbEntry: (id: string) => kb.getKbEntry(id),
+    updateKbEntry: (id: string, patch: KbPatch) => kb.updateKbEntry(id, patch),
+    deleteKbEntry: (id: string) => kb.deleteKbEntry(id),
+    listKb: (opts: KbQuery = {}) => kb.listKb(opts),
     /** Find a PUBLISHED entry by slug, with its graph neighbours resolved.
-     *  Related = same dept+theme (series) ∪ shared-tag ∪ explicit entry.related. */
+     *  Related = same dept+theme (series) ∪ shared-tag ∪ explicit entry.related.
+     *  Built on top of `repo.listKb` (which now delegates to the injected
+     *  `KbStore`) rather than `kb.getKbBySlug` directly — the graph
+     *  resolution is a repo-level concern, not a storage concern. */
     async getKbBySlug(slug: string): Promise<{ entry: KbEntry; related: KbEntry[] } | null> {
       const all = await repo.listKb({ status: 'published' });
       const entry = all.find((e) => e.slug === slug);
@@ -279,13 +231,6 @@ export function makeRedisRepo(client: RedisClientLike) {
       return (await client.get<FocusSession>(focusKey(chatId))) ?? null;
     },
     async clearFocus(chatId: string | number) { await client.del(focusKey(chatId)); },
-    async pushSyncLog(e: SyncLogEntry) {
-      await client.lpush(SYNCLOG_KEY, e);
-      await client.ltrim(SYNCLOG_KEY, 0, SYNCLOG_CAP - 1);
-    },
-    async getSyncLog(): Promise<SyncLogEntry[]> {
-      return await client.lrange<SyncLogEntry>(SYNCLOG_KEY, 0, SYNCLOG_CAP - 1);
-    },
     async markRetried(dept: DeptId, date: string) {
       await client.set(retriedKey(dept, date), '1', { ex: 172800 }); // self-expires after 2 days
     },
@@ -335,8 +280,16 @@ export function makeRedisRepo(client: RedisClientLike) {
 
 export type RedisRepo = ReturnType<typeof makeRedisRepo>;
 
+let _client: RedisClientLike | null = null;
+/** The same raw Upstash client `getRepo()` wraps — v1.13 migration route needs
+ *  direct access to the legacy `kb:*` keys, which the repo no longer exposes. */
+export function getRedisClient(): RedisClientLike {
+  if (!_client) _client = Redis.fromEnv() as unknown as RedisClientLike;
+  return _client;
+}
+
 let _repo: RedisRepo | null = null;
 export function getRepo(): RedisRepo {
-  if (!_repo) _repo = makeRedisRepo(Redis.fromEnv() as unknown as RedisClientLike);
+  if (!_repo) _repo = makeRedisRepo(getRedisClient());
   return _repo;
 }

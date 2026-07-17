@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { makeRedisRepo, type RedisClientLike } from '@/lib/redis';
-import { runAgent } from './runner';
+import { makeMemoryKbStore } from '@/lib/kbDb';
+import { runAgent, persistRunResult } from './runner';
 import type { KbEntry } from './types';
 
 function memClient(): RedisClientLike {
@@ -19,7 +20,7 @@ function memClient(): RedisClientLike {
 
 describe('runAgent enriched KB write', () => {
   it('persists slug/theme/provenance/sources on the kb entry, auto-published via the quality gate', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     const captured: KbEntry[] = [];
     const orig = repo.pushKb.bind(repo);
     repo.pushKb = async (e) => { captured.push(e); return orig(e); };
@@ -46,7 +47,7 @@ describe('runAgent enriched KB write', () => {
   });
 
   it('defaults provenance to api and theme undefined when result omits them', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     const captured: KbEntry[] = [];
     const orig = repo.pushKb.bind(repo);
     repo.pushKb = async (e) => { captured.push(e); return orig(e); };
@@ -64,7 +65,7 @@ describe('runAgent enriched KB write', () => {
   });
 
   it('splits a dual-generated report into markdown (TH) + markdownEn (EN)', async () => {
-    const repo = makeRedisRepo(memClient());
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     const captured: KbEntry[] = [];
     const orig = repo.pushKb.bind(repo);
     repo.pushKb = async (e) => { captured.push(e); return orig(e); };
@@ -85,16 +86,41 @@ describe('runAgent enriched KB write', () => {
     expect(e.markdownEn).toContain('## Highlight');
   });
 
-  it('backfills markdownEn from markdown for a single-language entry on read', async () => {
-    const repo = makeRedisRepo(memClient());
+  // v1.13 — the pre-v1.4.1 read-time backfill (`normalizeKbEntry` on every
+  // `getKbEntry`) is gone now that the KB system of record is Neon: real
+  // callers (`persistRunResult` above) always populate `markdownEn`
+  // explicitly, and a genuinely single-language legacy row is normalized
+  // ONCE at backfill import time, not on every read. The store now returns
+  // exactly what was pushed.
+  it('round-trips an entry that already carries markdownEn (no read-time backfill)', async () => {
+    const repo = makeRedisRepo(memClient(), makeMemoryKbStore());
     await repo.pushKb({
       id: 'x:1', slug: 'x-1', dept: 'fin', date: '2026-01-01', ts: '2026-01-01T00:00:00Z',
       category: 'market-brief', tags: [], status: 'published', summary: 's', highlight: '',
       flags: [], artifacts: [], sources: [], provenance: 'api', related: [],
-      markdown: 'ไทยล้วน',
-      // markdownEn intentionally omitted (pre-v1.4.1 shape)
+      markdown: 'ไทยล้วน', markdownEn: 'ไทยล้วน',
     } as KbEntry);
     const got = await repo.getKbEntry('x:1');
     expect(got?.markdownEn).toBe('ไทยล้วน');
+  });
+
+  // v1.13 Task 5 — a Neon outage on the KB write path must not fail the run:
+  // the rest of persistRunResult's Promise.all (status/history/digest/usage)
+  // still lands, a feed event records the failure, and the Telegram notify
+  // carries a warning suffix instead of a false "published → KB" claim.
+  it('a throwing KbStore does not fail the run — feed event + notify warning instead', async () => {
+    const kb = makeMemoryKbStore();
+    kb.pushKb = async () => { throw new Error('neon down'); };
+    kb.listKb = async () => { throw new Error('neon down'); };
+    const repo = makeRedisRepo(memClient(), kb);
+    const notify = vi.fn(async () => {});
+    await persistRunResult('cyb', {
+      markdown: '# x\n\n## Highlight\nh\n\n## Flags\nNone', summary: 's', feedMsg: 'm',
+      sources: [{ url: 'https://x', title: 't', date: '2026-07-14' }], provenance: 'web',
+    }, { repo, notify });
+    const feed = await repo.getFeed();
+    const events = JSON.stringify(feed);
+    expect(events).toContain('KB write failed');
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('KB write failed'));
   });
 });

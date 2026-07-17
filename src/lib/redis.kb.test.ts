@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeKbEntry, deriveSlug } from './redis';
+import { normalizeKbEntry, deriveSlug, makeRedisRepo, type RedisClientLike } from './redis';
+import { makeMemoryKbStore } from './kbDb';
 
 describe('deriveSlug', () => {
   it('builds dept-theme-date slug', () => {
@@ -44,5 +45,28 @@ describe('normalizeKbEntry — bilingual backfill', () => {
     });
     expect(e.highlightEn).toBe('EN');
     expect(e.flagsEn).toEqual(['en']);
+  });
+});
+
+const noopClient = {
+  async set() { return 'OK'; }, async get() { return null; }, async del() { return 0; },
+  async mget(ks: string[]) { return ks.map(() => null); },
+  async lpush() { return 1; }, async lrem() { return 0; },
+  async ltrim() { return 'OK'; }, async lrange() { return []; },
+} as unknown as RedisClientLike;
+
+describe('repo KB delegation', () => {
+  it('pushKb/listKb/updateKbEntry go through the injected KbStore', async () => {
+    const kb = makeMemoryKbStore();
+    const repo = makeRedisRepo(noopClient, kb);
+    await repo.pushKb({
+      id: 'fin:t', slug: 'fin-market-brief-2026-07-14', dept: 'fin', date: '2026-07-14',
+      ts: '2026-07-14T11:00:00.000Z', category: 'market-brief', tags: [], status: 'draft',
+      summary: 's', highlight: 'h', flags: [], artifacts: [], sources: [],
+      provenance: 'api', related: [], markdown: 'm',
+    });
+    expect(await kb.getKbEntry('fin:t')).not.toBeNull();
+    expect((await repo.listKb({ status: 'draft' }))).toHaveLength(1);
+    expect((await repo.updateKbEntry('fin:t', { status: 'published' }))?.status).toBe('published');
   });
 });
