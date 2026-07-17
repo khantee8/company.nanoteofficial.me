@@ -1,8 +1,9 @@
 // src/lib/kb.ts
 //
 // Read side of the knowledge base. Every agent run archives a KbEntry into
-// Redis (`kb:entry:<id>` + `kb:index`, see runner.ts + redis.ts). This is the
-// stable seam that kb.nanoteofficial.me will consume later; swap the storage
+// the shared Neon `kb_entry` table (see runner.ts + kbDb.ts; the repo's KB
+// methods are delegated there via redis.ts's makeRedisRepo). This is the
+// stable seam that kb.nanoteofficial.me also reads; swap the storage
 // underneath without changing this shape or `/api/kb`.
 //
 // Public reads return PUBLISHED entries only — drafts/archived stay internal to

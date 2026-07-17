@@ -3,6 +3,54 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.13.0] — 2026-07-14
+
+**"KB on Neon" — knowledge base system of record moves off Redis.** The
+capped-300-entry `kb:index` Redis list is replaced by a `kb_entry` table in
+the same Neon Postgres the Library (`kb.nanoteofficial.me`) already uses —
+one shared, unbounded, searchable store instead of two divergent copies kept
+in sync by a push webhook.
+
+### Added
+- **`db/schema.sql`** — idempotent DDL: `pg_trgm` extension, `kb_entry`
+  table, a generated `english` tsvector `search` column over
+  summary+highlight+markdown, and a trigram index for substring/Thai
+  matching. Safe to re-run.
+- **`src/lib/kbDb.ts`** — the `KbStore` interface plus `makeKbDbStore()` (raw
+  SQL via `@neondatabase/serverless`): reads fail soft to `null`/`[]` with a
+  `console.warn` on a Neon outage, writes throw. `makeMemoryKbStore()` is the
+  in-memory test fake. `makeRedisRepo(client, kb = makeKbDbStore())`
+  delegates its six KB methods (`listKb`/`getKbBySlug`/`updateKbEntry`/…) to
+  the store; every existing repo call site is unchanged.
+- **EN full-text + Thai trigram search** — `/api/kb?q=` now matches via
+  `websearch_to_tsquery` over the generated `search` column for English
+  queries, OR a trigram `ILIKE` fallback for Thai/any substring, through
+  `listKb`'s WHERE builder.
+- **One-shot `/api/admin/migrate-kb`** (`Authorization: Bearer $CRON_SECRET`)
+  — applies `schema.sql`, backfills from the Redis `kb:index` (richer
+  entries win), then `INSERT … SELECT … ON CONFLICT (id) DO NOTHING`s the
+  Library's own `item` `company_brief` rows to recover pre-cap history.
+  Returns `{ applied, fromRedis, fromLibrary }`. **Delete this route in
+  v1.13.1** once the migration has run in prod.
+
+### Changed
+- KB writes in `persistRunResult()` are now **fail-soft**: a Neon outage
+  during a run pushes a `KB write failed` feed event and a `⚠` marker in the
+  Telegram notify instead of failing the run; the publish note is suppressed
+  on failure. The `related`-graph lookup on `/api/kb?slug=` is
+  `.catch(()=>[])`'d for the same reason.
+
+### Removed
+- **Library-sync machinery deleted** — `librarySync.ts`,
+  `/api/admin/synclog`, the `ActivityPanel` sync-log section, the
+  `AdminNav` footer sync status, `pushSyncLog`/`getSyncLog`, and the
+  `LIBRARY_SYNC_URL`/`LIBRARY_SYNC_SECRET` env vars are all gone — a shared
+  table needs no push-sync step.
+
+### Rollback
+- Redis `kb:*` keys are left untouched for one release; reverting the
+  deploy restores the old read path with no data loss.
+
 ## [1.12.2] — 2026-07-12
 
 **Cost-ledger batch discount** — closes the v1.12.0 known gap: every agent
