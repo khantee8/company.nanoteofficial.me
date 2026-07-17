@@ -26,6 +26,7 @@ it('applies schema, upserts redis entries, then INSERT..SELECTs library history'
   expect(log[0].text).toContain('CREATE TABLE');            // schema first
   expect(log.some((c) => c.text.includes('ON CONFLICT (id) DO NOTHING'))).toBe(true); // redis rows
   expect(log.some((c) => c.text.includes("kind = 'company_brief'"))).toBe(true);      // library rows
+  expect(log.some((c) => c.text.includes('source_date IS NOT NULL'))).toBe(true);     // NULL guard on nullable Library cols
   expect(out.fromRedis).toBe(1);
   expect(out.applied).toBe(true);
   expect(typeof out.fromLibrary).toBe('number');

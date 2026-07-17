@@ -146,7 +146,9 @@ export function makeKbDbStore(): KbStore {
       return failSoftRead('listKb', [] as KbEntry[], async () => {
         const { clauses, params } = buildKbWhere(opts);
         const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
-        const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 500) : 100;
+        // no-limit = the old 'return everything' contract; 2000 is a safety
+        // rail, revisit when the KB approaches it.
+        const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 500) : 2000;
         const r = await rows(
           `SELECT ${KB_COLUMNS} FROM kb_entry ${where} ORDER BY ts DESC LIMIT ${limit}`, params);
         return r.map(rowToKbEntry);
@@ -193,7 +195,9 @@ export function makeMemoryKbStore(seed: KbEntry[] = []): KbStore {
       const out = entries
         .filter((e) => matches(e, opts))
         .sort((a, b) => (a.ts < b.ts ? 1 : -1));
-      return out.slice(0, opts.limit && opts.limit > 0 ? opts.limit : 100);
+      // no-limit = the old 'return everything' contract; 2000 is a safety
+      // rail, revisit when the KB approaches it.
+      return out.slice(0, opts.limit && opts.limit > 0 ? opts.limit : 2000);
     },
   };
 }

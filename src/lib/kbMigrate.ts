@@ -25,6 +25,7 @@ const LIBRARY_BACKFILL = `
          i.artifacts, i.body_md, i.body_md
   FROM item i
   WHERE i.kind = 'company_brief' AND i.external_id IS NOT NULL
+    AND i.source_date IS NOT NULL AND i.dept IS NOT NULL AND i.source_ts IS NOT NULL
   ON CONFLICT (id) DO NOTHING`;
 
 export interface MigrateDeps {

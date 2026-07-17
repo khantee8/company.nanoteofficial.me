@@ -69,6 +69,19 @@ describe('makeMemoryKbStore', () => {
     expect(await s.listKb({ q: 'ไทย' })).toHaveLength(1);
     expect(await s.listKb({ q: 'nope' })).toHaveLength(0);
   });
+  it('listKb with no limit returns everything up to the 2000 safety cap (not truncated at 100)', async () => {
+    const seed: KbEntry[] = [];
+    for (let i = 0; i < 120; i++) {
+      seed.push({
+        ...ENTRY,
+        id: `fin:${i}`,
+        ts: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
+      });
+    }
+    const s = makeMemoryKbStore(seed);
+    expect(await s.listKb({})).toHaveLength(120);
+  });
+
   it('getKbBySlug with duplicate slugs returns newest by ts', async () => {
     // Seed with entries out of insertion order to expose if it's just lucky
     const older = { ...ENTRY, id: 'fin:older', ts: '2026-07-14T09:00:00.000Z' };
@@ -132,5 +145,21 @@ describe('makeKbDbStore SQL', () => {
     expect(warnSpy).toHaveBeenCalled();
     expect(warnSpy.mock.calls[0][0]).toContain('[kbDb] read failed');
     warnSpy.mockRestore();
+  });
+
+  it('listKb with no limit uses a 2000 safety cap, not the old 100 default', async () => {
+    const calls: { text: string; params?: unknown[] }[] = [];
+    const fakeSql = Object.assign(
+      async (text: string, params?: unknown[]) => { calls.push({ text, params }); return []; },
+      { query: async (text: string, params?: unknown[]) => { calls.push({ text, params }); return []; } },
+    );
+    vi.doMock('@neondatabase/serverless', () => ({ neon: () => fakeSql }));
+    process.env.DATABASE_URL = 'postgres://x';
+    const { makeKbDbStore } = await import('./kbDb');
+    const store = makeKbDbStore();
+    await store.listKb({ status: 'published' });
+    expect(calls[0].text).toContain('LIMIT 2000');
+    vi.doUnmock('@neondatabase/serverless');
+    delete process.env.DATABASE_URL;
   });
 });
