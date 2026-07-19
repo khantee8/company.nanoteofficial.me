@@ -9,6 +9,7 @@ export const MESSAGES = {
   en: {
     'nav.office': 'Office',
     'nav.dashboard': 'Dashboard',
+    'nav.plan': 'Plan',
     'nav.doc': 'Docs',
     'nav.overview': 'Overview',
     'nav.live': '6 AGENTS LIVE',
@@ -62,6 +63,7 @@ export const MESSAGES = {
   th: {
     'nav.office': 'ออฟฟิศ',
     'nav.dashboard': 'แดชบอร์ด',
+    'nav.plan': 'แผน',
     'nav.doc': 'คู่มือ',
     'nav.overview': 'ภาพรวม',
     'nav.live': 'เอเจนต์ 6 ตัวออนไลน์',
