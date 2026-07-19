@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { neon } from '@neondatabase/serverless';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const auth = req.headers.get('authorization');
@@ -16,6 +18,20 @@ export async function POST(req: NextRequest) {
   const ddl = readFileSync(join(process.cwd(), 'db', 'plan-schema.sql'), 'utf8');
   // split on ';' at statement end; strip -- comments (mirrors migrate-kb handling)
   const stmts = ddl.replace(/^\s*--.*$/gm, '').split(';').map((s) => s.trim()).filter(Boolean);
-  for (const s of stmts) await sql.query(s);
-  return NextResponse.json({ applied: true, statements: stmts.length });
+  try {
+    let appliedCount = 0;
+    for (const s of stmts) {
+      try {
+        await sql.query(s);
+        appliedCount++;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message, applied: appliedCount }, { status: 500 });
+      }
+    }
+    return NextResponse.json({ applied: appliedCount, statements: stmts.length });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message, applied: 0 }, { status: 500 });
+  }
 }
