@@ -24,7 +24,14 @@ export function estimateCost(slideCount: number): number {
 }
 
 function parseDeck(text: string, theme: ThemeId, truncated = false): Deck {
-  const parsed = extractJson(text);
+  let parsed: unknown;
+  try {
+    parsed = extractJson(text);
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    const msg = `deck parse failed: ${reason}${truncated ? ' (output hit max_tokens)' : ''}`;
+    throw new Error(msg);
+  }
   const v = validateDeck(parsed);
   if (!v.ok) {
     const msg = `deck parse failed: ${v.error}${truncated ? ' (output hit max_tokens)' : ''}`;

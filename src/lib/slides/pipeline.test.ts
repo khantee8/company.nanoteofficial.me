@@ -39,4 +39,15 @@ describe('generateDeck', () => {
   it('estimateCost scales with slide count', () => {
     expect(estimateCost(10)).toBeGreaterThan(estimateCost(4));
   });
+
+  it('reports max_tokens truncation on unparseable draft', async () => {
+    let i = 0;
+    const complete = async () => ({
+      text: i++ === 0 ? 'outline' : '{"theme":"grid","slides":[{"layout":"title","title":"Acme',
+      stopReason: i <= 1 ? 'end_turn' : 'max_tokens',
+      usage: { input: 10, output: 20 }, model: 'claude-sonnet-5',
+    });
+    await expect(generateDeck({ theme: 'grid', slideCount: 1, audience: '', brief: 'x' }, complete as never))
+      .rejects.toThrow(/output hit max_tokens/);
+  });
 });
