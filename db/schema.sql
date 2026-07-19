@@ -2,6 +2,13 @@
 -- Lives in the SAME Neon database as the Library (kb.nanoteofficial.me).
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
+-- array_to_string() is only STABLE, which Postgres rejects inside a generated
+-- column. This wrapper is genuinely immutable for text[] input. PG14+ RETURN
+-- syntax keeps the body semicolon-free for the migrate route's splitter.
+CREATE OR REPLACE FUNCTION kb_entry_tags_text(text[]) RETURNS text
+  LANGUAGE sql IMMUTABLE PARALLEL SAFE
+  RETURN array_to_string($1, ' ');
+
 CREATE TABLE IF NOT EXISTS kb_entry (
   id          text PRIMARY KEY,            -- existing KbEntry.id (<dept>:<ts>), unchanged
   slug        text NOT NULL,          -- NOT unique: legacy same-day entries can share one — reads pick newest
@@ -30,7 +37,7 @@ CREATE TABLE IF NOT EXISTS kb_entry (
   search      tsvector GENERATED ALWAYS AS (
                 to_tsvector('english',
                   coalesce(summary,'') || ' ' || coalesce(highlight_en,'') || ' ' ||
-                  coalesce(markdown_en,'') || ' ' || array_to_string(tags,' '))
+                  coalesce(markdown_en,'') || ' ' || kb_entry_tags_text(tags))
               ) STORED
 );
 CREATE INDEX IF NOT EXISTS kb_entry_status_date_idx ON kb_entry (status, date DESC);
