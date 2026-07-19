@@ -48,8 +48,12 @@ function rowCount(rows: unknown): number {
 }
 
 export async function migrateKb({ redis, sql, schemaSql }: MigrateDeps): Promise<MigrateResult> {
-  // 1. schema (idempotent) — statement-by-statement, neon http can't multi-statement
-  for (const stmt of schemaSql.split(';').map((s) => s.trim()).filter(Boolean)) {
+  // 1. schema (idempotent) — statement-by-statement, neon http can't multi-statement.
+  // Strip `--` comments BEFORE splitting on ';': a semicolon inside a comment
+  // otherwise cuts a statement in half (prod incident 2026-07-19). Our DDL has
+  // no `--` inside string literals, so line-level stripping is safe.
+  const bare = schemaSql.split('\n').map((l) => l.replace(/--.*$/, '')).join('\n');
+  for (const stmt of bare.split(';').map((s) => s.trim()).filter(Boolean)) {
     await sql(stmt);
   }
   // 2. redis entries (richer — inserted first so DO NOTHING protects them from step 3)

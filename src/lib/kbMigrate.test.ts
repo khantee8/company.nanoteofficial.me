@@ -53,3 +53,19 @@ it('skips null entries from mget (deleted/expired legacy keys)', async () => {
   const out = await migrateKb({ redis, sql: fakeSql(log), schemaSql: 'CREATE TABLE IF NOT EXISTS kb_entry ()' });
   expect(out.fromRedis).toBe(1);
 });
+
+// Regression (prod 2026-07-19): a `--` comment containing a semicolon split the
+// CREATE TABLE mid-comment → Postgres "syntax error at end of input".
+it('strips -- comments before splitting the schema on semicolons', async () => {
+  const log: { text: string; params?: unknown[] }[] = [];
+  const redis = redisWith([], {});
+  await migrateKb({
+    redis,
+    sql: fakeSql(log),
+    schemaSql: 'CREATE TABLE IF NOT EXISTS t (\n  a text, -- note: one; two\n  b text\n);\nCREATE INDEX IF NOT EXISTS i ON t (a);',
+  });
+  const schemaStmts = log.filter((c) => c.text.startsWith('CREATE'));
+  expect(schemaStmts).toHaveLength(2);
+  expect(schemaStmts[0].text).toContain('b text');       // table statement stayed whole
+  expect(schemaStmts[0].text).not.toContain('one');      // comment gone
+});

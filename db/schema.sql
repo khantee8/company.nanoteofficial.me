@@ -4,7 +4,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE TABLE IF NOT EXISTS kb_entry (
   id          text PRIMARY KEY,            -- existing KbEntry.id (<dept>:<ts>), unchanged
-  slug        text NOT NULL,          -- NOT unique: legacy same-day entries can share one; reads pick newest
+  slug        text NOT NULL,          -- NOT unique: legacy same-day entries can share one — reads pick newest
   dept        text NOT NULL,
   date        date NOT NULL,
   ts          timestamptz NOT NULL,
