@@ -5,6 +5,7 @@
 // Verified rates (claude-api skill, 2026-06-15):
 //   claude-haiku-4-5:   $1.00 input / $5.00 output
 //   claude-sonnet-4-6:  $3.00 input / $15.00 output
+//   claude-sonnet-5:    $3.00 input / $15.00 output (verified 2026-07-19)
 //   claude-opus-4-8:    $5.00 input / $25.00 output
 // NOTE: The plan spec listed opus at $15/$75 — those are incorrect (Fable 5 pricing).
 // Using verified values above.

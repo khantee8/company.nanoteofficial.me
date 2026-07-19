@@ -15,10 +15,11 @@ function slideText(s: Slide): string {
 
 // evidence = a digit, a %, a $, or a capitalized token that also appears in the brief
 function hasEvidence(s: Slide, brief: string): boolean {
-  const t = slideText(s);
-  if (/\d/.test(t) || t.includes('%') || t.includes('$')) return true;
+  const { layout: _layout, ...content } = s as Record<string, unknown>;
+  const contentStr = JSON.stringify(content).toLowerCase();
+  if (/\d/.test(contentStr) || contentStr.includes('%') || contentStr.includes('$')) return true;
   const briefWords = new Set(brief.toLowerCase().match(/[a-z]{4,}/g) ?? []);
-  const proper = JSON.stringify(s).match(/[A-Z][a-z]{3,}/g) ?? [];
+  const proper = JSON.stringify(content).match(/[A-Z][a-z]{3,}/g) ?? [];
   return proper.some((w) => briefWords.has(w.toLowerCase()));
 }
 

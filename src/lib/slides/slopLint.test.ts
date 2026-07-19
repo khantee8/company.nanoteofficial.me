@@ -30,4 +30,8 @@ describe('lintDeck', () => {
     ] };
     expect(lintDeck(deck, brief)).toEqual([]);
   });
+  it('layout name does not count as evidence (bulletsVisual + "visual" in brief)', () => {
+    const deck: Deck = { theme: 'grid', slides: [{ layout: 'bulletsVisual', heading: 'Synergy', bullets: ['We will grow fast'] }] };
+    expect(lintDeck(deck, 'Add a visual identity refresh next quarter.').some((i) => i.rule === 'no-evidence')).toBe(true);
+  });
 });
