@@ -8,15 +8,30 @@ export function PlanList() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [form, setForm] = useState({ title: '', brief: '', audience: '' });
   const [open, setOpen] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
   const router = useRouter();
 
-  useEffect(() => { fetch('/api/plan').then((r) => r.json()).then((d) => setPlans(d.plans ?? [])); }, []);
+  useEffect(() => { fetch('/api/plan').then((r) => r.json()).then((d) => setPlans(d.plans ?? [])).catch(() => setPlans([])); }, []);
 
   async function create() {
     if (!form.title.trim()) return;
-    const r = await fetch('/api/plan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(form) });
-    const d = await r.json();
-    if (d.plan) router.push(`/plan/${d.plan.id}`);
+    if (busy) return;
+    setErr('');
+    setBusy(true);
+    try {
+      const r = await fetch('/api/plan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(form) });
+      const d = await r.json();
+      if (!r.ok || !d.plan) {
+        setErr(d.error ?? 'failed to create plan');
+        return;
+      }
+      router.push(`/plan/${d.plan.id}`);
+    } catch {
+      setErr('network error');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -30,7 +45,8 @@ export function PlanList() {
           <input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <textarea placeholder="Plan brief" rows={4} value={form.brief} onChange={(e) => setForm({ ...form, brief: e.target.value })} />
           <input placeholder="Audience (e.g. board, team)" value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value })} />
-          <button onClick={create}>Create</button>
+          {err && <p style={{ color: '#ff6b6b', fontSize: 13 }}>{err}</p>}
+          <button onClick={create} disabled={busy}>Create</button>
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12 }}>
