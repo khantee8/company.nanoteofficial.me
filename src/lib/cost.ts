@@ -5,6 +5,7 @@
 // Verified rates (claude-api skill, 2026-06-15):
 //   claude-haiku-4-5:   $1.00 input / $5.00 output
 //   claude-sonnet-4-6:  $3.00 input / $15.00 output
+//   claude-sonnet-5:    $3.00 input / $15.00 output (verified 2026-07-19)
 //   claude-opus-4-8:    $5.00 input / $25.00 output
 // NOTE: The plan spec listed opus at $15/$75 — those are incorrect (Fable 5 pricing).
 // Using verified values above.
@@ -14,11 +15,15 @@ export interface ModelPrice { input: number; output: number }
 // the same object (and DEFAULT_MODEL_PRICE === PRICING['claude-haiku-4-5-20251001']).
 const HAIKU_PRICE: ModelPrice = { input: 1, output: 5 };
 
+export const PLAN_MODEL = 'claude-sonnet-5';
+
 export const PRICING: Record<string, ModelPrice> = {
   'claude-haiku-4-5-20251001': HAIKU_PRICE,
   'claude-haiku-4-5': HAIKU_PRICE,
   'claude-sonnet-4-6': { input: 3, output: 15 },
   'claude-opus-4-8': { input: 5, output: 25 },
+  // claude-sonnet-5: $3/$15 per MTok standard (verified via claude-api skill 2026-07-19). Intro pricing $2/$10 runs through 2026-08-31 — we ledger at standard rate (fail-safe, slightly overstates during intro window).
+  'claude-sonnet-5': { input: 3, output: 15 },
 };
 
 // Fallback when a model id is absent from PRICING — use the default agent model

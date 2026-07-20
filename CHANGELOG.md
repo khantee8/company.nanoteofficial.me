@@ -3,6 +3,47 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.14.0] — 2026-07-19
+
+**AI-powered slide-deck generator** — new `/plan` module lets admins create
+presentation outlines in the web UI and generate polished decks via a 4-step
+anti-slop pipeline (outline → draft → lint → critic-revise) on
+`claude-sonnet-5` via synchronous `completeRaw`. Manus-split UI displays
+live SSE thinking pane (left) + rendered deck (right); wizard collects
+theme/slide-count/extra-context + shows pre-generation cost estimate.
+
+### Added
+- **`/plan` admin-gated module** — create, manage, and generate decks;
+  request auth via `/api/admin/login` + session cookie gating.
+- **4-step anti-slop pipeline** — outline (user input) → draft (cold
+  generation) → lint (deterministic validation + format fixes) → critic
+  (revise for coherence). Each step runs on Sonnet via `completeRaw()`
+  (synchronous; fits in a req/res cycle unlike batches).
+- **Validated JSON deck model** — 8 layout types with per-layout field
+  validation (hand-rolled `validateDeck`, zero new deps); LLM writes JSON
+  only, never freehand markup. Deterministic builders guard against
+  malformed output.
+- **Neon schema** — two new tables `plan` (user-created plans, metadata)
+  and `deck_version` (immutable versions per plan, generated at each step,
+  full JSON deck + metadata + cost ledger). Idempotent DDL via
+  `db/plan-schema.sql`; applied one-shot via `/api/plan/migrate` (Bearer
+  CRON_SECRET).
+- **Manus-split UI** — real-time wizard (left: theme, slide-count, extra
+  context; cost estimate below). Right pane streams the deck as SSE thinking
+  pane sends updates. Per-theme styles: Midnight Deck (dark minimalist),
+  Editorial Mono (serif/grayscale), Bold Grid (sans/saturated).
+- **Export formats** — PPTX via `pptxgenjs` (new dep), served from
+  `GET /api/plan/[id]/export?fmt=pptx&v=N`; PDF via print CSS (browser
+  native `window.print()`, no server route).
+- **Cost ledger per version** — each `deck_version` records token usage +
+  USD cost at standard (non-batch) Sonnet rates; the pre-generation estimate
+  in the wizard is a client-side `estimateCost` (no server round-trip).
+- **NavBar `/plan` link** — bilingual (EN "Plan" / TH "แผน"); all `/plan` UI
+  chrome labels localized through the i18n seam.
+
+### Changed
+- `pptxgenjs` added to dependencies for PPTX export support.
+
 ## [1.13.0] — 2026-07-14
 
 **"KB on Neon" — knowledge base system of record moves off Redis.** The
