@@ -73,6 +73,7 @@ export function PlanDetail({ id }: { id: string }) {
   return (
     <main style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 380px) 1fr', gap: 20, padding: 20, alignItems: 'start' }}>
       <section className="no-print" style={{ display: 'grid', gap: 16 }}>
+        <a href="/plan" style={{ fontSize: 13, opacity: 0.7, textDecoration: 'none', color: 'inherit', width: 'fit-content' }}>{t('plan.back')}</a>
         <div><h1 style={{ fontSize: 22, fontWeight: 700 }}>{plan.title}</h1><p style={{ fontSize: 13, opacity: 0.7, whiteSpace: 'pre-wrap' }}>{plan.brief}</p></div>
         <GenerateWizard audience={plan.audience} onGenerate={generate} busy={busy} />
         {steps.length > 0 && <ThinkingPane steps={steps} done={!busy} />}

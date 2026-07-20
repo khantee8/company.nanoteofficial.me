@@ -61,6 +61,7 @@ export const MESSAGES = {
     'doc.admin': 'Admin Console',
 
     'plan.title': 'Plans',
+    'plan.back': '← All plans',
     'plan.new': '+ New plan',
     'plan.form.title': 'Title',
     'plan.form.brief': 'Plan brief',
@@ -147,6 +148,7 @@ export const MESSAGES = {
     'doc.admin': 'คอนโซลผู้ดูแล',
 
     'plan.title': 'แผน',
+    'plan.back': '← แผนทั้งหมด',
     'plan.new': '+ สร้างแผนใหม่',
     'plan.form.title': 'ชื่อเรื่อง',
     'plan.form.brief': 'บรีฟแผน',
