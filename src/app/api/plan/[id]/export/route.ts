@@ -16,6 +16,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!ver) return new Response('not found', { status: 404 });
   const parsed = validateDeck(ver.deck);
   if (!parsed.ok) return new Response('bad deck', { status: 422 });
-  const buf = await deckToPptx(parsed.deck);
-  return new Response(new Uint8Array(buf), { headers: { 'content-type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'content-disposition': `attachment; filename="plan-${id}-v${v}.pptx"` } });
+  try {
+    const buf = await deckToPptx(parsed.deck);
+    return new Response(new Uint8Array(buf), { headers: { 'content-type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'content-disposition': `attachment; filename="plan-${id}-v${v}.pptx"` } });
+  } catch {
+    return new Response('export failed', { status: 500 });
+  }
 }
