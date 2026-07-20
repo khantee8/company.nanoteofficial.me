@@ -37,25 +37,34 @@ export function PlanDetail({ id }: { id: string }) {
 
   async function generate(opts: { theme: ThemeId; slideCount: number; extra: string }) {
     setBusy(true); setErr(''); setSteps([]); setShown(null);
-    const res = await fetch(`/api/plan/${id}/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(opts) });
-    const reader = res.body!.getReader();
-    const dec = new TextDecoder();
-    let buf = '';
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const parts = buf.split('\n\n'); buf = parts.pop() ?? '';
-      for (const p of parts) {
-        const line = p.replace(/^data: /, '').trim();
-        if (!line) continue;
-        const ev = JSON.parse(line);
-        if (ev.type === 'step') setSteps((s) => [...s, ev]);
-        else if (ev.type === 'done') { setShown(ev.deck); setShownVersionNo(ev.versionNo); await load(); }
-        else if (ev.type === 'error') setErr(ev.message);
+    try {
+      const res = await fetch(`/api/plan/${id}/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(opts) });
+      const reader = res.body!.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n'); buf = parts.pop() ?? '';
+        for (const p of parts) {
+          const line = p.replace(/^data: /, '').trim();
+          if (!line) continue;
+          try {
+            const ev = JSON.parse(line);
+            if (ev.type === 'step') setSteps((s) => [...s, ev]);
+            else if (ev.type === 'done') { setShown(ev.deck); setShownVersionNo(ev.versionNo); await load(); }
+            else if (ev.type === 'error') setErr(ev.message);
+          } catch {
+            continue;
+          }
+        }
       }
+    } catch {
+      setErr('generation stream failed — try again');
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   if (!plan) return <main style={{ padding: 24 }}>Loading…</main>;
