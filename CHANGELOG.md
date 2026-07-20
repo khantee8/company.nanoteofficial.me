@@ -20,24 +20,26 @@ theme/slide-count/extra-context + shows pre-generation cost estimate.
   (revise for coherence). Each step runs on Sonnet via `completeRaw()`
   (synchronous; fits in a req/res cycle unlike batches).
 - **Validated JSON deck model** — 8 layout types with per-layout field
-  validation (`DeckSchema` via Zod); LLM writes JSON only, never freehand
-  markup. Deterministic builders guard against malformed output.
-- **Neon schema** — two new tables `plan` (user-created plans, metadata,
-  status) and `deck_version` (immutable versions per plan, generated at
-  each step, full JSON deck + metadata + cost ledger). Idempotent DDL via
-  `db/plan.schema.sql`; applied one-shot via `/api/plan/migrate` (Bearer
+  validation (hand-rolled `validateDeck`, zero new deps); LLM writes JSON
+  only, never freehand markup. Deterministic builders guard against
+  malformed output.
+- **Neon schema** — two new tables `plan` (user-created plans, metadata)
+  and `deck_version` (immutable versions per plan, generated at each step,
+  full JSON deck + metadata + cost ledger). Idempotent DDL via
+  `db/plan-schema.sql`; applied one-shot via `/api/plan/migrate` (Bearer
   CRON_SECRET).
 - **Manus-split UI** — real-time wizard (left: theme, slide-count, extra
   context; cost estimate below). Right pane streams the deck as SSE thinking
   pane sends updates. Per-theme styles: Midnight Deck (dark minimalist),
   Editorial Mono (serif/grayscale), Bold Grid (sans/saturated).
-- **Export formats** — PPTX via `pptxgenjs` (new dep), PDF via print CSS
-  (browser native). Both link from `/plan/[id]/deck/[version]`.
+- **Export formats** — PPTX via `pptxgenjs` (new dep), served from
+  `GET /api/plan/[id]/export?fmt=pptx&v=N`; PDF via print CSS (browser
+  native `window.print()`, no server route).
 - **Cost ledger per version** — each `deck_version` records token usage +
-  USD cost at standard (non-batch) Sonnet rates; `/api/plan/cost` sums per
-  plan for monthly budgeting.
-- **NavBar `/plan` link** — bilingual (EN "AI Slides" / TH "สไลด์ AI");
-  visible only when logged in.
+  USD cost at standard (non-batch) Sonnet rates; the pre-generation estimate
+  in the wizard is a client-side `estimateCost` (no server round-trip).
+- **NavBar `/plan` link** — bilingual (EN "Plan" / TH "แผน"); all `/plan` UI
+  chrome labels localized through the i18n seam.
 
 ### Changed
 - `pptxgenjs` added to dependencies for PPTX export support.

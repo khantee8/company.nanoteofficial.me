@@ -36,6 +36,26 @@ describe('generateDeck', () => {
       .rejects.toThrow();
   });
 
+  it('keeps the draft deck when the critic step fails to parse', async () => {
+    const lintableDeck = { theme: 'midnight', slides: [
+      { layout: 'title', title: 'Acme Q3 Growth' },
+      { layout: 'data', heading: 'Churn', stat: '8%', caption: 'leverage synergies' }, // triggers filler-phrase lint
+    ] };
+    const complete = fakeComplete([
+      '1. title\n2. data',            // outline
+      JSON.stringify(lintableDeck),   // draft (has a lintable filler phrase → critic runs)
+      'not json',                     // critic (fails to parse)
+    ]);
+    const r = await generateDeck(
+      { theme: 'midnight', slideCount: 2, audience: 'board', brief: 'Churn 8%. Acme.' },
+      complete as never,
+    );
+    expect(r.deck.slides.length).toBe(2);
+    expect((r.deck.slides[1] as { heading: string }).heading).toBe('Churn');
+    expect(r.meta.lintFixed).toBe(0);
+    expect(r.meta.trace.some((t) => t.step === 'critic' && t.note.includes('Critic revision failed — kept draft deck'))).toBe(true);
+  });
+
   it('estimateCost scales with slide count', () => {
     expect(estimateCost(10)).toBeGreaterThan(estimateCost(4));
   });

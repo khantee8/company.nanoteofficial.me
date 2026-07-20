@@ -7,6 +7,7 @@ import { ThinkingPane } from './ThinkingPane';
 import { DeckRenderer } from './DeckRenderer';
 import { VersionSwitcher } from './VersionSwitcher';
 import { ExportButtons } from './ExportButtons';
+import { useLang } from '@/lib/i18n/LangProvider';
 
 type Plan = { id: string; title: string; brief: string; audience: string };
 type Version = { versionNo: number; deck: Deck; meta: { costUsd: number; lintFixed: number } };
@@ -22,6 +23,7 @@ export function PlanDetail({ id }: { id: string }) {
   const [steps, setSteps] = useState<StepNote[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const { t } = useLang();
 
   async function load() {
     const d = await fetch(`/api/plan/${id}`).then((r) => r.json());
@@ -61,24 +63,24 @@ export function PlanDetail({ id }: { id: string }) {
         }
       }
     } catch {
-      setErr('generation stream failed — try again');
+      setErr(t('plan.streamFailed'));
     } finally {
       setBusy(false);
     }
   }
 
-  if (!plan) return <main style={{ padding: 24 }}>Loading…</main>;
+  if (!plan) return <main style={{ padding: 24 }}>{t('plan.loading')}</main>;
   return (
     <main style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 380px) 1fr', gap: 20, padding: 20, alignItems: 'start' }}>
-      <section style={{ display: 'grid', gap: 16 }}>
+      <section className="no-print" style={{ display: 'grid', gap: 16 }}>
         <div><h1 style={{ fontSize: 22, fontWeight: 700 }}>{plan.title}</h1><p style={{ fontSize: 13, opacity: 0.7, whiteSpace: 'pre-wrap' }}>{plan.brief}</p></div>
         <GenerateWizard audience={plan.audience} onGenerate={generate} busy={busy} />
         {steps.length > 0 && <ThinkingPane steps={steps} done={!busy} />}
         {err && <p style={{ color: '#ff6b6b' }}>{err}</p>}
-        {versions.length > 0 && <VersionSwitcher planId={id} versions={versions} onPick={(d, versionNo) => { setShown(d); setShownVersionNo(versionNo); }} />}
+        {versions.length > 0 && <VersionSwitcher planId={id} versions={versions} disabled={busy} onPick={(d, versionNo) => { setShown(d); setShownVersionNo(versionNo); }} />}
       </section>
       <section>
-        {shown ? <><ExportButtons planId={id} versionNo={shownVersionNo ?? versions[0]?.versionNo ?? 1} /><DeckRenderer deck={shown} /></> : <p style={{ opacity: 0.5 }}>Generate a deck to see it here.</p>}
+        {shown ? <><ExportButtons planId={id} versionNo={shownVersionNo ?? versions[0]?.versionNo ?? 1} /><DeckRenderer deck={shown} /></> : <p style={{ opacity: 0.5 }}>{t('plan.emptyDeck')}</p>}
       </section>
     </main>
   );

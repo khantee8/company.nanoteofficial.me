@@ -8,4 +8,4 @@
 .slide ul { list-style: none; padding: 0; display: grid; gap: 10px; }
 .slide li::before { content: "—"; color: var(--accent); margin-right: 10px; }
 .slide-stat { font-size: clamp(40px, 9vw, 110px); font-weight: 800; color: var(--accent); }
-@media print { .slide { break-after: page; height: 100vh; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none !important; } }
+@media print { .slide { break-after: page; height: 100vh; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none !important; } .nav { display: none !important; } }

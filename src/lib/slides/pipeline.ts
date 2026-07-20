@@ -63,14 +63,21 @@ export async function generateDeck(p: GenParams, complete: Complete = completeRa
   const issues = lintDeck(deck, p.brief);
   emit({ step: 'lint', note: issues.length ? `${issues.length} quality issues found` : 'No AI-slop detected', data: issues });
 
-  // 4. critic-revise (only if issues)
+  // 4. critic-revise (only if issues). The draft already passed validation, so a
+  // critic-step failure (bad JSON, parse error) keeps the pre-critic deck rather
+  // than throwing away a valid deck over a revision hiccup.
   let lintFixed = 0;
   if (issues.length) {
     const issueText = issues.map((i) => `slide ${i.slideIndex}: ${i.rule} — ${i.detail}`).join('\n');
-    const revised = parseDeck(await call('critic', criticPrompt({ deck, brief: p.brief, issues: issueText }), STEP_BUDGET.critic), p.theme, lastStopReason === 'max_tokens');
-    lintFixed = issues.length - lintDeck(revised, p.brief).length;
-    deck = revised;
-    emit({ step: 'critic', note: `Revised ${issues.length} flagged slide(s); ${lintFixed} issue(s) cleared` });
+    try {
+      const revised = parseDeck(await call('critic', criticPrompt({ deck, brief: p.brief, issues: issueText }), STEP_BUDGET.critic), p.theme, lastStopReason === 'max_tokens');
+      lintFixed = issues.length - lintDeck(revised, p.brief).length;
+      deck = revised;
+      emit({ step: 'critic', note: `Revised ${issues.length} flagged slide(s); ${lintFixed} issue(s) cleared` });
+    } catch {
+      lintFixed = 0;
+      emit({ step: 'critic', note: 'Critic revision failed — kept draft deck' });
+    }
   } else {
     emit({ step: 'critic', note: 'Skipped — nothing flagged' });
   }
