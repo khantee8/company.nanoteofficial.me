@@ -3,10 +3,9 @@ import { costOf, PLAN_MODEL } from '@/lib/cost';
 import { validateDeck, type Deck, type ThemeId } from './deck';
 import { lintDeck } from './slopLint';
 import { outlinePrompt, draftPrompt, criticPrompt, extractJson } from './prompts';
+import { STEP_BUDGET } from './estimate';
 
-// claude-sonnet-5 runs adaptive thinking by default when no thinking param is sent,
-// and thinking tokens count against max_tokens — these budgets are scaled to avoid truncation.
-export const STEP_BUDGET = { outline: 2500, draft: 10000, critic: 6000 } as const;
+export { STEP_BUDGET, estimateCost } from './estimate';
 
 export interface GenParams { theme: ThemeId; slideCount: number; audience: string; brief: string; extra?: string }
 export interface StepNote { step: 'outline' | 'draft' | 'lint' | 'critic'; note: string; data?: unknown }
@@ -16,12 +15,6 @@ export interface GenResult {
 }
 
 type Complete = typeof completeRaw;
-
-// rough pre-generate estimate: ~ (outline + draft + critic) budgets at Sonnet output price
-export function estimateCost(slideCount: number): number {
-  const outTokens = STEP_BUDGET.outline + slideCount * 500 + STEP_BUDGET.critic * 0.5;
-  return costOf(PLAN_MODEL, { input: 1500 + slideCount * 120, output: outTokens });
-}
 
 function parseDeck(text: string, theme: ThemeId, truncated = false): Deck {
   let parsed: unknown;

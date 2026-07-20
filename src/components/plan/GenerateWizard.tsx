@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { THEMES, type ThemeId } from '@/lib/slides/deck';
-import { estimateCost } from '@/lib/slides/pipeline';
+import { estimateCost } from '@/lib/slides/estimate';
 
 export function GenerateWizard({ audience, onGenerate, busy }: { audience: string; onGenerate: (o: { theme: ThemeId; slideCount: number; extra: string }) => void; busy: boolean }) {
   const [theme, setTheme] = useState<ThemeId>('midnight');
