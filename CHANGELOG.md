@@ -3,46 +3,28 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [1.14.0] — 2026-07-19
+## [1.14.1] — 2026-07-21
 
-**AI-powered slide-deck generator** — new `/plan` module lets admins create
-presentation outlines in the web UI and generate polished decks via a 4-step
-anti-slop pipeline (outline → draft → lint → critic-revise) on
-`claude-sonnet-5` via synchronous `completeRaw`. Manus-split UI displays
-live SSE thinking pane (left) + rendered deck (right); wizard collects
-theme/slide-count/extra-context + shows pre-generation cost estimate.
+**Reverted — the `/plan` AI slide generator is removed from this app.** v1.14.0
+added an admin-gated `/plan` slide-deck module here, but that was the wrong
+home: the feature belongs to the project-management tool at
+`nanoteofficial.me/plan`, where it now lives as the **✦ AI Slide** add-on on
+each project. This release removes the module from the company simulator,
+restoring it to its v1.13.0 surface (the AI office simulator).
 
-### Added
-- **`/plan` admin-gated module** — create, manage, and generate decks;
-  request auth via `/api/admin/login` + session cookie gating.
-- **4-step anti-slop pipeline** — outline (user input) → draft (cold
-  generation) → lint (deterministic validation + format fixes) → critic
-  (revise for coherence). Each step runs on Sonnet via `completeRaw()`
-  (synchronous; fits in a req/res cycle unlike batches).
-- **Validated JSON deck model** — 8 layout types with per-layout field
-  validation (hand-rolled `validateDeck`, zero new deps); LLM writes JSON
-  only, never freehand markup. Deterministic builders guard against
-  malformed output.
-- **Neon schema** — two new tables `plan` (user-created plans, metadata)
-  and `deck_version` (immutable versions per plan, generated at each step,
-  full JSON deck + metadata + cost ledger). Idempotent DDL via
-  `db/plan-schema.sql`; applied one-shot via `/api/plan/migrate` (Bearer
-  CRON_SECRET).
-- **Manus-split UI** — real-time wizard (left: theme, slide-count, extra
-  context; cost estimate below). Right pane streams the deck as SSE thinking
-  pane sends updates. Per-theme styles: Midnight Deck (dark minimalist),
-  Editorial Mono (serif/grayscale), Bold Grid (sans/saturated).
-- **Export formats** — PPTX via `pptxgenjs` (new dep), served from
-  `GET /api/plan/[id]/export?fmt=pptx&v=N`; PDF via print CSS (browser
-  native `window.print()`, no server route).
-- **Cost ledger per version** — each `deck_version` records token usage +
-  USD cost at standard (non-batch) Sonnet rates; the pre-generation estimate
-  in the wizard is a client-side `estimateCost` (no server round-trip).
-- **NavBar `/plan` link** — bilingual (EN "Plan" / TH "แผน"); all `/plan` UI
-  chrome labels localized through the i18n seam.
+### Removed
+- All `/plan` routes (`src/app/plan/*`), the `/api/plan/*` API (list/create/
+  get/generate/export/migrate), the slide engine (`src/lib/slides/*`), the
+  Neon store (`src/lib/planDb.ts`) and `db/plan-schema.sql`, the deck UI
+  (`src/components/plan/*`), the `/plan` NavBar link, the plan/slides i18n
+  keys, `cost.ts`'s `PLAN_MODEL` Sonnet pricing entry, and the `pptxgenjs`
+  dependency. The v1.14.0 design/plan docs under `docs/superpowers/` are
+  removed here too (the design lives in the `nanoteofficial.me` repo now).
 
-### Changed
-- `pptxgenjs` added to dependencies for PPTX export support.
+### Note
+- The v1.14.0 code remains in git history if ever needed. The `plan` /
+  `deck_version` Neon tables, if the one-shot migrate was run in prod, are
+  left as-is (empty, harmless) — no data loss either way.
 
 ## [1.13.0] — 2026-07-14
 
