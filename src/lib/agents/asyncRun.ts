@@ -5,7 +5,7 @@
 // the backstop for anything slower (or a serverless function that got killed
 // mid self-poll). Both funnel a finished batch through the SAME `collect()` →
 // `persistRunResult()` path — the post-LLM pipeline (bilingual split, role-
-// gated KB publish, Library sync, Telegram) is untouched by this file.
+// gated KB publish, Telegram) is untouched by this file.
 import type Anthropic from '@anthropic-ai/sdk';
 import type { DeptId } from '@/lib/data/departments';
 import type { RunOverrides, AgentRunResult } from './types';

@@ -3,6 +3,31 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.14.2] — 2026-10-07
+
+**Housekeeping.** No change to agent behaviour.
+
+### Security
+- In-range dependency patches via `npm audit fix` — notably Next.js
+  16.2.9 → 16.4.0 (critical advisory), plus `sharp`, `undici`, `postcss` and
+  other transitive fixes. The remaining advisories are dev-only (`vitest` /
+  `eslint-config-next` chains) and need breaking major upgrades.
+- `/api/webhooks/vercel` verifies `x-vercel-signature` (HMAC-SHA1 of the raw
+  body) when `VERCEL_WEBHOOK_SECRET` is set. The variable was documented but
+  never read, so the endpoint accepted any POST. Unset = previous behaviour.
+
+### Removed
+- The one-shot `/api/admin/migrate-kb` route, `src/lib/kbMigrate.ts` and its
+  test — the cleanup v1.13.0 scheduled for v1.13.1; the backfill ran in prod
+  on 2026-07-19. `db/schema.sql` stays as the reference DDL and is no longer
+  traced into the API bundles.
+
+### Changed
+- `.env.example` lists the variables the code actually reads (adds
+  `DATABASE_URL`, `ADMIN_USER`/`ADMIN_PASSWORD`, `THAI_FUNDS_MCP_*`,
+  `CLAUDE_MODEL`, `MONTHLY_BUDGET_USD`; drops the dead `LIBRARY_SYNC_*`).
+- README and `CLAUDE.md` brought in line with the current app.
+
 ## [1.14.1] — 2026-07-21
 
 **Reverted — the `/plan` AI slide generator is removed from this app.** v1.14.0

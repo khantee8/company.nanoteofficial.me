@@ -1,4 +1,4 @@
--- company KB system of record (v1.13). Idempotent — applied by /api/admin/migrate-kb.
+-- company KB system of record (v1.13). Idempotent — apply by hand with psql (the one-shot /api/admin/migrate-kb route was removed in v1.14.2).
 -- Lives in the SAME Neon database as the Library (kb.nanoteofficial.me).
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 

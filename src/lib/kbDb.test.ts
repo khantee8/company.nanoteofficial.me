@@ -86,10 +86,8 @@ describe('makeMemoryKbStore', () => {
     // Seed with entries out of insertion order to expose if it's just lucky
     const older = { ...ENTRY, id: 'fin:older', ts: '2026-07-14T09:00:00.000Z' };
     const newer = { ...ENTRY, id: 'fin:newer', ts: '2026-07-14T11:00:00.000Z' };
-    const s = makeMemoryKbStore([newer, older]); // newer first, but older has a higher ts value... wait that's wrong
-    // Actually: newer has ts=11:00, older has ts=09:00, so newer > older. Seed as [older, newer] to test sorting.
-    const s2 = makeMemoryKbStore([older, newer]);
-    const result = await s2.getKbBySlug(ENTRY.slug);
+    const s = makeMemoryKbStore([older, newer]);
+    const result = await s.getKbBySlug(ENTRY.slug);
     expect(result?.id).toBe('fin:newer');
   });
 });
