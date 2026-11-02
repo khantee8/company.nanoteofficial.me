@@ -17,6 +17,9 @@ All notable changes to this project are documented here. Versions follow
 - `/api/kb?offset=` pagination (with `limit`, max 200) so entries past the
   first page are reachable; listing order gains an `id` tie-break.
 
+### Security
+- Next.js 16.4.0 → 16.4.4 (the build flagged 16.4.0 as vulnerable).
+
 ### Fixed
 - Marketing findings: signals citing via `citations: [...]` instead of
   `citation` were all dropped (the 2026-11-02 run showed "0 signals" despite
