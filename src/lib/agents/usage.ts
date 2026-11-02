@@ -84,3 +84,12 @@ export function assessBudget(agg: UsageAggregate): { severity: Severity; detail:
   if (agg.pctUsed >= 80) return { severity: 'warning', detail: `budget ${pct}% used: ${spend}` };
   return { severity: 'ok', detail: `budget ${pct}% used: ${spend}` };
 }
+
+/** Why new agent runs must not start, or null to go ahead. `AGENTS_PAUSED`
+ *  (any non-empty value) is the manual switch; a set budget becomes a hard
+ *  stop once month-to-date spend reaches it. */
+export function spendStop(paused: string | undefined, mtdUsd: number, budgetUsd: number | null): string | null {
+  if (paused) return 'paused (AGENTS_PAUSED)';
+  if (budgetUsd != null && mtdUsd >= budgetUsd) return `budget reached ($${mtdUsd.toFixed(2)} / $${budgetUsd.toFixed(2)})`;
+  return null;
+}

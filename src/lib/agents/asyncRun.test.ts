@@ -115,6 +115,28 @@ describe('decidePoll', () => {
 });
 
 describe('submitRun', () => {
+  it('AGENTS_PAUSED: skips before building or submitting anything', async () => {
+    vi.stubEnv('AGENTS_PAUSED', '1');
+    try {
+      const repo = fakeRepo();
+      const res = await submitRun('fin', { repo, notify: vi.fn(async () => {}) });
+      expect(res).toEqual({ queued: false, summary: 'skipped: paused (AGENTS_PAUSED)' });
+      expect(createAgentBatch).not.toHaveBeenCalled();
+      expect(repo.setStatus).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); }
+  });
+  it('budget reached: skips', async () => {
+    vi.stubEnv('MONTHLY_BUDGET_USD', '0.000001');
+    try {
+      const repo = fakeRepo();
+      (repo.getUsageSince as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+        { ts: Date.now(), dept: 'fin', model: 'claude-haiku-4-5-20251001', input: 1_000_000, output: 0 },
+      ]);
+      const res = await submitRun('fin', { repo, notify: vi.fn(async () => {}) });
+      expect(res.summary).toMatch(/^skipped: budget reached/);
+      expect(createAgentBatch).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); }
+  });
   it('happy path: self-poll finds end_turn on first check → persists + deletes pending, status queued→done', async () => {
     const repo = fakeRepo();
     const notify = vi.fn(async () => {});

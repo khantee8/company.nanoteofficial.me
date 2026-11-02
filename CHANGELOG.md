@@ -3,6 +3,26 @@
 All notable changes to this project are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.14.3] — 2026-11-02
+
+**Credit guard + small fixes.**
+
+### Added
+- `AGENTS_PAUSED` env switch (any non-empty value): `submitRun()` skips every
+  trigger (cron, sweep, `/admin` Run now, Telegram `/run`) before building a
+  prompt, and `claude.ts` refuses any call that spends credit (Telegram `/ask`
+  included). Reading in-flight batches stays allowed so they still collect.
+- `MONTHLY_BUDGET_USD` is now a hard stop, not only an alert: once
+  month-to-date ledger spend reaches it, new runs are skipped with a feed event.
+- `/api/kb?offset=` pagination (with `limit`, max 200) so entries past the
+  first page are reachable; listing order gains an `id` tie-break.
+
+### Fixed
+- Marketing findings: signals citing via `citations: [...]` instead of
+  `citation` were all dropped (the 2026-11-02 run showed "0 signals" despite
+  six cited ones). The first citation is now used; the prompt restates the
+  `citation` object and a required `plan`.
+
 ## [1.14.2] — 2026-10-07
 
 **Housekeeping.** No change to agent behaviour.

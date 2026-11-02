@@ -29,8 +29,11 @@ export async function GET(req: NextRequest) {
     const limitRaw = Number(params.get('limit'));
     const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 200) : undefined;
 
-    const entries = await getKnowledge(getRepo(), { dept, category, q, from, to, limit });
-    return NextResponse.json({ entries, count: entries.length, generatedAt: new Date().toISOString() });
+    const offsetRaw = Number(params.get('offset'));
+    const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? Math.floor(offsetRaw) : 0;
+
+    const entries = await getKnowledge(getRepo(), { dept, category, q, from, to, limit, offset });
+    return NextResponse.json({ entries, count: entries.length, offset, generatedAt: new Date().toISOString() });
   } catch {
     return NextResponse.json({ entries: [], count: 0, generatedAt: new Date().toISOString() });
   }

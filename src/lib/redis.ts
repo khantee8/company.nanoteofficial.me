@@ -71,6 +71,8 @@ export interface KbQuery {
   from?: string;
   to?: string;
   limit?: number;
+  /** Rows to skip (pagination). */
+  offset?: number;
 }
 
 export type KbPatch = Partial<Pick<KbEntry, 'status' | 'tags' | 'pinned' | 'category' | 'theme'>>;

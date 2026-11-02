@@ -15,6 +15,12 @@ function client(): Anthropic {
   return _client;
 }
 
+/** AGENTS_PAUSED blocks every call that spends credit. Batch reads stay
+ *  allowed so runs already in flight still get collected. */
+function assertNotPaused(): void {
+  if (process.env.AGENTS_PAUSED) throw new Error('agents paused (AGENTS_PAUSED) — no Claude calls');
+}
+
 function textOf(msg: Anthropic.Messages.Message): string {
   return msg.content
     .filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')
@@ -56,6 +62,7 @@ async function streamOnce(
   params: Anthropic.Messages.MessageStreamParams,
   beta = false,
 ): Promise<Anthropic.Messages.Message> {
+  assertNotPaused();
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -141,6 +148,7 @@ export function completionFromMessage(msg: Anthropic.Messages.Message): Complete
 /** Submit a one-request agent batch. MCP shapes go through the beta batches
  *  surface with the connector beta header. Returns the batch id. */
 export async function createAgentBatch(customId: string, shape: { params: Record<string, unknown>; useMcp: boolean }): Promise<string> {
+  assertNotPaused();
   const requests = [{ custom_id: customId, params: shape.params }] as never;
   const batch = shape.useMcp
     ? await client().beta.messages.batches.create({ requests, betas: [MCP_BETA] } as never)

@@ -13,6 +13,8 @@ import type { PendingRun } from '@/lib/redis';
 import type { RunnerDeps } from './runner';
 import { buildContext, persistRunResult } from './runner';
 import { PREPARES, FINALIZES } from './index';
+import { aggregateUsage, spendStop, startOfMonthUtc } from './usage';
+import { parseBudget } from './operations';
 import {
   buildRequestShape,
   createAgentBatch,
@@ -174,6 +176,17 @@ export async function submitRun(dept: DeptId, deps: RunnerDeps, options?: Submit
   // eventual outcome, so bail out before submitting anything new.
   const existingPending = await repo.getPendingRuns();
   if (existingPending.some((r) => r.dept === dept)) return { queued: true };
+
+  // Credit guard: checked before any prompt is built or batch submitted.
+  const budgetUsd = parseBudget(process.env.MONTHLY_BUDGET_USD);
+  const now = Date.now();
+  const mtdUsd = budgetUsd == null ? 0
+    : aggregateUsage(await repo.getUsageSince(startOfMonthUtc(now)), { now, budgetUsd }).mtdUsd;
+  const stop = spendStop(process.env.AGENTS_PAUSED, mtdUsd, budgetUsd);
+  if (stop) {
+    await repo.pushEvent({ dept, msg: `${dept.toUpperCase()} run skipped — ${stop}`, ts: nowIso() });
+    return { queued: false, summary: `skipped: ${stop}` };
+  }
 
   const ctx = await buildContext(dept, repo, options?.overrides);
   const { opts: prepOpts, meta } = await PREPARES[dept](ctx);

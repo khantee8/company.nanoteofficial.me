@@ -52,6 +52,13 @@ describe('buildKbWhere', () => {
 });
 
 describe('makeMemoryKbStore', () => {
+  it('listKb offset pages newest-first', async () => {
+    const s = makeMemoryKbStore();
+    await s.pushKb(ENTRY);
+    await s.pushKb({ ...ENTRY, id: 'cyb:x', slug: 'x', ts: '2026-07-15T10:00:00.000Z' });
+    expect((await s.listKb({ limit: 1, offset: 1 })).map((e) => e.id)).toEqual([ENTRY.id]);
+    expect(await s.listKb({ limit: 1, offset: 2 })).toEqual([]);
+  });
   it('push → list newest-first with status filter; update patches; delete removes', async () => {
     const s = makeMemoryKbStore();
     await s.pushKb(ENTRY);

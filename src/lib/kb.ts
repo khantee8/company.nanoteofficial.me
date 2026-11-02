@@ -19,6 +19,7 @@ export interface KnowledgeQuery {
   from?: string;
   to?: string;
   limit?: number;
+  offset?: number;
 }
 
 /** Newest-first PUBLISHED knowledge entries, optionally filtered. */

@@ -149,8 +149,9 @@ export function makeKbDbStore(): KbStore {
         // no-limit = the old 'return everything' contract; 2000 is a safety
         // rail, revisit when the KB approaches it.
         const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 500) : 2000;
+        const offset = opts.offset && opts.offset > 0 ? Math.floor(opts.offset) : 0;
         const r = await rows(
-          `SELECT ${KB_COLUMNS} FROM kb_entry ${where} ORDER BY ts DESC LIMIT ${limit}`, params);
+          `SELECT ${KB_COLUMNS} FROM kb_entry ${where} ORDER BY ts DESC, id DESC LIMIT ${limit} OFFSET ${offset}`, params);
         return r.map(rowToKbEntry);
       });
     },
@@ -197,7 +198,8 @@ export function makeMemoryKbStore(seed: KbEntry[] = []): KbStore {
         .sort((a, b) => (a.ts < b.ts ? 1 : -1));
       // no-limit = the old 'return everything' contract; 2000 is a safety
       // rail, revisit when the KB approaches it.
-      return out.slice(0, opts.limit && opts.limit > 0 ? opts.limit : 2000);
+      const offset = opts.offset && opts.offset > 0 ? Math.floor(opts.offset) : 0;
+      return out.slice(offset, offset + (opts.limit && opts.limit > 0 ? opts.limit : 2000));
     },
   };
 }

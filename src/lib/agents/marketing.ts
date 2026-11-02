@@ -39,7 +39,15 @@ const CHANNELS = ['blog', 'x', 'linkedin'];
 export function parseMarketingFindings(markdown: string): MarketingFindings | null {
   const raw = extractFindingsBlock<Partial<MarketingFindings>>(markdown);
   if (!raw) return null;
-  const signals = Array.isArray(raw.signals) ? raw.signals.filter(
+  // Model drift (2026-11-02): `citations: [...]` instead of `citation`.
+  // Take the first real cite before validating — never invent one.
+  const rawSignals = Array.isArray(raw.signals)
+    ? (raw.signals as (MarketingSignal & { citations?: Citation[] })[]).map((s) =>
+        s && typeof s === 'object'
+          ? { ...s, citation: s.citation ?? (Array.isArray(s.citations) ? s.citations[0] : undefined) }
+          : s)
+    : null;
+  const signals = rawSignals ? rawSignals.filter(
     (s): s is MarketingSignal =>
       !!s && typeof s.topic === 'string' &&
       typeof s.source === 'string' && SOURCES.includes(s.source) &&
@@ -125,7 +133,7 @@ export async function prepare(ctx: AgentContext): Promise<{ opts: CompleteOpts; 
   const context = formatContext(ctx);
   const opts = applyOverrides({
     system: PERSONAS.mkt,
-    prompt: `${context ? context + '\n\n---\n\n' : ''}${PROJECTS_BLURB}\n\nกำลังเทรนด์จริงในวงการตอนนี้ (engagement จริง):\n${trending.join('\n') || 'n/a'}\n\nวิเคราะห์สัญญาณดีมานด์จริง ค้นเว็บเพิ่มเติมพร้อมอ้างอิงแหล่ง แล้วเสนอแผนคอนเทนต์ที่ผูกกับเทรนด์ ระบุ "## X post" / "## LinkedIn post" / "## Blog idea" และเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ`,
+    prompt: `${context ? context + '\n\n---\n\n' : ''}${PROJECTS_BLURB}\n\nกำลังเทรนด์จริงในวงการตอนนี้ (engagement จริง):\n${trending.join('\n') || 'n/a'}\n\nวิเคราะห์สัญญาณดีมานด์จริง ค้นเว็บเพิ่มเติมพร้อมอ้างอิงแหล่ง แล้วเสนอแผนคอนเทนต์ที่ผูกกับเทรนด์ ระบุ "## X post" / "## LinkedIn post" / "## Blog idea" และเปิดรายงานด้วยบล็อก \`\`\`json findings ตามสคีมาในบทบาทของคุณ — ทุก signal ต้องมี "citation" เป็นอ็อบเจกต์เดียว {title,url,date} และต้องมี "plan" (channel: blog|x|linkedin) อย่างน้อย 3 รายการ`,
     webSearch: true,
     maxSearches: 4,
     maxTokens: WEB_REPORT_MAX_TOKENS,

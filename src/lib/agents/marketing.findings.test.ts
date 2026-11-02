@@ -35,6 +35,15 @@ describe('parseMarketingFindings', () => {
   it('returns null when no block', () => {
     expect(parseMarketingFindings('nope')).toBeNull();
   });
+  it('accepts the citations[] drift seen in the 2026-11-02 run (wrapped, plain fence)', () => {
+    const md = 'preamble\n```json\n' + JSON.stringify({ findings: { theme: 'dev-demand', signals: [
+      { topic: 'agent governance', source: 'web', citations: [{ title: 't', url: 'https://x.dev/a', date: '2026-05-05' }] },
+      { topic: 'uncited', source: 'web', citations: [] },
+    ] } }) + '\n```';
+    const f = parseMarketingFindings(md)!;
+    expect(f.signals.map((s) => s.topic)).toEqual(['agent governance']);
+    expect(f.signals[0].citation.url).toBe('https://x.dev/a');
+  });
 });
 
 describe('marketing findings artifacts', () => {

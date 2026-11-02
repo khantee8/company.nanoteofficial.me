@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aggregateUsage, assessBudget } from './usage';
+import { aggregateUsage, assessBudget, spendStop } from './usage';
 import type { UsageEntry } from './types';
 
 // 2026-06-15T12:00:00Z — mid-June, UTC.
@@ -97,4 +97,13 @@ describe('assessBudget', () => {
   it('critical on projected overrun even below 100% MTD', () => {
     expect(assessBudget(mk({ mtdUsd: 15, pctUsed: 50, projectedMonthEndUsd: 45 }))!.severity).toBe('critical');
   });
+});
+
+describe('spendStop', () => {
+  it('manual pause wins', () => expect(spendStop('1', 0, null)).toMatch(/paused/));
+  it('stops at the budget, not before', () => {
+    expect(spendStop(undefined, 9.99, 10)).toBeNull();
+    expect(spendStop(undefined, 10, 10)).toMatch(/budget reached/);
+  });
+  it('no budget, no pause → go', () => expect(spendStop(undefined, 999, null)).toBeNull());
 });
